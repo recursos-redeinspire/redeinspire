@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Church theme color overrides — applied when --church-color is set */
+:root {
+  --church-color: #1f2937;
+  --church-color-light: #1f293715;
+}
+
+/* Primary buttons: bg-gray-900 → church color */
+.bg-gray-900 {
+  background-color: var(--church-color) !important;
+}
+.hover\:bg-gray-800:hover {
+  background-color: color-mix(in srgb, var(--church-color) 85%, black) !important;
+}
+
+/* Text accent: text-gray-900 on headings — only inside cards/sections, not on page-level headings */
+.bg-white h3, .border h3 {
+  color: var(--church-color);
+}
+
+/* Border accent for active tabs */
+.border-gray-900 {
+  border-color: var(--church-color) !important;
+}
+
+/* Focus rings */
+.focus\:border-gray-900:focus {
+  border-color: var(--church-color) !important;
+}
+.focus\:ring-gray-300:focus {
+  --tw-ring-color: var(--church-color-light) !important;
+}
+
+/* Scrollbar accent */
+::-webkit-scrollbar-thumb {
+  background-color: var(--church-color-light);
+  border-radius: 4px;
+}
+::-webkit-scrollbar {
+  width: 6px;
+}

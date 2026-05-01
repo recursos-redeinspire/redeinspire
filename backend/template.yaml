@@ -1,0 +1,849 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Plataforma Rede Inspire - Backend Serverless
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 10
+    MemorySize: 256
+    Environment:
+      Variables:
+        USERS_TABLE: !Ref UsersTable
+        CONTENT_TABLE: !Ref ContentTable
+        TRAILS_TABLE: !Ref TrailsTable
+        TRAIL_PROGRESS_TABLE: !Ref TrailProgressTable
+        MESSAGES_TABLE: !Ref MessagesTable
+        CHURCHES_TABLE: !Ref ChurchesTable
+        PLANS_TABLE: !Ref PlansTable
+        INTERACTIONS_TABLE: !Ref InteractionsTable
+        MENTORING_TABLE: !Ref MentoringTable
+        PODCAST_PROGRESS_TABLE: !Ref PodcastProgressTable
+        MEDIA_BUCKET: !Ref MediaBucket
+        COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+        COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
+
+Resources:
+  # ============================================
+  # API Gateway
+  # ============================================
+  RedeInspireApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt CognitoUserPool.Arn
+
+  # ============================================
+  # Lambda Functions
+  # ============================================
+  HealthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/health/index.handler
+      CodeUri: ./dist
+      Events:
+        Health:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /health
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+  # ============================================
+  # Auth Lambda Functions
+  # ============================================
+  AuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/auth/index.handler
+      CodeUri: ./dist
+      Timeout: 10
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChurchesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminCreateUser
+                - cognito-idp:AdminSetUserPassword
+                - cognito-idp:AdminDisableUser
+                - cognito-idp:AdminGetUser
+                - cognito-idp:AdminUpdateUserAttributes
+                - cognito-idp:AdminAddUserToGroup
+                - cognito-idp:InitiateAuth
+              Resource: !GetAtt CognitoUserPool.Arn
+      Events:
+        Register:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /auth/register
+            Method: POST
+        Login:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /auth/login
+            Method: POST
+            Auth:
+              Authorizer: NONE
+        Deactivate:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /auth/deactivate
+            Method: POST
+        Profile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /auth/profile
+            Method: GET
+
+  # ============================================
+  # Content Lambda Functions
+  # ============================================
+  ContentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/content/index.handler
+      CodeUri: ./dist
+      Timeout: 10
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ContentTable
+      Events:
+        Categories:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /content/categories
+            Method: GET
+        CategoryList:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /content/category/{slug}
+            Method: GET
+        ContentById:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /content/{id}
+            Method: GET
+        Trending:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /content/trending
+            Method: GET
+        Releases:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /content/releases
+            Method: GET
+        Top10:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /content/top10
+            Method: GET
+        ContentFilter:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /content
+            Method: GET
+
+  # ============================================
+  # Search Lambda
+  # ============================================
+  SearchFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/search/index.handler
+      CodeUri: ./dist
+      Timeout: 10
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ContentTable
+      Events:
+        Search:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /search
+            Method: GET
+        Autocomplete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /search/autocomplete
+            Method: GET
+
+  # ============================================
+  # Recommendations Lambda
+  # ============================================
+  RecommendationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/recommendations/index.handler
+      CodeUri: ./dist
+      Timeout: 10
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ContentTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InteractionsTable
+      Events:
+        GetRecommendations:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /recommendations
+            Method: GET
+        RecordInteraction:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /recommendations
+            Method: POST
+
+  # ============================================
+  # Trails Lambda
+  # ============================================
+  TrailsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/trails/index.handler
+      CodeUri: ./dist
+      Timeout: 10
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TrailsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TrailProgressTable
+      Events:
+        ListTrails:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /trails
+            Method: GET
+        TrailAcademy:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /trails/academy
+            Method: GET
+        TrailDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /trails/{id}
+            Method: GET
+        StartTrail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /trails/{id}/start
+            Method: POST
+        CompleteModule:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /trails/{id}/complete-module
+            Method: POST
+        Certificate:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /trails/{id}/certificate
+            Method: GET
+
+  # ============================================
+  # Mentoring Lambda
+  # ============================================
+  MentoringFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/mentoring/index.handler
+      CodeUri: ./dist
+      Timeout: 10
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MentoringTable
+      Events:
+        Webinars:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /mentoring/webinars
+            Method: GET
+        Sessions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /mentoring/sessions
+            Method: GET
+        Register:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /mentoring/register
+            Method: POST
+        Complete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /mentoring/complete
+            Method: POST
+
+  # ============================================
+  # Dashboard Lambda
+  # ============================================
+  DashboardFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/dashboard/index.handler
+      CodeUri: ./dist
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InteractionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TrailProgressTable
+      Events:
+        Metrics:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /dashboard/metrics
+            Method: GET
+        Ranking:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /dashboard/ranking
+            Method: GET
+        Timeline:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /dashboard/timeline
+            Method: GET
+        LeaderReport:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /dashboard/leader/{id}
+            Method: GET
+        Export:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /dashboard/export
+            Method: GET
+
+  # ============================================
+  # Messaging Lambda
+  # ============================================
+  MessagingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/messaging/index.handler
+      CodeUri: ./dist
+      Timeout: 10
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MessagesTable
+      Events:
+        Inbox:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /messages
+            Method: GET
+        Send:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /messages
+            Method: POST
+        MarkRead:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /messages/read
+            Method: POST
+        UnreadCount:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /messages/unread-count
+            Method: GET
+
+  # ============================================
+  # Map Lambda
+  # ============================================
+  MapFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/map/index.handler
+      CodeUri: ./dist
+      Timeout: 10
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChurchesTable
+      Events:
+        ListChurches:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /map
+            Method: GET
+        TopChurches:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /map/top
+            Method: GET
+        ChurchDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /map/{id}
+            Method: GET
+
+  # ============================================
+  # Planning Lambda
+  # ============================================
+  PlanningFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/planning/index.handler
+      CodeUri: ./dist
+      Timeout: 10
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PlansTable
+      Events:
+        ListPlans:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /planning
+            Method: GET
+        CreatePlan:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /planning
+            Method: POST
+        GetPlan:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /planning/{id}
+            Method: GET
+        UpdatePlan:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /planning/{id}
+            Method: PUT
+        DeletePlan:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /planning/{id}
+            Method: DELETE
+
+  # ============================================
+  # Podcast Lambda
+  # ============================================
+  PodcastFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/podcast/index.handler
+      CodeUri: ./dist
+      Timeout: 10
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ContentTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PodcastProgressTable
+      Events:
+        ListEpisodes:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /podcast
+            Method: GET
+        GetEpisode:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /podcast/{id}
+            Method: GET
+        GetProgress:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /podcast/{id}/progress
+            Method: GET
+        SaveProgress:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /podcast/progress
+            Method: POST
+
+  # ============================================
+  # Conexa Integration Lambda
+  # ============================================
+  ConexaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/conexa/index.handler
+      CodeUri: ./dist
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChurchesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        Webhook:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /conexa/webhook
+            Method: POST
+            Auth:
+              Authorizer: NONE
+
+  # ============================================
+  # Sync Lambda
+  # ============================================
+  SyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/sync/index.handler
+      CodeUri: ./dist
+      Timeout: 30
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ChurchesTable
+      Events:
+        Sync:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /sync
+            Method: POST
+
+  AuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/authorizer/index.handler
+      CodeUri: ./dist
+      Timeout: 5
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:GetUser
+              Resource: !GetAtt CognitoUserPool.Arn
+
+  # ============================================
+  # Cognito
+  # ============================================
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: rede-inspire-user-pool
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: true
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+        - Name: name
+          Required: true
+          Mutable: true
+        - Name: custom:churchId
+          AttributeDataType: String
+          Mutable: true
+        - Name: custom:role
+          AttributeDataType: String
+          Mutable: true
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: rede-inspire-web-client
+      UserPoolId: !Ref CognitoUserPool
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+      GenerateSecret: false
+
+  # ============================================
+  # S3 - Media Storage
+  # ============================================
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'rede-inspire-media-${AWS::AccountId}'
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, PUT]
+            AllowedOrigins: ['*']
+            MaxAge: 3600
+
+  # ============================================
+  # DynamoDB Tables
+  # ============================================
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: RedeInspire-Users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  ContentTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: RedeInspire-Content
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  TrailsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: RedeInspire-Trails
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+
+  TrailProgressTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: RedeInspire-TrailProgress
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+
+  MessagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: RedeInspire-Messages
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  ChurchesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: RedeInspire-Churches
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+
+  PlansTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: RedeInspire-Plans
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+
+  InteractionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: RedeInspire-Interactions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+
+  MentoringTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: RedeInspire-Mentoring
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+
+  PodcastProgressTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: RedeInspire-PodcastProgress
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+
+# ============================================
+# Outputs
+# ============================================
+Outputs:
+  ApiUrl:
+    Description: URL da API
+    Value: !Sub 'https://${RedeInspireApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
+
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref CognitoUserPool
+
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref CognitoUserPoolClient
+
+  MediaBucketName:
+    Description: S3 Bucket para mídia
+    Value: !Ref MediaBucket
