@@ -90,7 +90,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Link to="/" className="flex items-center gap-2">
               <img src="/logo_rede.png" alt="Rede Inspire" className="h-8 w-8 object-contain" />
               {churchLogo && <img src={churchLogo} alt={churchName} className="h-8 w-8 object-contain" />}
-              <span className={`text-xl font-bold ${themeColor ? 'text-white' : 'text-gray-900'}`}>Rede Inspire{churchName ? ` - ${churchName}` : ''}</span>
+              <span className={`text-xl font-bold hidden sm:inline ${themeColor ? 'text-white' : 'text-gray-900'}`}>Rede Inspire{churchName ? ` - ${churchName}` : ''}</span>
             </Link>
           </div>
 
