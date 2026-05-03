@@ -4,22 +4,28 @@ import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
 import { LANG_OPTIONS, type Lang } from '../i18n/translations'
+import {
+  Home, BookOpen, Search, Route, GraduationCap, Mic,
+  CalendarDays, FolderDown, MapPin, BarChart3, MessageSquare,
+  Users, UserPlus, Settings, ChevronDown, ChevronUp,
+  Menu, Bell, LogOut, Star, ChevronDown as ChevronDownSm
+} from 'lucide-react'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { t, lang, setLang } = useI18n()
 
   const navItems = [
-    { path: '/', label: t('nav.home'), icon: '🏠' },
-    { path: '/catalogo', label: t('nav.catalog'), icon: '📚' },
-    { path: '/busca', label: t('nav.search'), icon: '🔍' },
-    { path: '/trilhas', label: t('nav.trails'), icon: '🎯' },
-    { path: '/mentorias', label: t('nav.mentoring'), icon: '🎓' },
-    { path: '/podcast', label: t('nav.podcast'), icon: '🎙️' },
-    { path: '/planejamento', label: t('nav.planning'), icon: '📅' },
-    { path: '/materiais', label: t('nav.materials'), icon: '📁' },
-    { path: '/mapa', label: t('nav.map'), icon: '🗺️' },
-    { path: '/dashboard', label: t('nav.dashboard'), icon: '📊' },
-    { path: '/mensagens', label: t('nav.messages'), icon: '💬' },
+    { path: '/', label: t('nav.home'), icon: <Home size={18} /> },
+    { path: '/catalogo', label: t('nav.catalog'), icon: <BookOpen size={18} /> },
+    { path: '/busca', label: t('nav.search'), icon: <Search size={18} /> },
+    { path: '/trilhas', label: t('nav.trails'), icon: <Route size={18} /> },
+    { path: '/mentorias', label: t('nav.mentoring'), icon: <GraduationCap size={18} /> },
+    { path: '/podcast', label: t('nav.podcast'), icon: <Mic size={18} /> },
+    { path: '/planejamento', label: t('nav.planning'), icon: <CalendarDays size={18} /> },
+    { path: '/materiais', label: t('nav.materials'), icon: <FolderDown size={18} /> },
+    { path: '/mapa', label: t('nav.map'), icon: <MapPin size={18} /> },
+    { path: '/dashboard', label: t('nav.dashboard'), icon: <BarChart3 size={18} /> },
+    { path: '/mensagens', label: t('nav.messages'), icon: <MessageSquare size={18} /> },
   ]
 
   const categories = [
@@ -85,7 +91,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="px-4 flex items-center justify-between h-16">
           <div className="flex items-center gap-4">
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className={`lg:hidden ${themeColor ? 'text-white/80 hover:text-white' : 'text-gray-600 hover:text-gray-800'}`}>
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+              <Menu size={24} />
             </button>
             <Link to="/" className="flex items-center gap-2">
               <img src="/logo_rede.png" alt="Rede Inspire" className="h-8 w-8 object-contain" />
@@ -96,7 +102,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           <div className="hidden md:flex flex-1 max-w-md mx-8">
             <Link to="/busca" className={`w-full flex items-center rounded-lg px-4 py-2 transition-colors ${themeColor ? 'bg-white/20 text-white/80 hover:bg-white/30' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <Search size={16} className="mr-2" />
               {t('nav.searchContent')}
             </Link>
           </div>
@@ -107,7 +113,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <button onClick={() => setShowLangMenu(!showLangMenu)}
                 className={`flex items-center gap-1 px-2 py-1 rounded text-sm transition ${themeColor ? 'text-white/80 hover:bg-white/20' : 'text-gray-600 hover:bg-gray-100'}`}>
                 {LANG_OPTIONS.find(o => o.value === lang)?.flag} <span className="hidden sm:inline text-xs">{LANG_OPTIONS.find(o => o.value === lang)?.label}</span>
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                <ChevronDownSm size={12} />
               </button>
               {showLangMenu && (
                 <div className="absolute right-0 mt-1 bg-white border rounded-lg shadow-lg py-1 z-50 w-36">
@@ -121,12 +127,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               )}
             </div>
             <Link to="/mensagens" className={`relative ${themeColor ? 'text-white/80 hover:text-white' : 'text-gray-600 hover:text-gray-800'}`}>
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+              <Bell size={24} />
               {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">{unreadCount}</span>}
             </Link>
             <div className="relative flex items-center gap-2">
-              <span className={`text-xs font-bold px-2 py-1 rounded-full ${themeColor ? 'bg-white/20 text-white' : 'bg-yellow-100 text-yellow-700'}`} title={t('header.points')}>
-                ⭐ {userPoints}
+              <span className={`text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 ${themeColor ? 'bg-white/20 text-white' : 'bg-yellow-100 text-yellow-700'}`} title={t('header.points')}>
+                <Star size={14} /> {userPoints}
               </span>
               <button onClick={() => setShowUserMenu(!showUserMenu)} className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium hover:opacity-90 overflow-hidden">
                 {user?.photoUrl ? <img src={user.photoUrl} alt="" className="w-8 h-8 rounded-full object-cover" /> : <span className="w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center text-white">{initials}</span>}
@@ -139,11 +145,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       <p className="font-medium text-sm">{user?.name}</p>
                       <p className="text-xs text-gray-500">{roleLabel}</p>
                       <p className="text-xs text-gray-400">{user?.email}</p>
-                      <p className="text-xs text-yellow-600 font-medium mt-0.5">⭐ {userPoints} {t('header.points')}</p>
+                      <p className="text-xs text-yellow-600 font-medium mt-0.5 flex items-center gap-1"><Star size={12} /> {userPoints} {t('header.points')}</p>
                     </div>
                   </div>
-                  <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                    🚪 {t('header.logout')}
+                  <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                    <LogOut size={16} /> {t('header.logout')}
                   </button>
                 </div>
               )}
@@ -178,12 +184,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <Link to="/lideres" onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${location.pathname === '/lideres' ? 'font-medium' : 'text-gray-600 hover:bg-gray-100'}`}
                   style={location.pathname === '/lideres' && themeColor ? { backgroundColor: themeColor + '15', color: themeColor } : location.pathname === '/lideres' ? { backgroundColor: '#f9fafb', color: '#1f2937' } : {}}>
-                  <span>👥</span><span>{t('nav.users')}</span>
+                  <span><Users size={18} /></span><span>{t('nav.users')}</span>
                 </Link>
                 <Link to="/registro" onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${location.pathname === '/registro' ? 'font-medium' : 'text-gray-600 hover:bg-gray-100'}`}
                   style={location.pathname === '/registro' && themeColor ? { backgroundColor: themeColor + '15', color: themeColor } : location.pathname === '/registro' ? { backgroundColor: '#f9fafb', color: '#1f2937' } : {}}>
-                  <span>➕</span><span>{t('nav.registerUser')}</span>
+                  <span><UserPlus size={18} /></span><span>{t('nav.registerUser')}</span>
                 </Link>
               </>
             )}
@@ -193,13 +199,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Link to="/gestao" onClick={() => setSidebarOpen(false)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${location.pathname === '/gestao' ? 'font-medium' : 'text-gray-600 hover:bg-gray-100'}`}
               style={location.pathname === '/gestao' && themeColor ? { backgroundColor: themeColor + '15', color: themeColor } : location.pathname === '/gestao' ? { backgroundColor: '#f9fafb', color: '#1f2937' } : {}}>
-              <span>⚙️</span><span>{user?.role === 'lider' ? t('nav.ministries') : t('nav.ministriesChurches')}</span>
+              <span><Settings size={18} /></span><span>{user?.role === 'lider' ? t('nav.ministries') : t('nav.ministriesChurches')}</span>
             </Link>
           </nav>
           <div className="border-t p-4">
             <button onClick={() => setShowCategories(!showCategories)} className="flex items-center justify-between w-full text-sm font-medium text-gray-700">
               <span>{t('nav.categories')}</span>
-              <span className="text-xs">{showCategories ? '▲' : '▼'}</span>
+              {showCategories ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
             {showCategories && (
               <div className="mt-2 space-y-1">
