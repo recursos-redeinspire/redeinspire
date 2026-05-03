@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
+import { Pencil } from 'lucide-react'
 
 /* ───── Create Modal ───── */
 function CreatePodcastModal({ onClose, onCreate, createPodcast }: {
@@ -239,7 +240,7 @@ export default function PodcastPage() {
             {isAdmin && (
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
                 <button onClick={() => setEditingEpisode(ep)}
-                  className="bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs hover:bg-blue-700 shadow" title={t('podcast.edit')}>✏️</button>
+                  className="bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs hover:bg-blue-700 shadow" title={t('podcast.edit')}><Pencil size={13} /></button>
                 <button onClick={() => handleDelete(ep.id)}
                   className="bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs hover:bg-red-700 shadow" title={t('podcast.delete')}>✕</button>
               </div>

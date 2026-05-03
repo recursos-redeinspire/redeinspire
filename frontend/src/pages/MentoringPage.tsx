@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
+import { Mic, CalendarDays, Users, User, Trash2 } from 'lucide-react'
 
 export default function MentoringPage() {
   const { getWebinars, deleteWebinar, enrollWebinar, getMentoringSessions, deleteMentoringSession, completeMentoringSession } = useData()
@@ -94,8 +95,8 @@ export default function MentoringPage() {
                 <div className="flex-1">
                   <h3 className="font-semibold text-lg">{w.title}</h3>
                   <p className="text-gray-600 text-sm mt-1">{w.description}</p>
-                  <p className="text-sm text-gray-500 mt-2">🎤 {w.hostName} · 📅 {formatDate(w.scheduledAt)}</p>
-                  <p className="text-sm text-gray-500 mt-1">👥 {(w.enrolledUsers || []).length} {t('mentoring.enrolled')}</p>
+                  <p className="text-sm text-gray-500 mt-2 flex items-center gap-1"><Mic size={14} /> {w.hostName} · <CalendarDays size={14} /> {formatDate(w.scheduledAt)}</p>
+                  <p className="text-sm text-gray-500 mt-1 flex items-center gap-1"><Users size={14} /> {(w.enrolledUsers || []).length} {t('mentoring.enrolled')}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {isEnrolled(w) ? (
@@ -107,7 +108,7 @@ export default function MentoringPage() {
                     <a href={w.meetingUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">{t('mentoring.access')}</a>
                   )}
                   {canCreateWebinar && (
-                    <button onClick={() => handleDeleteWebinar(w.id, w.title)} className="text-red-500 hover:text-red-700 text-sm" title={t('common.delete')}>🗑</button>
+                    <button onClick={() => handleDeleteWebinar(w.id, w.title)} className="text-red-500 hover:text-red-700 text-sm" title={t('common.delete')}><Trash2 size={16} /></button>
                   )}
                 </div>
               </div>
@@ -128,8 +129,8 @@ export default function MentoringPage() {
                     <span className={`text-xs px-2 py-0.5 rounded-full ${st.cls}`}>{st.text}</span>
                   </div>
                   {s.description && <p className="text-gray-600 text-sm mt-1">{s.description}</p>}
-                  <p className="text-sm text-gray-500 mt-1">👤 {t('mentoring.leader')}: {s.mentorName} · 🙏 {t('mentoring.pastor')}: {s.pastorName}</p>
-                  <p className="text-sm text-gray-500 mt-1">📅 {formatDate(s.scheduledAt)}</p>
+                  <p className="text-sm text-gray-500 mt-1 flex items-center gap-1"><User size={14} /> {t('mentoring.leader')}: {s.mentorName} · {t('mentoring.pastor')}: {s.pastorName}</p>
+                  <p className="text-sm text-gray-500 mt-1 flex items-center gap-1"><CalendarDays size={14} /> {formatDate(s.scheduledAt)}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {s.meetingUrl && s.status !== 'completed' && <a href={s.meetingUrl} target="_blank" rel="noopener noreferrer" className="bg-gray-900 text-white px-4 py-2 rounded text-sm hover:bg-gray-800">{t('mentoring.enter')}</a>}
@@ -137,7 +138,7 @@ export default function MentoringPage() {
                     <button onClick={() => handleCompleteMentoring(s.id, s.title)} className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">✓ {t('mentoring.complete')}</button>
                   )}
                   {canCreateMentoring && s.status !== 'completed' && (
-                    <button onClick={() => handleDeleteMentoring(s.id, s.title)} className="text-red-500 hover:text-red-700 text-sm" title={t('common.delete')}>🗑</button>
+                    <button onClick={() => handleDeleteMentoring(s.id, s.title)} className="text-red-500 hover:text-red-700 text-sm" title={t('common.delete')}><Trash2 size={16} /></button>
                   )}
                 </div>
               </div>

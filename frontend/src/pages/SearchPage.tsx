@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
+import { Video, Headphones, FileText } from 'lucide-react'
 
 const autocompleteSuggestions = [
   'Mensagens', 'Pequenos Grupos', 'Campanhas', 'Jovens', 'Crianças',
@@ -72,7 +73,7 @@ export default function SearchPage() {
                 <h3 className="font-semibold text-lg">{item.title}</h3>
                 <p className="text-gray-600 text-sm mt-1">{item.description}</p>
                 <div className="flex gap-3 mt-2 text-xs text-gray-500">
-                  <span className="bg-gray-100 px-2 py-1 rounded">{item.type === 'video' ? `🎬 ${t('common.video')}` : item.type === 'audio' ? `🎧 ${t('common.audio')}` : `📄 ${t('common.document')}`}</span>
+                  <span className="bg-gray-100 px-2 py-1 rounded flex items-center gap-1">{item.type === 'video' ? <><Video size={12} /> {t('common.video')}</> : item.type === 'audio' ? <><Headphones size={12} /> {t('common.audio')}</> : <><FileText size={12} /> {t('common.document')}</>}</span>
                   <span>{item.durationMinutes} {t('home.min')}</span><span>{item.views} {t('home.views')}</span>
                 </div>
               </div>

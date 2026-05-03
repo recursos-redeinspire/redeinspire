@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
+import { Trash2, BookOpen, Clock, Trophy, AlertTriangle, Link as LinkIcon, Video, Headphones, FileText, PenLine, FolderOpen } from 'lucide-react'
 
 interface ModuleForm { title: string; durationMinutes: number; contentId: string }
 
@@ -75,7 +76,7 @@ export default function TrailsPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-gray-900 font-bold">{trail.points} pts</span>
                     {isPastor && (
-                      <button onClick={() => handleDelete(trail.id, trail.title)} className="text-red-500 hover:text-red-700 text-sm" title={t('common.delete')}>🗑</button>
+                      <button onClick={() => handleDelete(trail.id, trail.title)} className="text-red-500 hover:text-red-700 text-sm" title={t('common.delete')}><Trash2 size={16} /></button>
                     )}
                   </div>
                 </div>
@@ -122,10 +123,10 @@ export default function TrailsPage() {
                 <h3 className="font-semibold mb-2">{course.title}</h3>
                 <p className="text-sm text-gray-500 mb-2">{course.description}</p>
                 <div className="text-sm text-gray-500 space-y-1">
-                  <p>📚 {course.modulesCount || 0} {t('trails.modules')}</p>
-                  <p>⏱ {course.durationHours || 0} {t('trails.hours')}</p>
-                  <p>🏆 {course.points} {t('trails.points')}</p>
-                  {course.isMandatory && <p className="text-red-600 font-medium">⚠ {t('trails.mandatory')}</p>}
+                  <p className="flex items-center gap-1"><BookOpen size={14} /> {course.modulesCount || 0} {t('trails.modules')}</p>
+                  <p className="flex items-center gap-1"><Clock size={14} /> {course.durationHours || 0} {t('trails.hours')}</p>
+                  <p className="flex items-center gap-1"><Trophy size={14} /> {course.points} {t('trails.points')}</p>
+                  {course.isMandatory && <p className="text-red-600 font-medium flex items-center gap-1"><AlertTriangle size={14} /> {t('trails.mandatory')}</p>}
                 </div>
                 <button onClick={() => handleEnroll(course.trailId, course.title)} className="mt-3 w-full bg-gray-900 text-white py-2 rounded text-sm hover:bg-gray-800">{t('trails.enroll')}</button>
               </div>
@@ -170,8 +171,8 @@ function CreateTrailModal({ onClose, onCreated }: { onClose: () => void; onCreat
   }
 
   const typeLabel = (type: string) => {
-    const map: Record<string, string> = { video: '🎬', audio: '🎧', document: '📄', article: '📝' }
-    return map[type] || '📁'
+    const map: Record<string, React.ReactNode> = { video: <Video size={14} />, audio: <Headphones size={14} />, document: <FileText size={14} />, article: <PenLine size={14} /> }
+    return map[type] || <FolderOpen size={14} />
   }
 
   const handleSubmit = async () => {
@@ -246,7 +247,7 @@ function CreateTrailModal({ onClose, onCreated }: { onClose: () => void; onCreat
                       onChange={e => updateModule(i, 'contentId', e.target.value)}
                       className="w-full border rounded px-2 py-1.5 text-sm text-gray-700 bg-white"
                     >
-                      <option value="">📎 {t('trails.linkContent')}</option>
+                      <option value=""><LinkIcon size={14} className="inline" /> {t('trails.linkContent')}</option>
                       {allContents.map(c => (
                         <option key={c.id} value={c.id}>
                           {typeLabel(c.type)} {c.title} ({c.durationMinutes || 0} min)

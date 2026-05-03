@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
+import { BookOpen, Sparkles, TrendingUp, Lightbulb, Flame, Star, Clock, Video, Headphones, FileText } from 'lucide-react'
 
 export default function HomePage() {
   const { user } = useAuth()
@@ -65,7 +66,7 @@ export default function HomePage() {
 
       {inProgressTrails.length > 0 && (
         <section className="bg-white border rounded-lg p-5">
-          <h2 className="font-semibold text-lg mb-3">📚 {t('home.trainingInProgress')}</h2>
+          <h2 className="font-semibold text-lg mb-3 flex items-center gap-2"><BookOpen size={18} /> {t('home.trainingInProgress')}</h2>
           <div className="grid md:grid-cols-3 gap-4">
             {inProgressTrails.slice(0, 3).map((tr) => (
               <Link to="/trilhas" key={tr.id} className="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition">
@@ -81,12 +82,12 @@ export default function HomePage() {
       )}
 
       <section>
-        <h2 className="font-semibold text-lg mb-3">🆕 {t('home.newReleases')}</h2>
+        <h2 className="font-semibold text-lg mb-3 flex items-center gap-2"><Sparkles size={18} /> {t('home.newReleases')}</h2>
         <div className="grid md:grid-cols-4 gap-4">
           {newReleases.map((item) => (
             <div key={item.id} onClick={() => navigate(`/conteudo/${item.id}`)} className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
               <div className="bg-gray-200 rounded-lg h-24 flex items-center justify-center mb-3">
-                <span className="text-2xl">{item.type === 'video' ? '🎬' : item.type === 'audio' ? '🎧' : '📄'}</span>
+                <span className="text-2xl">{item.type === 'video' ? <Video size={24} /> : item.type === 'audio' ? <Headphones size={24} /> : <FileText size={24} />}</span>
               </div>
               <h3 className="font-medium text-sm">{item.title}</h3>
               <p className="text-xs text-gray-500 mt-1">{item.categorySlug} · {item.durationMinutes} {t('home.min')}</p>
@@ -98,7 +99,7 @@ export default function HomePage() {
       <section>
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <h2 className="font-semibold text-lg mb-3">🔥 {t('home.top10Content')}</h2>
+            <h2 className="font-semibold text-lg mb-3 flex items-center gap-2"><Flame size={18} /> {t('home.top10Content')}</h2>
             <div className="bg-white border rounded-lg divide-y">
               {top10.map((item, i) => (
                 <div key={item.id} onClick={() => navigate(`/conteudo/${item.id}`)} className="flex items-center gap-4 p-3 hover:bg-gray-50 cursor-pointer">
@@ -110,14 +111,14 @@ export default function HomePage() {
             </div>
           </div>
           <div>
-            <h2 className="font-semibold text-lg mb-3">⭐ {t('home.top10Leaders')}</h2>
+            <h2 className="font-semibold text-lg mb-3 flex items-center gap-2"><Star size={18} /> {t('home.top10Leaders')}</h2>
             <div className="bg-white border rounded-lg divide-y">
               {pointsRanking.length === 0 && <p className="text-center text-gray-400 py-6 text-sm">{t('home.noLeadersYet')}</p>}
               {pointsRanking.map((u) => (
                 <div key={u.rank} className="flex items-center gap-4 p-3">
                   <span className="text-2xl font-bold text-gray-600 w-8 text-center">{u.rank}</span>
                   <span className="flex-1 font-medium text-sm">{u.name}</span>
-                  <span className="text-xs font-semibold text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">⭐ {u.points}</span>
+                  <span className="text-xs font-semibold text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full flex items-center gap-1"><Star size={12} /> {u.points}</span>
                 </div>
               ))}
             </div>
@@ -127,7 +128,7 @@ export default function HomePage() {
 
       {recommended.length > 0 && (
         <section>
-          <h2 className="font-semibold text-lg mb-3">💡 {t('home.suggestions')}</h2>
+          <h2 className="font-semibold text-lg mb-3 flex items-center gap-2"><Lightbulb size={18} /> {t('home.suggestions')}</h2>
           <div className="grid md:grid-cols-3 gap-4">
             {recommended.slice(0, 3).map((item) => (
               <div key={item.id} className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -140,7 +141,7 @@ export default function HomePage() {
       )}
 
       <section>
-        <h2 className="font-semibold text-lg mb-3">📈 {t('home.trending')}</h2>
+        <h2 className="font-semibold text-lg mb-3 flex items-center gap-2"><TrendingUp size={18} /> {t('home.trending')}</h2>
         <div className="flex gap-4 overflow-x-auto pb-2">
           {trending.map((item) => (
             <div key={item.id} className="bg-white border rounded-lg p-4 min-w-[200px] hover:shadow-md transition-shadow">
@@ -155,7 +156,7 @@ export default function HomePage() {
       </section>
 
       <section className="bg-gradient-to-r from-gray-50 to-gray-50 rounded-lg p-6">
-        <h2 className="font-semibold text-lg mb-4">✨ {t('home.stories')}</h2>
+        <h2 className="font-semibold text-lg mb-4 flex items-center gap-2"><Sparkles size={18} /> {t('home.stories')}</h2>
         <div className="grid md:grid-cols-2 gap-4">
           {testimonials.map((item) => (
             <div key={item.name} className="bg-white rounded-lg p-4 shadow-sm">
@@ -168,7 +169,7 @@ export default function HomePage() {
 
       {history.length > 0 && (
         <section>
-          <h2 className="font-semibold text-lg mb-3">🕐 {t('home.recentAccess')}</h2>
+          <h2 className="font-semibold text-lg mb-3 flex items-center gap-2"><Clock size={18} /> {t('home.recentAccess')}</h2>
           <div className="flex gap-4 overflow-x-auto pb-2">
             {history.slice(0, 5).map((h: any, i: number) => (
               <div key={i} className="bg-white border rounded-lg p-4 min-w-[180px] hover:shadow-md transition-shadow">

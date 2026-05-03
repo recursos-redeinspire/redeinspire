@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
 import { LANG_OPTIONS, type Lang } from '../i18n/translations'
+import { Cake, PartyPopper, Lock } from 'lucide-react'
 
 function BirthdayModal({ name, onClose }: { name: string; onClose: () => void }) {
   const { t } = useI18n()
@@ -39,11 +40,11 @@ function BirthdayModal({ name, onClose }: { name: string; onClose: () => void })
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4">
       <div className="bg-white rounded-2xl w-full max-w-md p-8 text-center animate-bounce-in shadow-2xl">
-        <div className="text-6xl mb-4">🎂</div>
+        <div className="text-6xl mb-4"><Cake size={64} className="mx-auto text-amber-500" /></div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('birthday.title')}</h2>
         <p className="text-lg text-gray-700 mb-1">{t('birthday.congrats')} <span className="font-semibold">{name}</span>!</p>
         <p className="text-gray-500 mb-6">{t('birthday.message')}</p>
-        <div className="text-4xl mb-6">🎈🎁🎊🎉🎈</div>
+        <div className="flex justify-center gap-2 mb-6"><PartyPopper size={32} className="text-pink-500" /><PartyPopper size={32} className="text-yellow-500" /><PartyPopper size={32} className="text-blue-500" /></div>
         <button onClick={onClose} className="bg-gray-900 text-white px-8 py-3 rounded-lg text-sm font-semibold hover:bg-gray-800 transition">
           {t('birthday.close')}
         </button>
@@ -77,7 +78,7 @@ function ChangePasswordModal({ onDone }: { onDone: () => void }) {
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4">
       <div className="bg-white rounded-2xl w-full max-w-md p-8 shadow-2xl">
         <div className="text-center mb-6">
-          <div className="text-4xl mb-3">🔐</div>
+          <div className="text-4xl mb-3"><Lock size={40} className="mx-auto text-gray-700" /></div>
           <h2 className="text-xl font-bold text-gray-900">{t('firstLogin.title')}</h2>
           <p className="text-sm text-gray-500 mt-1">{t('firstLogin.subtitle')}</p>
         </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
+import { ClipboardList, BarChart3, Trophy, Newspaper, BookOpen, Route, GraduationCap, FileText, MessageSquare, Pin, Medal } from 'lucide-react'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -80,7 +81,7 @@ export default function DashboardPage() {
           </div>
         )}
         <div>
-          <h1 className="text-xl font-bold text-gray-800">{greeting}, {user?.name?.split(' ')[0]}! 👋</h1>
+          <h1 className="text-xl font-bold text-gray-800">{greeting}, {user?.name?.split(' ')[0]}!</h1>
           <p className="text-sm text-gray-500">{roleLabel} · {t('dashboard.platform')}</p>
         </div>
       </div>
@@ -89,7 +90,7 @@ export default function DashboardPage() {
       {upcomingItems.length > 0 && (
         <div className="mb-6 bg-white border rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-gray-800">📋 {t('dashboard.upcomingCommitments')}</h2>
+            <h2 className="font-semibold text-gray-800 flex items-center gap-2"><ClipboardList size={18} /> {t('dashboard.upcomingCommitments')}</h2>
             <button onClick={() => navigate('/planning')} className="text-xs text-gray-500 hover:text-gray-900">{t('dashboard.viewFullAgenda')} →</button>
           </div>
           <div className="space-y-2">
@@ -181,8 +182,11 @@ export default function DashboardPage() {
 
       {/* Tabs */}
       <div className="flex gap-4 mb-4 border-b">
-        {([['visao', `📊 ${t('dashboard.overview')}`], ['ranking', `🏆 ${t('dashboard.ranking')}`], ['timeline', `📰 ${t('dashboard.timeline')}`]] as const).map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)} className={`pb-2 px-1 text-sm font-medium ${tab === key ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>{label}</button>
+        {([['visao', t('dashboard.overview')], ['ranking', t('dashboard.ranking')], ['timeline', t('dashboard.timeline')]] as [string, string][]).map(([key, label], idx) => (
+          <button key={key} onClick={() => setTab(key as 'visao' | 'ranking' | 'timeline')} className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === key ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
+            {idx === 0 ? <BarChart3 size={15} /> : idx === 1 ? <Trophy size={15} /> : <Newspaper size={15} />}
+            {label}
+          </button>
         ))}
       </div>
 
@@ -202,10 +206,10 @@ export default function DashboardPage() {
             </div>
           )}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <button onClick={() => navigate('/catalog')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><span className="text-2xl">📚</span><p className="text-xs mt-2 text-gray-700">{t('dashboard.totalContent')}</p></button>
-            <button onClick={() => navigate('/trails')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><span className="text-2xl">🎯</span><p className="text-xs mt-2 text-gray-700">{t('dashboard.totalTrails')}</p></button>
-            <button onClick={() => navigate('/mentoring')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><span className="text-2xl">🎓</span><p className="text-xs mt-2 text-gray-700">{t('dashboard.totalMentoring')}</p></button>
-            <button onClick={() => navigate('/planning')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><span className="text-2xl">📋</span><p className="text-xs mt-2 text-gray-700">{t('dashboard.upcomingCommitments')}</p></button>
+            <button onClick={() => navigate('/catalog')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><BookOpen size={24} className="mx-auto text-gray-600" /><p className="text-xs mt-2 text-gray-700">{t('dashboard.totalContent')}</p></button>
+            <button onClick={() => navigate('/trails')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><Route size={24} className="mx-auto text-gray-600" /><p className="text-xs mt-2 text-gray-700">{t('dashboard.totalTrails')}</p></button>
+            <button onClick={() => navigate('/mentoring')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><GraduationCap size={24} className="mx-auto text-gray-600" /><p className="text-xs mt-2 text-gray-700">{t('dashboard.totalMentoring')}</p></button>
+            <button onClick={() => navigate('/planning')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><ClipboardList size={24} className="mx-auto text-gray-600" /><p className="text-xs mt-2 text-gray-700">{t('dashboard.upcomingCommitments')}</p></button>
           </div>
         </div>
       )}
@@ -221,7 +225,7 @@ export default function DashboardPage() {
             </tr></thead><tbody className="divide-y">
               {ranking.map((r: any, i: number) => (
                 <tr key={i} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`}</td>
+                  <td className="px-4 py-3 text-sm font-medium">{i === 0 ? <Medal size={18} className="text-yellow-500" /> : i === 1 ? <Medal size={18} className="text-gray-400" /> : i === 2 ? <Medal size={18} className="text-amber-700" /> : `${i + 1}º`}</td>
                   <td className="px-4 py-3 text-sm">{r.name}</td>
                   <td className="px-4 py-3 text-sm text-right">{r.trails}</td>
                   <td className="px-4 py-3 text-sm text-right font-semibold">{r.score}</td>
@@ -238,7 +242,7 @@ export default function DashboardPage() {
             timeline.map((tl: any, i: number) => (
               <div key={i} className="flex gap-3 bg-white border rounded-lg p-4">
                 <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-lg">
-                  {tl.type === 'content' ? '📄' : tl.type === 'trail' ? '🎯' : tl.type === 'message' ? '💬' : '📌'}
+                  {tl.type === 'content' ? <FileText size={18} /> : tl.type === 'trail' ? <Route size={18} /> : tl.type === 'message' ? <MessageSquare size={18} /> : <Pin size={18} />}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-800">{tl.title || tl.description}</p>
