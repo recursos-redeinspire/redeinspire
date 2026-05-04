@@ -1148,13 +1148,30 @@ async function podcastDelete(episodeId, user) {
 // =============================================================================
 // DROPBOX SYNC
 // =============================================================================
-const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN || '';
+const DROPBOX_APP_KEY = process.env.DROPBOX_APP_KEY || '';
+const DROPBOX_APP_SECRET = process.env.DROPBOX_APP_SECRET || '';
+const DROPBOX_REFRESH_TOKEN = process.env.DROPBOX_REFRESH_TOKEN || '';
 const DROPBOX_FOLDER = process.env.DROPBOX_FOLDER || '';
 const SYNC_BATCH = 100;
 
+let _dbxToken = '';
+let _dbxTokenExpiry = 0;
+async function getDropboxToken() {
+  if (_dbxToken && Date.now() < _dbxTokenExpiry) return _dbxToken;
+  const r = await fetch('https://api.dropboxapi.com/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=refresh_token&refresh_token=${DROPBOX_REFRESH_TOKEN}&client_id=${DROPBOX_APP_KEY}&client_secret=${DROPBOX_APP_SECRET}`,
+  });
+  const data = await r.json();
+  _dbxToken = data.access_token;
+  _dbxTokenExpiry = Date.now() + ((data.expires_in || 14400) - 300) * 1000;
+  return _dbxToken;
+}
+
 async function dropboxSync(user) {
   if (!user || !isAdmin(user)) return res(403, { message: 'Apenas admin pode sincronizar.' });
-  if (!DROPBOX_ACCESS_TOKEN) return res(500, { message: 'DROPBOX_ACCESS_TOKEN nao configurado.' });
+  if (!DROPBOX_REFRESH_TOKEN) return res(500, { message: 'Dropbox nao configurado.' });
 
   try {
     const folderPath = DROPBOX_FOLDER || '';
@@ -1171,7 +1188,7 @@ async function dropboxSync(user) {
         : { path: folderPath, recursive: true, limit: 2000 };
       const r = await fetch(url, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${await getDropboxToken()}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = await r.json();
@@ -1245,14 +1262,14 @@ async function dropboxSync(user) {
 // Get temporary download/preview link for a Dropbox file
 async function dropboxGetLink(data, user) {
   if (!user) return res(401, { message: 'Nao autenticado' });
-  if (!DROPBOX_ACCESS_TOKEN) return res(500, { message: 'DROPBOX_ACCESS_TOKEN nao configurado.' });
+  if (!DROPBOX_REFRESH_TOKEN) return res(500, { message: 'Dropbox nao configurado.' });
   const dropboxPath = data.dropboxPath;
   if (!dropboxPath) return res(400, { message: 'dropboxPath obrigatorio.' });
 
   try {
     const r = await fetch('https://api.dropboxapi.com/2/files/get_temporary_link', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${await getDropboxToken()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: dropboxPath }),
     });
     const result = await r.json();
@@ -1267,14 +1284,14 @@ async function dropboxGetLink(data, user) {
 // --- Dropbox Browse (list folder contents) ---
 async function dropboxBrowse(query, user) {
   if (!user) return res(401, { message: 'Nao autenticado' });
-  if (!DROPBOX_ACCESS_TOKEN) return res(500, { message: 'DROPBOX_ACCESS_TOKEN nao configurado.' });
+  if (!DROPBOX_REFRESH_TOKEN) return res(500, { message: 'Dropbox nao configurado.' });
 
   const folderPath = query.path || '';
 
   try {
     const r = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${await getDropboxToken()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: folderPath, recursive: false, limit: 2000 }),
     });
     const data = await r.json();
@@ -1324,13 +1341,13 @@ async function dropboxBrowse(query, user) {
 // --- Dropbox Download (get temporary link) ---
 async function dropboxDownload(data, user) {
   if (!user) return res(401, { message: 'Nao autenticado' });
-  if (!DROPBOX_ACCESS_TOKEN) return res(500, { message: 'DROPBOX_ACCESS_TOKEN nao configurado.' });
+  if (!DROPBOX_REFRESH_TOKEN) return res(500, { message: 'Dropbox nao configurado.' });
   if (!data.path) return res(400, { message: 'path obrigatorio.' });
 
   try {
     const r = await fetch('https://api.dropboxapi.com/2/files/get_temporary_link', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${await getDropboxToken()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: data.path }),
     });
     const result = await r.json();
