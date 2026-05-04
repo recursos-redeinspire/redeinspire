@@ -83,6 +83,7 @@ interface DataContextType {
   updateMaterial: (id: string, data: Record<string, any>) => Promise<boolean>
   deleteMaterial: (id: string) => Promise<boolean>
   syncDropbox: () => Promise<{ synced: number; total: number; message: string }>
+  getDropboxLink: (dropboxPath: string) => Promise<{ link: string }>
   getUploadPresignedUrl: (fileName: string, contentType: string) => Promise<{ uploadUrl: string; fileUrl: string }>
   createMinistry: (data: { name: string; description: string; leaderId?: string; leaderName?: string }) => Promise<any>
   updateMinistry: (id: string, data: Record<string, any>) => Promise<boolean>
@@ -493,6 +494,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return apiFetch<{ synced: number; total: number; message: string }>('/dropbox/sync', { method: 'POST' })
   }, [])
 
+  const getDropboxLink = useCallback(async (dropboxPath: string): Promise<{ link: string }> => {
+    return apiFetch<{ link: string }>('/dropbox/link', { method: 'POST', body: JSON.stringify({ dropboxPath }) })
+  }, [])
+
   const getUploadPresignedUrl = useCallback(async (fileName: string, contentType: string) => {
     return apiFetch<{ uploadUrl: string; fileUrl: string }>('/upload/presign', { method: 'POST', body: JSON.stringify({ fileName, contentType }) })
   }, [])
@@ -631,7 +636,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getMetrics, getLeaderRanking, getTimeline, getRecentAccesses,
     getMessages, getUnreadCount, markAsRead, sendMessage, getMessageRecipients,
     getMinistries, createMinistry, deleteMinistry, updateMinistry, getMyPoints, getPointsRanking,
-    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, getUploadPresignedUrl,
+    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, getDropboxLink, getUploadPresignedUrl,
     getChurches, getTopChurches, createChurch, deleteChurch, updateChurch,
     getPlans, savePlan, deletePlan,
     getPodcastEpisodes, createPodcast, updatePodcast, deletePodcast, getPodcastProgress, updatePodcastProgress,

@@ -2,7 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, FileText, Video, Headphones, Image, FileSpreadsheet, Presentation, File, Download, Eye, Pencil, X, Loader2 } from 'lucide-react'
 
 const MATERIAL_CATEGORIES = [
   { value: 'mensagem', label: 'Mensagem' },
@@ -167,7 +167,7 @@ function EditMaterialModal({ material, onClose, onUpdate }: { material: any; onC
 }
 
 export default function MaterialsPage() {
-  const { getMaterials, deleteMaterial, syncDropbox } = useData()
+  const { getMaterials, deleteMaterial, syncDropbox, getDropboxLink } = useData()
   const { user } = useAuth()
   const { t } = useI18n()
   const isAdmin = user?.role === 'admin'
@@ -177,6 +177,9 @@ export default function MaterialsPage() {
   const [filterCat, setFilterCat] = useState('')
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState('')
+  const [previewMaterial, setPreviewMaterial] = useState<any | null>(null)
+  const [previewLink, setPreviewLink] = useState('')
+  const [previewLoading, setPreviewLoading] = useState(false)
 
   const load = () => getMaterials().then(setMaterials)
   useEffect(() => { load() }, [])
@@ -200,6 +203,44 @@ export default function MaterialsPage() {
       setSyncing(false)
       setTimeout(() => setSyncMsg(''), 6000)
     }
+  }
+
+  const handlePreview = async (m: any) => {
+    setPreviewMaterial(m)
+    setPreviewLink('')
+    setPreviewLoading(true)
+    try {
+      if (m.dropboxPath) {
+        const result = await getDropboxLink(m.dropboxPath)
+        setPreviewLink(result.link)
+      } else if (m.fileUrl) {
+        setPreviewLink(m.fileUrl)
+      }
+    } catch {
+      setPreviewLink('')
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  const getCategoryIcon = (cat: string) => {
+    switch (cat) {
+      case 'video': return <Video size={24} className="text-purple-500" />
+      case 'audio': return <Headphones size={24} className="text-blue-500" />
+      case 'pdf': return <FileText size={24} className="text-red-500" />
+      case 'imagem': return <Image size={24} className="text-green-500" />
+      case 'planilha': return <FileSpreadsheet size={24} className="text-emerald-600" />
+      case 'apresentacao': return <Presentation size={24} className="text-orange-500" />
+      default: return <File size={24} className="text-gray-500" />
+    }
+  }
+
+  const formatSize = (bytes: number) => {
+    if (!bytes) return ''
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB'
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+    return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB'
   }
 
   const filtered = filterCat ? materials.filter(m => m.category === filterCat) : materials
@@ -235,29 +276,91 @@ export default function MaterialsPage() {
       {filtered.length === 0 && <p className="text-center text-gray-500 py-12">{t('materials.noMaterials')}</p>}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map(m => (
-          <div key={m.id} className="relative group bg-white border rounded-xl p-4 hover:shadow-md transition">
+          <div key={m.id} className="relative group bg-white border rounded-xl p-4 hover:shadow-md transition cursor-pointer" onClick={() => handlePreview(m)}>
             <div className="flex items-start gap-3">
-              <span className="text-2xl">{m.category === 'mensagem' ? '📝' : m.category === 'louvor' ? '🎵' : m.category === 'estudo' ? '📖' : m.category === 'liturgia' ? '⛪' : m.category === 'devocional' ? '🙏' : '📄'}</span>
+              <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gray-50 flex items-center justify-center">
+                {getCategoryIcon(m.category)}
+              </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-sm text-gray-900 truncate">{m.title}</h3>
-                <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">{m.description}</p>
-                <span className="text-xs text-gray-400 mt-1 inline-block">{catLabel(m.category)}</span>
+                <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{m.description}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{catLabel(m.category)}</span>
+                  {m.fileSize > 0 && <span className="text-xs text-gray-400">{formatSize(m.fileSize)}</span>}
+                </div>
               </div>
+              <Eye size={16} className="text-gray-300 group-hover:text-gray-600 transition flex-shrink-0 mt-1" />
             </div>
-            {m.fileUrl && (
-              <a href={m.fileUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                📎 {m.fileName || t('materials.download')}
-              </a>
-            )}
             {isAdmin && (
-              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                <button onClick={() => setEditing(m)} className="bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs hover:bg-blue-700 shadow" title={t('materials.edit')}>✏️</button>
-                <button onClick={() => handleDelete(m.id)} className="bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs hover:bg-red-700 shadow" title={t('materials.delete')}>✕</button>
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition" onClick={e => e.stopPropagation()}>
+                <button onClick={() => setEditing(m)} className="bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs hover:bg-blue-700 shadow"><Pencil size={13} /></button>
+                <button onClick={() => handleDelete(m.id)} className="bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs hover:bg-red-700 shadow"><X size={13} /></button>
               </div>
             )}
           </div>
         ))}
       </div>
+
+      {/* Preview Modal */}
+      {previewMaterial && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setPreviewMaterial(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center gap-3 min-w-0">
+                {getCategoryIcon(previewMaterial.category)}
+                <div className="min-w-0">
+                  <h2 className="font-bold text-gray-900 truncate">{previewMaterial.title}</h2>
+                  <p className="text-xs text-gray-500">{previewMaterial.description} {previewMaterial.fileSize > 0 && `· ${formatSize(previewMaterial.fileSize)}`}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {previewLink && (
+                  <a href={previewLink} download target="_blank" rel="noopener noreferrer"
+                    className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition flex items-center gap-2">
+                    <Download size={16} /> {t('materials.download')}
+                  </a>
+                )}
+                <button onClick={() => setPreviewMaterial(null)} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-4 bg-gray-50 flex items-center justify-center min-h-[300px]">
+              {previewLoading ? (
+                <div className="flex flex-col items-center gap-3 text-gray-400">
+                  <Loader2 size={32} className="animate-spin" />
+                  <p className="text-sm">{t('materials.loadingPreview')}</p>
+                </div>
+              ) : !previewLink ? (
+                <div className="flex flex-col items-center gap-3 text-gray-400">
+                  {getCategoryIcon(previewMaterial.category)}
+                  <p className="text-sm">{t('materials.noPreview')}</p>
+                </div>
+              ) : previewMaterial.category === 'imagem' ? (
+                <img src={previewLink} alt={previewMaterial.title} className="max-w-full max-h-[60vh] object-contain rounded-lg shadow" />
+              ) : previewMaterial.category === 'video' ? (
+                <video src={previewLink} controls className="max-w-full max-h-[60vh] rounded-lg shadow" />
+              ) : previewMaterial.category === 'audio' ? (
+                <div className="flex flex-col items-center gap-4 w-full max-w-md">
+                  <Headphones size={64} className="text-blue-400" />
+                  <p className="font-medium text-gray-700">{previewMaterial.title}</p>
+                  <audio src={previewLink} controls className="w-full" />
+                </div>
+              ) : previewMaterial.category === 'pdf' ? (
+                <iframe src={previewLink} className="w-full h-[60vh] rounded-lg border" title={previewMaterial.title} />
+              ) : (
+                <div className="flex flex-col items-center gap-4 text-gray-500">
+                  {getCategoryIcon(previewMaterial.category)}
+                  <p className="font-medium">{previewMaterial.fileName}</p>
+                  <p className="text-sm">{t('materials.clickDownload')}</p>
+                  <a href={previewLink} download target="_blank" rel="noopener noreferrer"
+                    className="bg-gray-900 text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-gray-800 transition flex items-center gap-2">
+                    <Download size={16} /> {t('materials.download')}
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCreate && <CreateMaterialModal onClose={() => setShowCreate(false)} onCreate={() => { setShowCreate(false); load() }} />}
       {editing && <EditMaterialModal material={editing} onClose={() => setEditing(null)} onUpdate={() => { setEditing(null); load() }} />}

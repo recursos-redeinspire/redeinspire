@@ -313,6 +313,9 @@ const translations: Translations = {
   'materials.all': { pt: 'Todos', en: 'All', es: 'Todos', fr: 'Tous' },
   'materials.syncDropbox': { pt: 'Sincronizar Dropbox', en: 'Sync Dropbox', es: 'Sincronizar Dropbox', fr: 'Synchroniser Dropbox' },
   'materials.syncing': { pt: 'Sincronizando...', en: 'Syncing...', es: 'Sincronizando...', fr: 'Synchronisation...' },
+  'materials.loadingPreview': { pt: 'Carregando preview...', en: 'Loading preview...', es: 'Cargando vista previa...', fr: 'Chargement aperçu...' },
+  'materials.noPreview': { pt: 'Preview não disponível', en: 'Preview not available', es: 'Vista previa no disponible', fr: 'Aperçu non disponible' },
+  'materials.clickDownload': { pt: 'Clique para baixar o arquivo', en: 'Click to download the file', es: 'Haga clic para descargar', fr: 'Cliquez pour télécharger' },
   // ---- Map Page ----
   'map.title': { pt: 'Rede Inspire Connect', en: 'Inspire Network Connect', es: 'Red Inspire Connect', fr: 'Réseau Inspire Connect' },
   'map.subtitle': { pt: 'Mapa de igrejas filiadas — veja o alcance da rede', en: 'Map of affiliated churches — see the network reach', es: 'Mapa de iglesias afiliadas — vea el alcance de la red', fr: 'Carte des églises affiliées — voyez la portée du réseau' },

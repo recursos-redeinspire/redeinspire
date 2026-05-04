@@ -182,6 +182,7 @@ export async function handler(event) {
 
     // ---- Dropbox Sync ----
     if (path === '/dropbox/sync' && method === 'POST') return await dropboxSync(getUserFromToken(event));
+    if (path === '/dropbox/link' && method === 'POST') return await dropboxGetLink(body(event), getUserFromToken(event));
 
     return res(404, { message: 'Rota não encontrada', path, method });
   } catch (err) {
@@ -1138,14 +1139,13 @@ async function podcastDelete(episodeId, user) {
 // =============================================================================
 const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN || '';
 const DROPBOX_FOLDER = process.env.DROPBOX_FOLDER || '';
-const SYNC_BATCH = 20;
+const SYNC_BATCH = 100;
 
 async function dropboxSync(user) {
   if (!user || !isAdmin(user)) return res(403, { message: 'Apenas admin pode sincronizar.' });
   if (!DROPBOX_ACCESS_TOKEN) return res(500, { message: 'DROPBOX_ACCESS_TOKEN nao configurado.' });
 
   try {
-    // List files with pagination
     const folderPath = DROPBOX_FOLDER || '';
     let allFiles = [];
     let hasMore = true;
@@ -1173,14 +1173,12 @@ async function dropboxSync(user) {
 
     if (allFiles.length === 0) return res(200, { message: 'Nenhum arquivo encontrado.', synced: 0 });
 
-    // Get existing
     const existing = await ddb.send(new ScanCommand({ TableName: T.MATERIALS }));
     const existingPaths = new Set((existing.Items || []).map(m => m.dropboxPath).filter(Boolean));
 
     const newFiles = allFiles.filter(f => !existingPaths.has(f.path_lower));
     if (newFiles.length === 0) return res(200, { message: `Todos os ${allFiles.length} arquivos ja sincronizados.`, synced: 0, total: allFiles.length });
 
-    // Process batch without shared links (just store dropbox path, link on demand)
     const batch = newFiles.slice(0, SYNC_BATCH);
     let synced = 0;
     const errors = [];
@@ -1230,5 +1228,26 @@ async function dropboxSync(user) {
   } catch (err) {
     console.error('Dropbox sync error:', err);
     return res(500, { message: 'Erro sync Dropbox', error: err.message });
+  }
+}
+
+// Get temporary download/preview link for a Dropbox file
+async function dropboxGetLink(data, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!DROPBOX_ACCESS_TOKEN) return res(500, { message: 'DROPBOX_ACCESS_TOKEN nao configurado.' });
+  const dropboxPath = data.dropboxPath;
+  if (!dropboxPath) return res(400, { message: 'dropboxPath obrigatorio.' });
+
+  try {
+    const r = await fetch('https://api.dropboxapi.com/2/files/get_temporary_link', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: dropboxPath }),
+    });
+    const result = await r.json();
+    if (result.error) return res(400, { message: 'Erro ao gerar link', error: result.error_summary });
+    return res(200, { link: result.link, metadata: result.metadata });
+  } catch (err) {
+    return res(500, { message: 'Erro ao gerar link Dropbox', error: err.message });
   }
 }
