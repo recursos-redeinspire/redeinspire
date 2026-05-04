@@ -22,8 +22,6 @@ import LeadersPage from './pages/LeadersPage'
 import ContentPlayerPage from './pages/ContentPlayerPage'
 import ManagementPage from './pages/ManagementPage'
 import MaterialsPage from './pages/MaterialsPage'
-import MaterialsV3Page from './pages/MaterialsV3Page'
-import MaterialsV4Page from './pages/MaterialsV4Page'
 
 function Protected({ children }: { children: React.ReactNode }) {
   return (
@@ -58,8 +56,6 @@ export default function App() {
             <Route path="/lideres" element={<Protected><LeadersPage /></Protected>} />
             <Route path="/gestao" element={<Protected><ManagementPage /></Protected>} />
             <Route path="/materiais" element={<Protected><MaterialsPage /></Protected>} />
-            <Route path="/materiais-v3" element={<Protected><MaterialsV3Page /></Protected>} />
-            <Route path="/materiais-v4" element={<Protected><MaterialsV4Page /></Protected>} />
           </Routes>
         </div>
       </DataProvider>
