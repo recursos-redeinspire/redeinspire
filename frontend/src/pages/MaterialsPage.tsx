@@ -282,6 +282,8 @@ export default function MaterialsPreviewPage() {
                       </div>
                     ) : selectedFile.fileType === 'pdf' ? (
                       <iframe src={previewUrl} className="w-full h-[450px] rounded-lg border" title={selectedFile.name} />
+                    ) : (selectedFile.fileType === 'presentation' || selectedFile.fileType === 'document' || selectedFile.ext === 'doc' || selectedFile.ext === 'docx' || selectedFile.ext === 'ppt' || selectedFile.ext === 'pptx') ? (
+                      <iframe src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`} className="w-full h-[450px] rounded-lg border" title={selectedFile.name} />
                     ) : (
                       <div className="text-center text-gray-500">
                         <FileIcon fileType={selectedFile.fileType} size={48} />
