@@ -185,6 +185,7 @@ export async function handler(event) {
     if (path === '/dropbox/sync' && method === 'POST') return await dropboxSync(getUserFromToken(event));
     if (path === '/dropbox/browse' && method === 'GET') return await dropboxBrowse(qs(event), getUserFromToken(event));
     if (path === '/dropbox/download' && method === 'POST') return await dropboxDownload(body(event), getUserFromToken(event));
+    if (path === '/dropbox/smart-search' && method === 'GET') return await dropboxSmartSearch(qs(event), getUserFromToken(event));
 
     // ---- YouTube ----
     if (path === '/youtube/videos' && method === 'GET') return await youtubeListVideos(qs(event), getUserFromToken(event));
@@ -1694,6 +1695,109 @@ async function youtubeSmartSearch(query, user) {
     });
   } catch (err) {
     console.error('Smart search error:', err);
+    return res(500, { message: 'Erro na busca', error: err.message });
+  }
+}
+
+
+// --- Dropbox Smart Search (recursive with synonyms + fuzzy) ---
+async function dropboxSmartSearch(query, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!DROPBOX_REFRESH_TOKEN) return res(500, { message: 'Dropbox nao configurado.' });
+  if (!query.q) return res(400, { message: 'Parametro q obrigatorio.' });
+
+  try {
+    const keywords = extractKeywords(query.q);
+    if (keywords.length === 0) return res(200, { entries: [], totalResults: 0, query: query.q, keywords: [] });
+
+    const token = await getDropboxToken();
+
+    // List all files recursively with pagination
+    let allFiles = [];
+    let hasMore = true;
+    let cursor = null;
+    const maxPages = 5;
+    let pages = 0;
+
+    while (hasMore && pages < maxPages) {
+      const url = cursor
+        ? 'https://api.dropboxapi.com/2/files/list_folder/continue'
+        : 'https://api.dropboxapi.com/2/files/list_folder';
+      const payload = cursor
+        ? { cursor }
+        : { path: '', recursive: true, limit: 2000 };
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (data.error) break;
+
+      const files = (data.entries || []).filter(e => e['.tag'] === 'file');
+      allFiles = allFiles.concat(files);
+      hasMore = data.has_more;
+      cursor = data.cursor;
+      pages++;
+    }
+
+    // Score each file
+    const scored = allFiles.map(file => {
+      const name = normalize(file.name);
+      const path = normalize(file.path_display || '');
+      let score = 0;
+
+      for (const kw of keywords) {
+        if (name.includes(kw)) score += 10;
+        if (path.includes(kw)) score += 3;
+        // Fuzzy: compare first 4 chars
+        const nameWords = name.split(/[\s\-_.]+/);
+        for (const nw of nameWords) {
+          if (nw.length > 3 && kw.length > 3 && (nw.startsWith(kw.substring(0, 4)) || kw.startsWith(nw.substring(0, 4)))) score += 2;
+        }
+      }
+      return { file, score };
+    })
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 30);
+
+    // Format results
+    const entries = scored.map(s => {
+      const f = s.file;
+      const ext = (f.name.split('.').pop() || '').toLowerCase();
+      let fileType = 'other';
+      if (['mp4','mov','avi','mkv','webm'].includes(ext)) fileType = 'video';
+      else if (['mp3','wav','ogg','m4a','aac'].includes(ext)) fileType = 'audio';
+      else if (ext === 'pdf') fileType = 'pdf';
+      else if (['doc','docx','txt','rtf'].includes(ext)) fileType = 'document';
+      else if (['ppt','pptx'].includes(ext)) fileType = 'presentation';
+      else if (['xls','xlsx','csv'].includes(ext)) fileType = 'spreadsheet';
+      else if (['jpg','jpeg','png','gif','webp','svg'].includes(ext)) fileType = 'image';
+      else if (['zip','rar','7z','tar','gz'].includes(ext)) fileType = 'archive';
+
+      const rel = f.path_display.substring(1);
+      const parts = rel.split('/');
+      const folder = parts.length > 1 ? parts.slice(0, -1).join(' / ') : '';
+
+      return {
+        tag: 'file',
+        name: f.name,
+        path: f.path_display,
+        pathLower: f.path_lower,
+        id: f.id,
+        size: f.size || 0,
+        modified: f.server_modified || '',
+        fileType,
+        ext,
+        folder,
+        score: s.score,
+      };
+    });
+
+    return res(200, { entries, totalResults: entries.length, query: query.q, keywords });
+  } catch (err) {
+    console.error('Dropbox smart search error:', err);
     return res(500, { message: 'Erro na busca', error: err.message });
   }
 }

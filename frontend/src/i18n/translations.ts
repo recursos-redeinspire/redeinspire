@@ -344,7 +344,7 @@ const translations: Translations = {
   'materials.noPreview': { pt: 'Pré-visualização não disponível', en: 'Preview not available', es: 'Vista previa no disponible', fr: 'Aperçu non disponible' },
   'materials.clickDownload': { pt: 'Clique para baixar o arquivo', en: 'Click to download the file', es: 'Haga clic para descargar', fr: 'Cliquez pour télécharger' },
   'materials.download': { pt: 'Baixar', en: 'Download', es: 'Descargar', fr: 'Télécharger' },
-  'materials.searchPlaceholder': { pt: 'Buscar por nome do arquivo ou pasta...', en: 'Search by file or folder name...', es: 'Buscar por nombre de archivo o carpeta...', fr: 'Rechercher par nom de fichier ou dossier...' },
+  'materials.searchPlaceholder': { pt: 'Ex: "material para adolescentes" ou "pregação sobre fé"', en: 'E.g. "material for youth" or "sermon about faith"', es: 'Ej: "material para adolescentes"', fr: 'Ex: "matériel pour les jeunes"' },
   'materials.filterLabel': { pt: 'Filtros', en: 'Filters', es: 'Filtros', fr: 'Filtres' },
   'materials.fileType': { pt: 'Tipo de arquivo', en: 'File type', es: 'Tipo de archivo', fr: 'Type de fichier' },
   'materials.allTypes': { pt: 'Todos os tipos', en: 'All types', es: 'Todos los tipos', fr: 'Tous les types' },

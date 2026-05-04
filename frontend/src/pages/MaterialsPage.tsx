@@ -34,7 +34,7 @@ function FileIcon({ fileType, size = 20 }: { fileType: string; size?: number }) 
 }
 
 export default function MaterialsPage() {
-  const { browseDropbox, downloadDropbox } = useData()
+  const { browseDropbox, downloadDropbox, smartSearchDropbox } = useData()
   const { user: _user } = useAuth()
   const { t } = useI18n()
 
@@ -46,6 +46,8 @@ export default function MaterialsPage() {
   const [previewFile, setPreviewFile] = useState<any | null>(null)
   const [previewUrl, setPreviewUrl] = useState('')
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [smartSearchActive, setSmartSearchActive] = useState(false)
+  const [searchKeywords, setSearchKeywords] = useState<string[]>([])
 
   // Search & filters
   const [searchQuery, setSearchQuery] = useState('')
@@ -58,6 +60,8 @@ export default function MaterialsPage() {
     setError('')
     setSearchQuery('')
     setFilterType('')
+    setSmartSearchActive(false)
+    setSearchKeywords([])
     try {
       const result = await browseDropbox(path)
       setEntries(result.entries)
@@ -71,7 +75,25 @@ export default function MaterialsPage() {
 
   useEffect(() => { loadFolder('') }, [loadFolder])
 
+  const doSmartSearch = useCallback(async (q: string) => {
+    if (!q.trim()) { loadFolder(currentPath); return }
+    setLoading(true)
+    setError('')
+    setSmartSearchActive(true)
+    try {
+      const result = await smartSearchDropbox(q)
+      setEntries(result.entries)
+      setSearchKeywords(result.keywords || [])
+    } catch (e: any) {
+      setError(e.message || 'Erro na busca')
+    } finally {
+      setLoading(false)
+    }
+  }, [smartSearchDropbox, loadFolder, currentPath])
+
   const navigateTo = (path: string) => {
+    setSmartSearchActive(false)
+    setSearchKeywords([])
     loadFolder(path)
   }
 
@@ -160,15 +182,20 @@ export default function MaterialsPage() {
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && doSmartSearch(searchQuery)}
             placeholder={t('materials.searchPlaceholder')}
-            className="w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-gray-300 focus:border-gray-900 outline-none"
+            className="w-full pl-10 pr-10 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-gray-300 focus:border-gray-900 outline-none"
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <button onClick={() => { setSearchQuery(''); if (smartSearchActive) loadFolder(currentPath) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
               <X size={14} />
             </button>
           )}
         </div>
+        <button onClick={() => doSmartSearch(searchQuery)}
+          className="bg-gray-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition">
+          {t('catalog.searchBtn')}
+        </button>
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg text-sm transition ${showFilters || hasActiveFilters ? 'bg-gray-900 text-white border-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
@@ -208,7 +235,27 @@ export default function MaterialsPage() {
         </div>
       )}
 
+      {/* Smart search results info */}
+      {smartSearchActive && (
+        <div className="mb-4">
+          <div className="text-sm text-gray-500">
+            {t('catalog.resultsFor')} "<span className="font-medium">{searchQuery}</span>"
+            — {filteredFiles.length} {t('materials.files')}
+            <button onClick={() => { setSearchQuery(''); setSmartSearchActive(false); setSearchKeywords([]); loadFolder(currentPath) }}
+              className="ml-2 text-red-500 hover:text-red-700 text-xs">{t('catalog.clearSearch')}</button>
+          </div>
+          {searchKeywords.length > 0 && (
+            <div className="flex gap-1.5 mt-2 flex-wrap">
+              {searchKeywords.slice(0, 8).map(kw => (
+                <span key={kw} className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">{kw}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Breadcrumb */}
+      {!smartSearchActive && (
       <div className="flex items-center gap-1 mb-6 text-sm flex-wrap bg-white border rounded-lg px-4 py-3">
         {currentPath && (
           <button onClick={goBack} className="text-gray-400 hover:text-gray-700 mr-2 flex items-center gap-1">
@@ -236,6 +283,7 @@ export default function MaterialsPage() {
           {filteredFiles.length > 0 && `${filteredFiles.length} ${t('materials.files')}`}
         </span>
       </div>
+      )}
 
       {/* Error */}
       {error && (
@@ -312,6 +360,7 @@ export default function MaterialsPage() {
                     <span className="text-xs text-gray-400 uppercase">{file.ext}</span>
                     {file.size > 0 && <span className="text-xs text-gray-400">{formatSize(file.size)}</span>}
                     {file.modified && <span className="text-xs text-gray-300">{new Date(file.modified).toLocaleDateString('pt-BR')}</span>}
+                    {smartSearchActive && file.folder && <span className="text-xs text-gray-400 truncate max-w-[200px]" title={file.folder}>📂 {file.folder}</span>}
                   </div>
                 </div>
                 <button

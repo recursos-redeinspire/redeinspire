@@ -85,6 +85,7 @@ interface DataContextType {
   syncDropbox: () => Promise<{ synced: number; total: number; message: string }>
   browseDropbox: (path: string) => Promise<{ path: string; entries: any[] }>
   downloadDropbox: (path: string) => Promise<{ url: string; name: string }>
+  smartSearchDropbox: (q: string) => Promise<{ entries: any[]; totalResults: number; keywords: string[] }>
   getDropboxLink: (dropboxPath: string) => Promise<{ link: string }>
   getYoutubeVideos: (pageToken?: string, limit?: number) => Promise<{ videos: any[]; totalResults: number; nextPageToken: string | null; prevPageToken: string | null }>
   searchYoutube: (q: string, pageToken?: string) => Promise<{ videos: any[]; totalResults: number; nextPageToken: string | null }>
@@ -510,6 +511,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return apiFetch<{ url: string; name: string }>('/dropbox/download', { method: 'POST', body: JSON.stringify({ path }) })
   }, [])
 
+  const smartSearchDropbox = useCallback(async (q: string): Promise<{ entries: any[]; totalResults: number; keywords: string[] }> => {
+    return apiFetch(`/dropbox/smart-search?q=${encodeURIComponent(q)}`)
+  }, [])
+
   const getDropboxLink = useCallback(async (dropboxPath: string): Promise<{ link: string }> => {
     return apiFetch<{ link: string }>('/dropbox/link', { method: 'POST', body: JSON.stringify({ dropboxPath }) })
   }, [])
@@ -676,7 +681,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getMetrics, getLeaderRanking, getTimeline, getRecentAccesses,
     getMessages, getUnreadCount, markAsRead, sendMessage, getMessageRecipients,
     getMinistries, createMinistry, deleteMinistry, updateMinistry, getMyPoints, getPointsRanking,
-    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, smartSearchYoutube, getComments, addComment, getUploadPresignedUrl,
+    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, smartSearchDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, smartSearchYoutube, getComments, addComment, getUploadPresignedUrl,
     getChurches, getTopChurches, createChurch, deleteChurch, updateChurch,
     getPlans, savePlan, deletePlan,
     getPodcastEpisodes, createPodcast, updatePodcast, deletePodcast, getPodcastProgress, updatePodcastProgress,
