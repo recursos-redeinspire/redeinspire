@@ -311,6 +311,8 @@ const translations: Translations = {
   'materials.creating': { pt: 'Enviando...', en: 'Uploading...', es: 'Enviando...', fr: 'Envoi...' },
   'materials.confirmDelete': { pt: 'Excluir este material?', en: 'Delete this material?', es: '¿Eliminar este material?', fr: 'Supprimer ce matériel ?' },
   'materials.all': { pt: 'Todos', en: 'All', es: 'Todos', fr: 'Tous' },
+  'materials.syncDropbox': { pt: 'Sincronizar Dropbox', en: 'Sync Dropbox', es: 'Sincronizar Dropbox', fr: 'Synchroniser Dropbox' },
+  'materials.syncing': { pt: 'Sincronizando...', en: 'Syncing...', es: 'Sincronizando...', fr: 'Synchronisation...' },
   // ---- Map Page ----
   'map.title': { pt: 'Rede Inspire Connect', en: 'Inspire Network Connect', es: 'Red Inspire Connect', fr: 'Réseau Inspire Connect' },
   'map.subtitle': { pt: 'Mapa de igrejas filiadas — veja o alcance da rede', en: 'Map of affiliated churches — see the network reach', es: 'Mapa de iglesias afiliadas — vea el alcance de la red', fr: 'Carte des églises affiliées — voyez la portée du réseau' },

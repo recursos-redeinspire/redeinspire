@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
+import { RefreshCw } from 'lucide-react'
 
 const MATERIAL_CATEGORIES = [
   { value: 'mensagem', label: 'Mensagem' },
@@ -9,6 +10,13 @@ const MATERIAL_CATEGORIES = [
   { value: 'liturgia', label: 'Liturgia' },
   { value: 'louvor', label: 'Louvor' },
   { value: 'devocional', label: 'Devocional' },
+  { value: 'video', label: 'Vídeo' },
+  { value: 'audio', label: 'Áudio' },
+  { value: 'pdf', label: 'PDF' },
+  { value: 'documento', label: 'Documento' },
+  { value: 'apresentacao', label: 'Apresentação' },
+  { value: 'planilha', label: 'Planilha' },
+  { value: 'imagem', label: 'Imagem' },
   { value: 'outro', label: 'Outro' },
 ]
 
@@ -159,7 +167,7 @@ function EditMaterialModal({ material, onClose, onUpdate }: { material: any; onC
 }
 
 export default function MaterialsPage() {
-  const { getMaterials, deleteMaterial } = useData()
+  const { getMaterials, deleteMaterial, syncDropbox } = useData()
   const { user } = useAuth()
   const { t } = useI18n()
   const isAdmin = user?.role === 'admin'
@@ -167,6 +175,8 @@ export default function MaterialsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
   const [filterCat, setFilterCat] = useState('')
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState('')
 
   const load = () => getMaterials().then(setMaterials)
   useEffect(() => { load() }, [])
@@ -177,6 +187,21 @@ export default function MaterialsPage() {
     load()
   }
 
+  const handleSync = async () => {
+    setSyncing(true)
+    setSyncMsg('')
+    try {
+      const result = await syncDropbox()
+      setSyncMsg(result.message)
+      load()
+    } catch (e: any) {
+      setSyncMsg(e.message || 'Erro ao sincronizar')
+    } finally {
+      setSyncing(false)
+      setTimeout(() => setSyncMsg(''), 6000)
+    }
+  }
+
   const filtered = filterCat ? materials.filter(m => m.category === filterCat) : materials
   const catLabel = (v: string) => MATERIAL_CATEGORIES.find(c => c.value === v)?.label || v
 
@@ -185,12 +210,20 @@ export default function MaterialsPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">{t('materials.title')}</h1>
         {isAdmin && (
-          <button onClick={() => setShowCreate(true)}
-            className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition flex items-center gap-2">
-            <span>+</span> {t('materials.newMaterial')}
-          </button>
+          <div className="flex gap-2">
+            <button onClick={handleSync} disabled={syncing}
+              className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition flex items-center gap-2 disabled:opacity-50">
+              <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} /> {syncing ? t('materials.syncing') : t('materials.syncDropbox')}
+            </button>
+            <button onClick={() => setShowCreate(true)}
+              className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition flex items-center gap-2">
+              <span>+</span> {t('materials.newMaterial')}
+            </button>
+          </div>
         )}
       </div>
+
+      {syncMsg && <div className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{syncMsg}</div>}
 
       <div className="flex gap-2 mb-6 flex-wrap">
         <button onClick={() => setFilterCat('')} className={`px-3 py-1.5 rounded-full text-sm ${!filterCat ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{t('materials.all')}</button>
