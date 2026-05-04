@@ -185,6 +185,10 @@ export async function handler(event) {
     if (path === '/dropbox/browse' && method === 'GET') return await dropboxBrowse(qs(event), getUserFromToken(event));
     if (path === '/dropbox/download' && method === 'POST') return await dropboxDownload(body(event), getUserFromToken(event));
 
+    // ---- YouTube ----
+    if (path === '/youtube/videos' && method === 'GET') return await youtubeListVideos(qs(event), getUserFromToken(event));
+    if (path === '/youtube/search' && method === 'GET') return await youtubeSearch(qs(event), getUserFromToken(event));
+
     return res(404, { message: 'Rota não encontrada', path, method });
   } catch (err) {
     console.error('Error:', err);
@@ -1329,5 +1333,109 @@ async function dropboxDownload(data, user) {
   } catch (err) {
     console.error('Dropbox download error:', err);
     return res(500, { message: 'Erro ao gerar link', error: err.message });
+  }
+}
+
+
+// =============================================================================
+// YOUTUBE
+// =============================================================================
+const YT_CLIENT_ID = process.env.YOUTUBE_CLIENT_ID || '';
+const YT_CLIENT_SECRET = process.env.YOUTUBE_CLIENT_SECRET || '';
+const YT_REFRESH_TOKEN = process.env.YOUTUBE_REFRESH_TOKEN || '';
+const YT_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID || '';
+const YT_UPLOADS_PLAYLIST = YT_CHANNEL_ID ? 'UU' + YT_CHANNEL_ID.substring(2) : '';
+
+async function ytGetAccessToken() {
+  const r = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `client_id=${YT_CLIENT_ID}&client_secret=${YT_CLIENT_SECRET}&refresh_token=${YT_REFRESH_TOKEN}&grant_type=refresh_token`,
+  });
+  const data = await r.json();
+  return data.access_token;
+}
+
+async function youtubeListVideos(query, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!YT_REFRESH_TOKEN) return res(500, { message: 'YouTube nao configurado.' });
+
+  try {
+    const token = await ytGetAccessToken();
+    const pageToken = query.pageToken || '';
+    const maxResults = Math.min(parseInt(query.limit) || 20, 50);
+
+    let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,status,contentDetails&playlistId=${YT_UPLOADS_PLAYLIST}&maxResults=${maxResults}`;
+    if (pageToken) url += `&pageToken=${pageToken}`;
+
+    const r = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await r.json();
+    if (data.error) return res(400, { message: 'Erro YouTube', error: data.error.message });
+
+    const videos = (data.items || []).map(item => {
+      const s = item.snippet;
+      const st = item.status || {};
+      return {
+        id: s.resourceId?.videoId || item.id,
+        title: s.title,
+        description: s.description || '',
+        thumbnail: s.thumbnails?.medium?.url || s.thumbnails?.default?.url || '',
+        publishedAt: s.publishedAt,
+        privacy: st.privacyStatus || 'unknown',
+        channelTitle: s.channelTitle,
+      };
+    }).filter(v => v.title !== 'Deleted video' && v.title !== 'Private video');
+
+    return res(200, {
+      videos,
+      totalResults: data.pageInfo?.totalResults || 0,
+      nextPageToken: data.nextPageToken || null,
+      prevPageToken: data.prevPageToken || null,
+    });
+  } catch (err) {
+    console.error('YouTube list error:', err);
+    return res(500, { message: 'Erro YouTube', error: err.message });
+  }
+}
+
+async function youtubeSearch(query, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!YT_REFRESH_TOKEN) return res(500, { message: 'YouTube nao configurado.' });
+  if (!query.q) return res(400, { message: 'Parametro q obrigatorio.' });
+
+  try {
+    const token = await ytGetAccessToken();
+    const q = encodeURIComponent(query.q);
+    const maxResults = Math.min(parseInt(query.limit) || 20, 50);
+    const pageToken = query.pageToken || '';
+
+    let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${YT_CHANNEL_ID}&q=${q}&type=video&maxResults=${maxResults}`;
+    if (pageToken) url += `&pageToken=${pageToken}`;
+
+    const r = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await r.json();
+    if (data.error) return res(400, { message: 'Erro YouTube', error: data.error.message });
+
+    const videos = (data.items || []).map(item => {
+      const s = item.snippet;
+      return {
+        id: item.id?.videoId || item.id,
+        title: s.title,
+        description: s.description || '',
+        thumbnail: s.thumbnails?.medium?.url || s.thumbnails?.default?.url || '',
+        publishedAt: s.publishedAt,
+        privacy: 'unknown',
+        channelTitle: s.channelTitle,
+      };
+    });
+
+    return res(200, {
+      videos,
+      totalResults: data.pageInfo?.totalResults || 0,
+      nextPageToken: data.nextPageToken || null,
+    });
+  } catch (err) {
+    console.error('YouTube search error:', err);
+    return res(500, { message: 'Erro YouTube', error: err.message });
   }
 }

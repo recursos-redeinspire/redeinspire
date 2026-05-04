@@ -86,6 +86,8 @@ interface DataContextType {
   browseDropbox: (path: string) => Promise<{ path: string; entries: any[] }>
   downloadDropbox: (path: string) => Promise<{ url: string; name: string }>
   getDropboxLink: (dropboxPath: string) => Promise<{ link: string }>
+  getYoutubeVideos: (pageToken?: string, limit?: number) => Promise<{ videos: any[]; totalResults: number; nextPageToken: string | null; prevPageToken: string | null }>
+  searchYoutube: (q: string, pageToken?: string) => Promise<{ videos: any[]; totalResults: number; nextPageToken: string | null }>
   getUploadPresignedUrl: (fileName: string, contentType: string) => Promise<{ uploadUrl: string; fileUrl: string }>
   createMinistry: (data: { name: string; description: string; leaderId?: string; leaderName?: string }) => Promise<any>
   updateMinistry: (id: string, data: Record<string, any>) => Promise<boolean>
@@ -509,6 +511,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return apiFetch<{ link: string }>('/dropbox/link', { method: 'POST', body: JSON.stringify({ dropboxPath }) })
   }, [])
 
+  const getYoutubeVideos = useCallback(async (pageToken?: string, limit?: number): Promise<{ videos: any[]; totalResults: number; nextPageToken: string | null; prevPageToken: string | null }> => {
+    let url = `/youtube/videos?limit=${limit || 20}`
+    if (pageToken) url += `&pageToken=${pageToken}`
+    return apiFetch(url)
+  }, [])
+
+  const searchYoutube = useCallback(async (q: string, pageToken?: string): Promise<{ videos: any[]; totalResults: number; nextPageToken: string | null }> => {
+    let url = `/youtube/search?q=${encodeURIComponent(q)}`
+    if (pageToken) url += `&pageToken=${pageToken}`
+    return apiFetch(url)
+  }, [])
+
   const getUploadPresignedUrl = useCallback(async (fileName: string, contentType: string) => {
     return apiFetch<{ uploadUrl: string; fileUrl: string }>('/upload/presign', { method: 'POST', body: JSON.stringify({ fileName, contentType }) })
   }, [])
@@ -647,7 +661,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getMetrics, getLeaderRanking, getTimeline, getRecentAccesses,
     getMessages, getUnreadCount, markAsRead, sendMessage, getMessageRecipients,
     getMinistries, createMinistry, deleteMinistry, updateMinistry, getMyPoints, getPointsRanking,
-    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, getDropboxLink, getUploadPresignedUrl,
+    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, getUploadPresignedUrl,
     getChurches, getTopChurches, createChurch, deleteChurch, updateChurch,
     getPlans, savePlan, deletePlan,
     getPodcastEpisodes, createPodcast, updatePodcast, deletePodcast, getPodcastProgress, updatePodcastProgress,
