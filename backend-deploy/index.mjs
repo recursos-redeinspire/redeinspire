@@ -180,9 +180,10 @@ export async function handler(event) {
     if (path === '/points/me' && method === 'GET') return await getMyPoints(getUserFromToken(event));
     if (path === '/points/ranking' && method === 'GET') return await getPointsRanking(getUserFromToken(event));
 
-    // ---- Dropbox Sync ----
+    // ---- Dropbox ----
     if (path === '/dropbox/sync' && method === 'POST') return await dropboxSync(getUserFromToken(event));
-    if (path === '/dropbox/link' && method === 'POST') return await dropboxGetLink(body(event), getUserFromToken(event));
+    if (path === '/dropbox/browse' && method === 'GET') return await dropboxBrowse(qs(event), getUserFromToken(event));
+    if (path === '/dropbox/download' && method === 'POST') return await dropboxDownload(body(event), getUserFromToken(event));
 
     return res(404, { message: 'Rota não encontrada', path, method });
   } catch (err) {
@@ -1249,5 +1250,84 @@ async function dropboxGetLink(data, user) {
     return res(200, { link: result.link, metadata: result.metadata });
   } catch (err) {
     return res(500, { message: 'Erro ao gerar link Dropbox', error: err.message });
+  }
+}
+
+
+// --- Dropbox Browse (list folder contents) ---
+async function dropboxBrowse(query, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!DROPBOX_ACCESS_TOKEN) return res(500, { message: 'DROPBOX_ACCESS_TOKEN nao configurado.' });
+
+  const folderPath = query.path || '';
+
+  try {
+    const r = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: folderPath, recursive: false, limit: 2000 }),
+    });
+    const data = await r.json();
+    if (data.error) return res(400, { message: 'Erro Dropbox', error: data.error_summary });
+
+    const entries = (data.entries || []).map(e => {
+      const isFile = e['.tag'] === 'file';
+      const ext = isFile ? (e.name.split('.').pop() || '').toLowerCase() : '';
+      let fileType = 'other';
+      if (['mp4','mov','avi','mkv','webm'].includes(ext)) fileType = 'video';
+      else if (['mp3','wav','ogg','m4a','aac'].includes(ext)) fileType = 'audio';
+      else if (ext === 'pdf') fileType = 'pdf';
+      else if (['doc','docx','txt','rtf'].includes(ext)) fileType = 'document';
+      else if (['ppt','pptx'].includes(ext)) fileType = 'presentation';
+      else if (['xls','xlsx','csv'].includes(ext)) fileType = 'spreadsheet';
+      else if (['jpg','jpeg','png','gif','webp','svg'].includes(ext)) fileType = 'image';
+      else if (['zip','rar','7z','tar','gz'].includes(ext)) fileType = 'archive';
+
+      return {
+        tag: e['.tag'],
+        name: e.name,
+        path: e.path_display,
+        pathLower: e.path_lower,
+        id: e.id,
+        ...(isFile ? {
+          size: e.size || 0,
+          modified: e.server_modified || '',
+          fileType,
+          ext,
+        } : {}),
+      };
+    });
+
+    // Sort: folders first (alphabetical), then files (alphabetical)
+    entries.sort((a, b) => {
+      if (a.tag !== b.tag) return a.tag === 'folder' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    return res(200, { path: folderPath, entries });
+  } catch (err) {
+    console.error('Dropbox browse error:', err);
+    return res(500, { message: 'Erro ao navegar Dropbox', error: err.message });
+  }
+}
+
+// --- Dropbox Download (get temporary link) ---
+async function dropboxDownload(data, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!DROPBOX_ACCESS_TOKEN) return res(500, { message: 'DROPBOX_ACCESS_TOKEN nao configurado.' });
+  if (!data.path) return res(400, { message: 'path obrigatorio.' });
+
+  try {
+    const r = await fetch('https://api.dropboxapi.com/2/files/get_temporary_link', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: data.path }),
+    });
+    const result = await r.json();
+    if (result.error) return res(400, { message: 'Erro Dropbox', error: result.error_summary });
+    return res(200, { url: result.link, name: result.metadata?.name || '' });
+  } catch (err) {
+    console.error('Dropbox download error:', err);
+    return res(500, { message: 'Erro ao gerar link', error: err.message });
   }
 }

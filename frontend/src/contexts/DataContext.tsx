@@ -83,6 +83,8 @@ interface DataContextType {
   updateMaterial: (id: string, data: Record<string, any>) => Promise<boolean>
   deleteMaterial: (id: string) => Promise<boolean>
   syncDropbox: () => Promise<{ synced: number; total: number; message: string }>
+  browseDropbox: (path: string) => Promise<{ path: string; entries: any[] }>
+  downloadDropbox: (path: string) => Promise<{ url: string; name: string }>
   getDropboxLink: (dropboxPath: string) => Promise<{ link: string }>
   getUploadPresignedUrl: (fileName: string, contentType: string) => Promise<{ uploadUrl: string; fileUrl: string }>
   createMinistry: (data: { name: string; description: string; leaderId?: string; leaderName?: string }) => Promise<any>
@@ -494,6 +496,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return apiFetch<{ synced: number; total: number; message: string }>('/dropbox/sync', { method: 'POST' })
   }, [])
 
+  const browseDropbox = useCallback(async (path: string): Promise<{ path: string; entries: any[] }> => {
+    const encoded = encodeURIComponent(path)
+    return apiFetch<{ path: string; entries: any[] }>(`/dropbox/browse?path=${encoded}`)
+  }, [])
+
+  const downloadDropbox = useCallback(async (path: string): Promise<{ url: string; name: string }> => {
+    return apiFetch<{ url: string; name: string }>('/dropbox/download', { method: 'POST', body: JSON.stringify({ path }) })
+  }, [])
+
   const getDropboxLink = useCallback(async (dropboxPath: string): Promise<{ link: string }> => {
     return apiFetch<{ link: string }>('/dropbox/link', { method: 'POST', body: JSON.stringify({ dropboxPath }) })
   }, [])
@@ -636,7 +647,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getMetrics, getLeaderRanking, getTimeline, getRecentAccesses,
     getMessages, getUnreadCount, markAsRead, sendMessage, getMessageRecipients,
     getMinistries, createMinistry, deleteMinistry, updateMinistry, getMyPoints, getPointsRanking,
-    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, getDropboxLink, getUploadPresignedUrl,
+    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, getDropboxLink, getUploadPresignedUrl,
     getChurches, getTopChurches, createChurch, deleteChurch, updateChurch,
     getPlans, savePlan, deletePlan,
     getPodcastEpisodes, createPodcast, updatePodcast, deletePodcast, getPodcastProgress, updatePodcastProgress,
