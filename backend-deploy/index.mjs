@@ -189,6 +189,7 @@ export async function handler(event) {
     // ---- YouTube ----
     if (path === '/youtube/videos' && method === 'GET') return await youtubeListVideos(qs(event), getUserFromToken(event));
     if (path === '/youtube/search' && method === 'GET') return await youtubeSearch(qs(event), getUserFromToken(event));
+    if (path === '/youtube/smart-search' && method === 'GET') return await youtubeSmartSearch(qs(event), getUserFromToken(event));
 
     // ---- Comments ----
     if (path === '/comments' && method === 'GET') return await commentsList(qs(event), getUserFromToken(event));
@@ -1514,4 +1515,168 @@ async function commentsCreate(data, user) {
   }
 
   return res(201, comment);
+}
+
+
+// =============================================================================
+// YOUTUBE SMART SEARCH
+// =============================================================================
+
+// Synonym dictionary (Portuguese)
+const SYNONYMS = {
+  'adolescente': ['jovem', 'juventude', 'teen', 'adolescentes', 'jovens', 'adolescencia'],
+  'jovem': ['adolescente', 'juventude', 'teen', 'jovens', 'adolescentes'],
+  'crianca': ['infantil', 'kids', 'criancas', 'ministerio infantil', 'children'],
+  'infantil': ['crianca', 'kids', 'criancas', 'children'],
+  'lider': ['lideranca', 'lideres', 'leadership', 'gestor', 'gestao'],
+  'lideranca': ['lider', 'lideres', 'leadership', 'gestao', 'gestor'],
+  'pastor': ['pastoral', 'pastores', 'ministerio pastoral'],
+  'casais': ['casal', 'matrimonio', 'casamento', 'conjugal'],
+  'mulher': ['mulheres', 'feminino', 'feminina'],
+  'homem': ['homens', 'masculino'],
+  'pregacao': ['mensagem', 'sermao', 'pregacoes', 'mensagens', 'sermoes', 'culto'],
+  'mensagem': ['pregacao', 'sermao', 'pregacoes', 'mensagens', 'sermoes'],
+  'louvor': ['worship', 'adoracao', 'musica', 'musical'],
+  'worship': ['louvor', 'adoracao', 'musica'],
+  'celula': ['pequeno grupo', 'celulas', 'pequenos grupos', 'grupo pequeno'],
+  'pequeno grupo': ['celula', 'celulas', 'pequenos grupos'],
+  'discipulado': ['discipulo', 'discipulos', 'formacao', 'capacitacao'],
+  'capacitacao': ['treinamento', 'formacao', 'curso', 'discipulado'],
+  'treinamento': ['capacitacao', 'formacao', 'curso', 'treinar'],
+  'mentoria': ['mentor', 'mentorias', 'coaching', 'acompanhamento'],
+  'webinar': ['webinars', 'live', 'ao vivo', 'online'],
+  'conferencia': ['congresso', 'evento', 'conference', 'encontro'],
+  'evento': ['conferencia', 'congresso', 'encontro', 'retiro'],
+  'retiro': ['retiros', 'acampamento', 'evento'],
+  'missao': ['missoes', 'missionario', 'evangelismo', 'missional'],
+  'evangelismo': ['evangelizar', 'missao', 'missoes', 'alcance'],
+  'oracao': ['orar', 'intercessao', 'oracoes', 'jejum'],
+  'biblia': ['biblico', 'biblica', 'escritura', 'estudo biblico', 'palavra'],
+  'estudo': ['estudo biblico', 'estudos', 'aprendizado', 'ensino'],
+  'familia': ['familiar', 'familias', 'lar', 'casa'],
+  'igreja': ['igrejas', 'congregacao', 'comunidade', 'ministerio'],
+  'ministerio': ['ministerios', 'servico', 'ministerial'],
+  'plantacao': ['plantar', 'plantacao de igreja', 'church planting'],
+  'proposito': ['propositos', '5 propositos', 'purpose'],
+  'gestao': ['administracao', 'gerenciamento', 'organizacao', 'lideranca'],
+  'financeiro': ['financas', 'dinheiro', 'oferta', 'dizimo', 'mordomia'],
+  'saude': ['emocional', 'mental', 'burnout', 'cansaco', 'esgotamento'],
+  'conflito': ['conflitos', 'crise', 'problema', 'dificuldade', 'desafio'],
+  'crescimento': ['crescer', 'multiplicacao', 'expansao', 'desenvolvimento'],
+  'voluntario': ['voluntarios', 'servir', 'servo', 'servico'],
+  'comunicacao': ['comunicar', 'redes sociais', 'marketing', 'midia'],
+  'domingo': ['culto', 'celebracao', 'programacao', 'liturgia'],
+};
+
+function normalize(text) {
+  return (text || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractKeywords(query) {
+  const stopwords = new Set(['de','do','da','dos','das','em','no','na','nos','nas','um','uma','uns','umas',
+    'o','a','os','as','e','ou','que','para','por','com','como','eu','me','meu','minha',
+    'preciso','quero','gostaria','ajuda','sobre','ter','ser','estar','fazer','pode','tem',
+    'muito','mais','menos','bem','bom','boa','qual','quais','onde','quando','porque']);
+  const words = normalize(query).split(' ').filter(w => w.length > 2 && !stopwords.has(w));
+  
+  // Expand with synonyms
+  const expanded = new Set(words);
+  for (const word of words) {
+    const syns = SYNONYMS[word];
+    if (syns) syns.forEach(s => expanded.add(normalize(s)));
+    // Also check if word is part of a synonym value
+    for (const [key, vals] of Object.entries(SYNONYMS)) {
+      if (vals.some(v => normalize(v) === word)) {
+        expanded.add(normalize(key));
+        vals.forEach(v => expanded.add(normalize(v)));
+      }
+    }
+  }
+  return [...expanded];
+}
+
+function scoreVideo(video, keywords) {
+  const title = normalize(video.title);
+  const desc = normalize(video.description || '');
+  let score = 0;
+
+  for (const kw of keywords) {
+    // Exact match in title (highest weight)
+    if (title.includes(kw)) score += 10;
+    // Exact match in description
+    if (desc.includes(kw)) score += 3;
+    // Partial match in title (fuzzy)
+    const titleWords = title.split(' ');
+    for (const tw of titleWords) {
+      if (tw.length > 3 && kw.length > 3) {
+        if (tw.startsWith(kw.substring(0, 4)) || kw.startsWith(tw.substring(0, 4))) score += 2;
+      }
+    }
+  }
+  return score;
+}
+
+async function youtubeSmartSearch(query, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!YT_REFRESH_TOKEN) return res(500, { message: 'YouTube nao configurado.' });
+  if (!query.q) return res(400, { message: 'Parametro q obrigatorio.' });
+
+  try {
+    const keywords = extractKeywords(query.q);
+    if (keywords.length === 0) return res(200, { videos: [], totalResults: 0, query: query.q, keywords: [] });
+
+    const token = await ytGetAccessToken();
+
+    // Fetch multiple pages of videos to search through
+    let allVideos = [];
+    let pageToken = '';
+    const maxPages = 5; // ~100 videos to search through
+
+    for (let i = 0; i < maxPages; i++) {
+      let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,status&playlistId=${YT_UPLOADS_PLAYLIST}&maxResults=50`;
+      if (pageToken) url += `&pageToken=${pageToken}`;
+
+      const r = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await r.json();
+      if (data.error) break;
+
+      const videos = (data.items || []).map(item => {
+        const s = item.snippet;
+        const st = item.status || {};
+        return {
+          id: s.resourceId?.videoId || item.id,
+          title: s.title,
+          description: s.description || '',
+          thumbnail: s.thumbnails?.medium?.url || s.thumbnails?.default?.url || '',
+          publishedAt: s.publishedAt,
+          privacy: st.privacyStatus || 'unknown',
+          channelTitle: s.channelTitle,
+        };
+      }).filter(v => v.title !== 'Deleted video' && v.title !== 'Private video');
+
+      allVideos = allVideos.concat(videos);
+      pageToken = data.nextPageToken;
+      if (!pageToken) break;
+    }
+
+    // Score and rank
+    const scored = allVideos.map(v => ({ ...v, score: scoreVideo(v, keywords) }))
+      .filter(v => v.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20);
+
+    return res(200, {
+      videos: scored,
+      totalResults: scored.length,
+      query: query.q,
+      keywords,
+    });
+  } catch (err) {
+    console.error('Smart search error:', err);
+    return res(500, { message: 'Erro na busca', error: err.message });
+  }
 }

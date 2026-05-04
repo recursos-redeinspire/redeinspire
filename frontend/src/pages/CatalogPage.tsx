@@ -169,7 +169,7 @@ function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
 
 // ---- Main Catalog Page ----
 export default function CatalogPage() {
-  const { getYoutubeVideos, searchYoutube } = useData()
+  const { getYoutubeVideos, smartSearchYoutube } = useData()
   const { user: _user } = useAuth()
   const { t } = useI18n()
 
@@ -182,7 +182,8 @@ export default function CatalogPage() {
 
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSearch, setActiveSearch] = useState('')
-  const [searchNextToken, setSearchNextToken] = useState<string | null>(null)
+  const [searchKeywords, setSearchKeywords] = useState<string[]>([])
+  const [searchNextToken, _setSearchNextToken] = useState<string | null>(null)
 
   const [selectedVideo, setSelectedVideo] = useState<any | null>(null)
 
@@ -202,22 +203,22 @@ export default function CatalogPage() {
     }
   }, [getYoutubeVideos])
 
-  const doSearch = useCallback(async (q: string, pageToken?: string) => {
-    if (!q.trim()) { setActiveSearch(''); loadVideos(); return }
+  const doSearch = useCallback(async (q: string) => {
+    if (!q.trim()) { setActiveSearch(''); setSearchKeywords([]); loadVideos(); return }
     setLoading(true)
     setError('')
     try {
-      const result = await searchYoutube(q, pageToken)
+      const result = await smartSearchYoutube(q)
       setVideos(result.videos)
       setTotalResults(result.totalResults)
-      setSearchNextToken(result.nextPageToken)
+      setSearchKeywords(result.keywords || [])
       setActiveSearch(q)
     } catch (e: any) {
       setError(e.message || 'Erro na busca')
     } finally {
       setLoading(false)
     }
-  }, [searchYoutube, loadVideos])
+  }, [smartSearchYoutube, loadVideos])
 
   useEffect(() => { loadVideos() }, [loadVideos])
 
@@ -226,7 +227,7 @@ export default function CatalogPage() {
     else { setActiveSearch(''); loadVideos() }
   }
 
-  const clearSearch = () => { setSearchQuery(''); setActiveSearch(''); loadVideos() }
+  const clearSearch = () => { setSearchQuery(''); setActiveSearch(''); setSearchKeywords([]); loadVideos() }
 
   // ---- Player view ----
   if (selectedVideo) {
@@ -270,9 +271,18 @@ export default function CatalogPage() {
       </div>
 
       {activeSearch && (
-        <div className="mb-4 text-sm text-gray-500">
-          {t('catalog.resultsFor')} "<span className="font-medium">{activeSearch}</span>"
-          <button onClick={clearSearch} className="ml-2 text-red-500 hover:text-red-700 text-xs">{t('catalog.clearSearch')}</button>
+        <div className="mb-4">
+          <div className="text-sm text-gray-500">
+            {t('catalog.resultsFor')} "<span className="font-medium">{activeSearch}</span>"
+            <button onClick={clearSearch} className="ml-2 text-red-500 hover:text-red-700 text-xs">{t('catalog.clearSearch')}</button>
+          </div>
+          {searchKeywords.length > 0 && (
+            <div className="flex gap-1.5 mt-2 flex-wrap">
+              {searchKeywords.slice(0, 8).map(kw => (
+                <span key={kw} className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">{kw}</span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -334,7 +344,7 @@ export default function CatalogPage() {
 
       {!loading && activeSearch && searchNextToken && (
         <div className="flex justify-center mt-8">
-          <button onClick={() => doSearch(activeSearch, searchNextToken)}
+          <button onClick={() => doSearch(activeSearch)}
             className="flex items-center gap-1 px-4 py-2 border rounded-lg text-sm hover:bg-gray-50 transition">
             {t('catalog.loadMore')} <ChevronRight size={16} />
           </button>

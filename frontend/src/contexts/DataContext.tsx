@@ -88,6 +88,7 @@ interface DataContextType {
   getDropboxLink: (dropboxPath: string) => Promise<{ link: string }>
   getYoutubeVideos: (pageToken?: string, limit?: number) => Promise<{ videos: any[]; totalResults: number; nextPageToken: string | null; prevPageToken: string | null }>
   searchYoutube: (q: string, pageToken?: string) => Promise<{ videos: any[]; totalResults: number; nextPageToken: string | null }>
+  smartSearchYoutube: (q: string) => Promise<{ videos: any[]; totalResults: number; keywords: string[] }>
   getComments: (videoId: string) => Promise<any[]>
   addComment: (videoId: string, videoTitle: string, text: string) => Promise<any>
   getUploadPresignedUrl: (fileName: string, contentType: string) => Promise<{ uploadUrl: string; fileUrl: string }>
@@ -525,6 +526,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return apiFetch(url)
   }, [])
 
+  const smartSearchYoutube = useCallback(async (q: string): Promise<{ videos: any[]; totalResults: number; keywords: string[] }> => {
+    return apiFetch(`/youtube/smart-search?q=${encodeURIComponent(q)}`)
+  }, [])
+
   const getComments = useCallback(async (videoId: string): Promise<any[]> => {
     return apiFetch<any[]>(`/comments?videoId=${encodeURIComponent(videoId)}`)
   }, [])
@@ -671,7 +676,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getMetrics, getLeaderRanking, getTimeline, getRecentAccesses,
     getMessages, getUnreadCount, markAsRead, sendMessage, getMessageRecipients,
     getMinistries, createMinistry, deleteMinistry, updateMinistry, getMyPoints, getPointsRanking,
-    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, getComments, addComment, getUploadPresignedUrl,
+    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, smartSearchYoutube, getComments, addComment, getUploadPresignedUrl,
     getChurches, getTopChurches, createChurch, deleteChurch, updateChurch,
     getPlans, savePlan, deletePlan,
     getPodcastEpisodes, createPodcast, updatePodcast, deletePodcast, getPodcastProgress, updatePodcastProgress,

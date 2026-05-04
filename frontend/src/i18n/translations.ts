@@ -124,7 +124,7 @@ const translations: Translations = {
   'catalog.errorCreate': { pt: 'Erro ao criar conteúdo.', en: 'Error creating content.', es: 'Error al crear contenido.', fr: 'Erreur lors de la création du contenu.' },
   'catalog.errorUpdate': { pt: 'Erro ao atualizar conteúdo.', en: 'Error updating content.', es: 'Error al actualizar contenido.', fr: 'Erreur lors de la mise à jour du contenu.' },
   'catalog.videosAvailable': { pt: 'vídeos disponíveis', en: 'videos available', es: 'videos disponibles', fr: 'vidéos disponibles' },
-  'catalog.searchPlaceholder': { pt: 'Buscar vídeos por título...', en: 'Search videos by title...', es: 'Buscar videos por título...', fr: 'Rechercher des vidéos par titre...' },
+  'catalog.searchPlaceholder': { pt: 'Ex: "ajuda com ministério de adolescentes" ou "pregação sobre fé"', en: 'E.g. "help with youth ministry" or "sermon about faith"', es: 'Ej: "ayuda con ministerio de adolescentes"', fr: 'Ex: "aide avec le ministère des jeunes"' },
   'catalog.searchBtn': { pt: 'Buscar', en: 'Search', es: 'Buscar', fr: 'Rechercher' },
   'catalog.allVideos': { pt: 'Todos', en: 'All', es: 'Todos', fr: 'Tous' },
   'catalog.unlisted': { pt: 'Não listado', en: 'Unlisted', es: 'No listado', fr: 'Non répertorié' },
