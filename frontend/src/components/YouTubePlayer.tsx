@@ -5,127 +5,153 @@ import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from 'lucide-react'
 declare global {
   interface Window { YT: any; onYouTubeIframeAPIReady?: () => void }
 }
-let _apiReady = false
-const _cbs: (() => void)[] = []
-function ensureApi(cb: () => void) {
-  if (_apiReady) return cb()
-  _cbs.push(cb)
-  if (document.querySelector('script[src*="youtube.com/iframe_api"]')) return
+let ytApiState: 'idle' | 'loading' | 'ready' = 'idle'
+const ytCallbacks: (() => void)[] = []
+function ensureYTApi(cb: () => void) {
+  if (ytApiState === 'ready') { cb(); return }
+  ytCallbacks.push(cb)
+  if (ytApiState === 'loading') return
+  ytApiState = 'loading'
   const s = document.createElement('script')
   s.src = 'https://www.youtube.com/iframe_api'
   document.head.appendChild(s)
-  window.onYouTubeIframeAPIReady = () => { _apiReady = true; _cbs.forEach(fn => fn()); _cbs.length = 0 }
+  window.onYouTubeIframeAPIReady = () => {
+    ytApiState = 'ready'
+    ytCallbacks.forEach(fn => fn())
+    ytCallbacks.length = 0
+  }
 }
 
-function fmt(sec: number) {
-  const m = Math.floor(sec / 60)
-  const s = Math.floor(sec % 60)
-  return `${m}:${s.toString().padStart(2, '0')}`
+/* ── Helpers ── */
+const fmt = (s: number) => {
+  if (!s || isNaN(s)) return '0:00'
+  const m = Math.floor(s / 60)
+  const sec = Math.floor(s % 60)
+  return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
+/* ── Component ── */
 interface Props { videoId: string; thumbnail?: string; title?: string }
 
 export default function YouTubePlayer({ videoId, thumbnail, title }: Props) {
-  const wrapperRef = useRef<HTMLDivElement>(null)
-  const ytDivRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<any>(null)
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const hideRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [phase, setPhase] = useState<'poster' | 'loading' | 'playing'>('poster')
   const [paused, setPaused] = useState(true)
-  const [cur, setCur] = useState(0)
+  const [time, setTime] = useState(0)
   const [dur, setDur] = useState(0)
   const [buf, setBuf] = useState(0)
   const [vol, setVol] = useState(80)
   const [muted, setMuted] = useState(false)
-  const [fs, setFs] = useState(false)
+  const [full, setFull] = useState(false)
   const [showBar, setShowBar] = useState(true)
 
-  /* ── create / destroy player ── */
+  /* ── Create YT player ── */
   const createPlayer = useCallback(() => {
-    if (!ytDivRef.current) return
+    if (!containerRef.current) return
     setPhase('loading')
-    ensureApi(() => {
-      if (playerRef.current) { try { playerRef.current.destroy() } catch {} }
-      // The API replaces the div with an iframe; we need a fresh div each time
-      const el = document.createElement('div')
-      el.id = 'yt-' + videoId + '-' + Date.now()
-      ytDivRef.current!.innerHTML = ''
-      ytDivRef.current!.appendChild(el)
 
-      playerRef.current = new window.YT.Player(el.id, {
-        videoId,
-        width: '100%',
-        height: '100%',
-        playerVars: {
-          autoplay: 1, controls: 0, modestbranding: 1, rel: 0,
-          showinfo: 0, iv_load_policy: 3, disablekb: 1, fs: 0,
-          playsinline: 1, cc_load_policy: 0,
+    // The API replaces the div with an iframe; we need a fresh child div each time
+    const el = document.createElement('div')
+    el.id = 'yt-player-' + videoId
+    containerRef.current.innerHTML = ''
+    containerRef.current.appendChild(el)
+
+    playerRef.current = new window.YT.Player(el.id, {
+      videoId,
+      width: '100%',
+      height: '100%',
+      playerVars: {
+        autoplay: 1,
+        controls: 0,        // ← hides ALL native controls
+        modestbranding: 1,
+        rel: 0,
+        showinfo: 0,
+        iv_load_policy: 3,
+        disablekb: 1,
+        fs: 0,              // ← hides native fullscreen button
+        playsinline: 1,
+        cc_load_policy: 0,
+        origin: window.location.origin,
+      },
+      events: {
+        onReady(e: any) {
+          e.target.setVolume(80)
+          setDur(e.target.getDuration())
+          setPhase('playing')
+          setPaused(false)
         },
-        events: {
-          onReady(e: any) {
-            e.target.setVolume(vol)
-            setDur(e.target.getDuration())
-            setPhase('playing')
-            setPaused(false)
-          },
-          onStateChange(e: any) {
-            const YT = window.YT.PlayerState
-            if (e.data === YT.PLAYING) setPaused(false)
-            else if (e.data === YT.PAUSED || e.data === YT.ENDED) setPaused(true)
-          },
+        onStateChange(e: any) {
+          const YT = window.YT.PlayerState
+          if (e.data === YT.PLAYING) setPaused(false)
+          else if (e.data === YT.PAUSED) setPaused(true)
+          else if (e.data === YT.ENDED) setPaused(true)
         },
-      })
+      },
     })
-  }, [videoId, vol])
+  }, [videoId])
 
-  /* cleanup */
-  useEffect(() => () => {
-    if (tickRef.current) clearInterval(tickRef.current)
-    if (playerRef.current) { try { playerRef.current.destroy() } catch {} }
+  /* ── Cleanup ── */
+  useEffect(() => {
+    return () => {
+      if (tickRef.current) clearInterval(tickRef.current)
+      if (playerRef.current?.destroy) try { playerRef.current.destroy() } catch {}
+    }
   }, [])
 
-  /* progress tick */
+  /* ── Progress tick ── */
   useEffect(() => {
     if (tickRef.current) clearInterval(tickRef.current)
-    if (phase === 'playing' && !paused) {
+    if (!paused && phase === 'playing') {
       tickRef.current = setInterval(() => {
         const p = playerRef.current
         if (!p?.getCurrentTime) return
-        setCur(p.getCurrentTime())
+        setTime(p.getCurrentTime())
         setDur(p.getDuration())
         setBuf((p.getVideoLoadedFraction?.() ?? 0) * 100)
       }, 300)
     }
     return () => { if (tickRef.current) clearInterval(tickRef.current) }
-  }, [phase, paused])
+  }, [paused, phase])
 
-  /* auto-hide controls */
-  const armHide = useCallback(() => {
-    if (hideRef.current) clearTimeout(hideRef.current)
+  /* ── Auto-hide controls ── */
+  const resetHide = useCallback(() => {
     setShowBar(true)
+    if (hideRef.current) clearTimeout(hideRef.current)
     if (!paused) hideRef.current = setTimeout(() => setShowBar(false), 3000)
   }, [paused])
 
-  /* ESC to exit CSS fullscreen */
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape' && fs) setFs(false) }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [fs])
+  useEffect(() => { if (paused) setShowBar(true) }, [paused])
 
-  /* ── actions ── */
-  const toggle = () => {
-    if (!playerRef.current) return
-    if (paused) playerRef.current.playVideo(); else playerRef.current.pauseVideo()
+  /* ── Force iframe to fill container ── */
+  useEffect(() => {
+    if (phase !== 'playing' || !containerRef.current) return
+    const iframe = containerRef.current.querySelector('iframe')
+    if (iframe) {
+      iframe.style.position = 'absolute'
+      iframe.style.top = '0'
+      iframe.style.left = '0'
+      iframe.style.width = '100%'
+      iframe.style.height = '100%'
+      iframe.style.border = 'none'
+    }
+  }, [phase])
+
+  /* ── Controls ── */
+  const togglePlay = () => {
+    const p = playerRef.current
+    if (!p) return
+    if (paused) p.playVideo(); else p.pauseVideo()
   }
   const seek = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!playerRef.current || !dur) return
-    const r = e.currentTarget.getBoundingClientRect()
-    const pct = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width))
+    const rect = e.currentTarget.getBoundingClientRect()
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
     playerRef.current.seekTo(pct * dur, true)
-    setCur(pct * dur)
+    setTime(pct * dur)
   }
   const changeVol = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = +e.target.value; setVol(v); setMuted(v === 0)
@@ -135,24 +161,17 @@ export default function YouTubePlayer({ videoId, thumbnail, title }: Props) {
     if (muted) { playerRef.current?.unMute(); playerRef.current?.setVolume(vol || 80); setMuted(false) }
     else { playerRef.current?.mute(); setMuted(true) }
   }
-  const toggleFs = () => setFs(f => !f)
+  const toggleFull = () => setFull(f => !f)
 
-  const pct = dur ? (cur / dur) * 100 : 0
+  const pct = dur ? (time / dur) * 100 : 0
+  const thumbSrc = thumbnail || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
 
-  /* ── CSS fullscreen (not native — our overlay stays on top) ── */
-  const containerCls = fs
-    ? 'fixed inset-0 z-[9999] bg-black'
-    : 'relative rounded-xl overflow-hidden shadow-lg'
-
-  /* ── POSTER (before play) ── */
+  /* ── Poster (before play) ── */
   if (phase === 'poster') {
     return (
-      <div className="relative rounded-xl overflow-hidden shadow-lg cursor-pointer group bg-black" style={{ aspectRatio: '16/9' }}
-        onClick={createPlayer}>
-        <img
-          src={thumbnail || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
-          alt={title || ''} className="w-full h-full object-cover"
-        />
+      <div className="relative bg-black rounded-xl overflow-hidden shadow-lg cursor-pointer group" style={{ aspectRatio: '16/9' }}
+        onClick={() => ensureYTApi(createPlayer)}>
+        <img src={thumbSrc} alt={title || ''} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition" />
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition">
@@ -163,23 +182,19 @@ export default function YouTubePlayer({ videoId, thumbnail, title }: Props) {
     )
   }
 
-  /* ── PLAYER ── */
+  /* ── Player (loading + playing) ── */
   return (
-    <div ref={wrapperRef} className={containerCls}
-      style={fs ? undefined : { aspectRatio: '16/9' }}
-      onMouseMove={armHide} onMouseLeave={() => !paused && setShowBar(false)}>
+    <div
+      className={`bg-black select-none ${full ? 'fixed inset-0 z-[9999]' : 'relative rounded-xl overflow-hidden shadow-lg'}`}
+      style={full ? undefined : { aspectRatio: '16/9' }}
+      onMouseMove={resetHide}
+      onMouseLeave={() => !paused && setShowBar(false)}
+    >
+      {/* YT player container — the API creates an iframe inside this div */}
+      <div ref={containerRef} className="absolute inset-0" style={{ pointerEvents: 'none' }} />
 
-      {/* YT iframe lives here — pointer-events:none so user can't click YT buttons */}
-      <div ref={ytDivRef} className="absolute inset-0" style={{ pointerEvents: 'none' }} />
-
-      {/* Make the iframe fill the container */}
-      <style>{`
-        #${ytDivRef.current?.firstElementChild?.id} { position:absolute!important; inset:0!important; width:100%!important; height:100%!important; }
-        #${ytDivRef.current?.firstElementChild?.id} iframe { width:100%!important; height:100%!important; }
-      `}</style>
-
-      {/* Click area (play/pause) */}
-      <div className="absolute inset-0 z-10 cursor-pointer" onClick={toggle} />
+      {/* Click overlay — captures clicks, blocks YT native UI interaction */}
+      <div className="absolute inset-0 z-10 cursor-pointer" onClick={togglePlay} />
 
       {/* Loading spinner */}
       {phase === 'loading' && (
@@ -190,21 +205,22 @@ export default function YouTubePlayer({ videoId, thumbnail, title }: Props) {
 
       {/* Big play when paused */}
       {phase === 'playing' && paused && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/30 cursor-pointer" onClick={toggle}>
-          <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-lg hover:scale-110 transition">
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/20 cursor-pointer" onClick={togglePlay}>
+          <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
             <Play size={28} className="text-gray-900 ml-1" fill="currentColor" />
           </div>
         </div>
       )}
 
-      {/* Controls bar */}
+      {/* Custom controls bar */}
       {phase === 'playing' && (
-        <div className={`absolute bottom-0 left-0 right-0 z-30 transition-opacity duration-300 ${showBar || paused ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        <div
+          className={`absolute bottom-0 left-0 right-0 z-30 transition-opacity duration-300 ${showBar ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
           onClick={e => e.stopPropagation()}
-          style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.85))' }}>
-
+          style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.85))' }}
+        >
           {/* Progress */}
-          <div className="px-3 pt-6">
+          <div className="px-4 pt-6">
             <div className="relative h-1 bg-white/20 rounded-full cursor-pointer group/p hover:h-1.5 transition-all" onClick={seek}>
               <div className="absolute inset-y-0 left-0 bg-white/30 rounded-full" style={{ width: `${buf}%` }} />
               <div className="absolute inset-y-0 left-0 bg-white rounded-full" style={{ width: `${pct}%` }} />
@@ -214,11 +230,11 @@ export default function YouTubePlayer({ videoId, thumbnail, title }: Props) {
           </div>
 
           {/* Buttons */}
-          <div className="flex items-center gap-3 px-3 py-2.5 text-white">
-            <button onClick={toggle} className="hover:scale-110 transition">
+          <div className="flex items-center gap-3 px-4 py-2.5 text-white">
+            <button onClick={togglePlay} className="hover:scale-110 transition">
               {paused ? <Play size={22} fill="white" className="ml-0.5" /> : <Pause size={22} fill="white" />}
             </button>
-            <span className="text-xs font-mono tabular-nums opacity-90">{fmt(cur)} / {fmt(dur)}</span>
+            <span className="text-xs font-mono tabular-nums opacity-90">{fmt(time)} / {fmt(dur)}</span>
             <div className="flex items-center gap-1.5 group/v">
               <button onClick={toggleMute} className="hover:scale-110 transition">
                 {muted || vol === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
@@ -227,15 +243,12 @@ export default function YouTubePlayer({ videoId, thumbnail, title }: Props) {
                 className="w-0 group-hover/v:w-20 transition-all duration-200 accent-white h-1 cursor-pointer opacity-0 group-hover/v:opacity-100" />
             </div>
             <div className="flex-1" />
-            <button onClick={toggleFs} className="hover:scale-110 transition">
-              {fs ? <Minimize size={20} /> : <Maximize size={20} />}
+            <button onClick={toggleFull} className="hover:scale-110 transition">
+              {full ? <Minimize size={20} /> : <Maximize size={20} />}
             </button>
           </div>
         </div>
       )}
-
-      {/* ESC to exit fullscreen */}
-      {fs && <div className="absolute top-4 right-4 z-40 text-white/50 text-xs">ESC para sair</div>}
     </div>
   )
 }
