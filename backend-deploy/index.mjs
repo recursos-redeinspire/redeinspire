@@ -1134,18 +1134,19 @@ async function podcastDelete(episodeId, user) {
 // DROPBOX SYNC
 // =============================================================================
 const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN || '';
-const DROPBOX_FOLDER = process.env.DROPBOX_FOLDER || '/Recursos';
+const DROPBOX_FOLDER = process.env.DROPBOX_FOLDER ?? '';
 
 async function dropboxSync(user) {
   if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem sincronizar com o Dropbox.' });
   if (!DROPBOX_ACCESS_TOKEN) return res(500, { message: 'DROPBOX_ACCESS_TOKEN não configurado na Lambda.' });
 
   try {
-    // 1. List files in Dropbox folder
+    // 1. List files in Dropbox folder (empty string = root for App folder type)
+    const folderPath = DROPBOX_FOLDER || '';
     const listRes = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: DROPBOX_FOLDER, recursive: true, limit: 2000 }),
+      body: JSON.stringify({ path: folderPath, recursive: true, limit: 2000 }),
     });
     const listData = await listRes.json();
     if (listData.error) return res(400, { message: 'Erro ao listar Dropbox', error: listData.error_summary });
@@ -1205,7 +1206,9 @@ async function dropboxSync(user) {
         else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) category = 'imagem';
 
         // Determine subfolder as description
-        const pathParts = file.path_display.replace(DROPBOX_FOLDER + '/', '').split('/');
+        const basePath = folderPath ? folderPath + '/' : '/';
+        const relativePath = file.path_display.startsWith(basePath) ? file.path_display.substring(basePath.length) : file.path_display.substring(1);
+        const pathParts = relativePath.split('/');
         const subfolder = pathParts.length > 1 ? pathParts.slice(0, -1).join(' / ') : '';
 
         // Create material in DynamoDB
