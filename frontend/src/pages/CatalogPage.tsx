@@ -5,6 +5,7 @@ import { useI18n } from '../i18n/I18nContext'
 import {
   Search, Loader2, Play, ChevronLeft, ChevronRight, X, Calendar, Video, ArrowLeft, Send, MessageSquare
 } from 'lucide-react'
+import YouTubePlayer from '../components/YouTubePlayer'
 
 function formatDate(iso: string) {
   if (!iso) return ''
@@ -55,16 +56,7 @@ function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
         {/* Main content - left */}
         <div className="flex-1 min-w-0">
           {/* Video player */}
-          <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-lg">
-            <iframe
-              src={`https://www.youtube-nocookie.com/embed/${video.id}?autoplay=1&rel=0&modestbranding=1&showinfo=0&controls=1&fs=1&iv_load_policy=3&cc_load_policy=0&disablekb=0`}
-              title={video.title}
-              className="w-full h-full"
-              allow="accelerometer; autoplay; encrypted-media; gyroscope"
-              allowFullScreen
-              referrerPolicy="strict-origin-when-cross-origin"
-            />
-          </div>
+          <YouTubePlayer videoId={video.id} thumbnail={video.thumbnail} title={video.title} />
 
           {/* Video info */}
           <div className="mt-4">
