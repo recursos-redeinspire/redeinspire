@@ -1132,92 +1132,80 @@ async function podcastDelete(episodeId, user) {
 
 // =============================================================================
 // DROPBOX SYNC
+
+// =============================================================================
+// DROPBOX SYNC
 // =============================================================================
 const DROPBOX_ACCESS_TOKEN = process.env.DROPBOX_ACCESS_TOKEN || '';
-const DROPBOX_FOLDER = process.env.DROPBOX_FOLDER ?? '';
+const DROPBOX_FOLDER = process.env.DROPBOX_FOLDER || '';
+const SYNC_BATCH = 20;
 
 async function dropboxSync(user) {
-  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem sincronizar com o Dropbox.' });
-  if (!DROPBOX_ACCESS_TOKEN) return res(500, { message: 'DROPBOX_ACCESS_TOKEN não configurado na Lambda.' });
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas admin pode sincronizar.' });
+  if (!DROPBOX_ACCESS_TOKEN) return res(500, { message: 'DROPBOX_ACCESS_TOKEN nao configurado.' });
 
   try {
-    // 1. List files in Dropbox folder (empty string = root for App folder type)
+    // List files with pagination
     const folderPath = DROPBOX_FOLDER || '';
-    const listRes = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: folderPath, recursive: true, limit: 2000 }),
-    });
-    const listData = await listRes.json();
-    if (listData.error) return res(400, { message: 'Erro ao listar Dropbox', error: listData.error_summary });
+    let allFiles = [];
+    let hasMore = true;
+    let cursor = null;
 
-    const files = (listData.entries || []).filter(e => e['.tag'] === 'file');
-    if (files.length === 0) return res(200, { message: 'Nenhum arquivo encontrado na pasta do Dropbox.', synced: 0 });
+    while (hasMore) {
+      const url = cursor
+        ? 'https://api.dropboxapi.com/2/files/list_folder/continue'
+        : 'https://api.dropboxapi.com/2/files/list_folder';
+      const payload = cursor
+        ? { cursor }
+        : { path: folderPath, recursive: true, limit: 2000 };
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (data.error) return res(400, { message: 'Erro Dropbox', error: data.error_summary });
+      const files = (data.entries || []).filter(e => e['.tag'] === 'file');
+      allFiles = allFiles.concat(files);
+      hasMore = data.has_more;
+      cursor = data.cursor;
+    }
 
-    // 2. Get existing materials from DynamoDB
-    const existingData = await ddb.send(new ScanCommand({ TableName: T.MATERIALS }));
-    const existingPaths = new Set((existingData.Items || []).map(m => m.dropboxPath).filter(Boolean));
+    if (allFiles.length === 0) return res(200, { message: 'Nenhum arquivo encontrado.', synced: 0 });
 
-    // 3. Filter only new files
-    const newFiles = files.filter(f => !existingPaths.has(f.path_lower));
-    if (newFiles.length === 0) return res(200, { message: 'Todos os arquivos já estão sincronizados.', synced: 0, total: files.length });
+    // Get existing
+    const existing = await ddb.send(new ScanCommand({ TableName: T.MATERIALS }));
+    const existingPaths = new Set((existing.Items || []).map(m => m.dropboxPath).filter(Boolean));
 
-    // 4. Create shared links and materials for new files
+    const newFiles = allFiles.filter(f => !existingPaths.has(f.path_lower));
+    if (newFiles.length === 0) return res(200, { message: `Todos os ${allFiles.length} arquivos ja sincronizados.`, synced: 0, total: allFiles.length });
+
+    // Process batch without shared links (just store dropbox path, link on demand)
+    const batch = newFiles.slice(0, SYNC_BATCH);
     let synced = 0;
     const errors = [];
-    for (const file of newFiles) {
+
+    for (const file of batch) {
       try {
-        // Get or create shared link
-        let downloadUrl = '';
-        try {
-          const linkRes = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: file.path_lower, settings: { requested_visibility: { '.tag': 'public' }, access: { '.tag': 'viewer' } } }),
-          });
-          const linkData = await linkRes.json();
-          if (linkData.url) {
-            downloadUrl = linkData.url.replace('dl=0', 'dl=1');
-          } else if (linkData.error_summary?.includes('shared_link_already_exists')) {
-            // Link already exists, get it
-            const existingLinkRes = await fetch('https://api.dropboxapi.com/2/sharing/list_shared_links', {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${DROPBOX_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ path: file.path_lower, direct_only: true }),
-            });
-            const existingLinkData = await existingLinkRes.json();
-            if (existingLinkData.links?.length > 0) {
-              downloadUrl = existingLinkData.links[0].url.replace('dl=0', 'dl=1');
-            }
-          }
-        } catch (linkErr) {
-          console.error('Link error for', file.name, linkErr.message);
-        }
-
-        // Determine category from file extension
-        const ext = file.name.split('.').pop()?.toLowerCase() || '';
+        const ext = (file.name.split('.').pop() || '').toLowerCase();
         let category = 'documento';
-        if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext)) category = 'video';
-        else if (['mp3', 'wav', 'ogg', 'm4a', 'aac'].includes(ext)) category = 'audio';
-        else if (['pdf'].includes(ext)) category = 'pdf';
-        else if (['doc', 'docx', 'txt', 'rtf'].includes(ext)) category = 'documento';
-        else if (['ppt', 'pptx'].includes(ext)) category = 'apresentacao';
-        else if (['xls', 'xlsx', 'csv'].includes(ext)) category = 'planilha';
-        else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) category = 'imagem';
+        if (['mp4','mov','avi','mkv','webm'].includes(ext)) category = 'video';
+        else if (['mp3','wav','ogg','m4a','aac'].includes(ext)) category = 'audio';
+        else if (ext === 'pdf') category = 'pdf';
+        else if (['ppt','pptx'].includes(ext)) category = 'apresentacao';
+        else if (['xls','xlsx','csv'].includes(ext)) category = 'planilha';
+        else if (['jpg','jpeg','png','gif','webp','svg'].includes(ext)) category = 'imagem';
 
-        // Determine subfolder as description
-        const basePath = folderPath ? folderPath + '/' : '/';
-        const relativePath = file.path_display.startsWith(basePath) ? file.path_display.substring(basePath.length) : file.path_display.substring(1);
-        const pathParts = relativePath.split('/');
-        const subfolder = pathParts.length > 1 ? pathParts.slice(0, -1).join(' / ') : '';
+        const rel = file.path_display.substring(1);
+        const parts = rel.split('/');
+        const subfolder = parts.length > 1 ? parts.slice(0, -1).join(' / ') : '';
 
-        // Create material in DynamoDB
         const material = {
           id: uuid(),
-          title: file.name.replace(/\.[^/.]+$/, ''), // filename without extension
-          description: subfolder ? `Pasta: ${subfolder}` : 'Importado do Dropbox',
+          title: file.name.replace(/\.[^/.]+$/, ''),
+          description: subfolder || 'Dropbox',
           category,
-          fileUrl: downloadUrl,
+          fileUrl: '',
           fileName: file.name,
           fileSize: file.size || 0,
           dropboxPath: file.path_lower,
@@ -1228,20 +1216,19 @@ async function dropboxSync(user) {
         };
         await ddb.send(new PutCommand({ TableName: T.MATERIALS, Item: material }));
         synced++;
-      } catch (fileErr) {
-        errors.push({ file: file.name, error: fileErr.message });
+      } catch (e) {
+        errors.push({ file: file.name, error: e.message });
       }
     }
 
-    return res(200, {
-      message: `Sincronização concluída. ${synced} novo(s) material(is) importado(s).`,
-      synced,
-      total: files.length,
-      alreadySynced: files.length - newFiles.length,
-      errors: errors.length > 0 ? errors : undefined,
-    });
+    const remaining = newFiles.length - synced;
+    let msg = `${synced} material(is) importado(s).`;
+    if (remaining > 0) msg += ` Restam ${remaining}. Clique novamente.`;
+    else msg += ' Completo!';
+
+    return res(200, { message: msg, synced, total: allFiles.length, remaining, errors: errors.length ? errors : undefined });
   } catch (err) {
     console.error('Dropbox sync error:', err);
-    return res(500, { message: 'Erro na sincronização com o Dropbox', error: err.message });
+    return res(500, { message: 'Erro sync Dropbox', error: err.message });
   }
 }
