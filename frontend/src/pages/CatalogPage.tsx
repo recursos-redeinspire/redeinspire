@@ -57,7 +57,7 @@ function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
           {/* Video player */}
           <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-lg">
             <iframe
-              src={`https://www.youtube.com/embed/${video.id}?autoplay=1&rel=0`}
+              src={`https://www.youtube.com/embed/${video.id}?autoplay=1&rel=0&modestbranding=1&showinfo=0&controls=1&disablekb=0&fs=1&iv_load_policy=3`}
               title={video.title}
               className="w-full h-full"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
