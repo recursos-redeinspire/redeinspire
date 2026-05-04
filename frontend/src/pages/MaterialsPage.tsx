@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
 import {
   Folder, FileText, Video, Headphones, Image, FileSpreadsheet, Presentation,
-  File, Download, ChevronRight, Home, Loader2, X, Archive, ArrowLeft
+  File, Download, ChevronRight, Home, Loader2, X, Archive, ArrowLeft, Search, SlidersHorizontal
 } from 'lucide-react'
 
 const FILE_TYPE_ICONS: Record<string, { icon: typeof File; color: string }> = {
@@ -47,9 +47,17 @@ export default function MaterialsPage() {
   const [previewUrl, setPreviewUrl] = useState('')
   const [previewLoading, setPreviewLoading] = useState(false)
 
+  // Search & filters
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterType, setFilterType] = useState('')
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'size'>('name')
+  const [showFilters, setShowFilters] = useState(false)
+
   const loadFolder = useCallback(async (path: string) => {
     setLoading(true)
     setError('')
+    setSearchQuery('')
+    setFilterType('')
     try {
       const result = await browseDropbox(path)
       setEntries(result.entries)
@@ -74,7 +82,6 @@ export default function MaterialsPage() {
     navigateTo(parts.join('/'))
   }
 
-  // Build breadcrumb from path
   const breadcrumbs = currentPath
     ? currentPath.split('/').filter(Boolean).map((part, i, arr) => ({
         name: part,
@@ -108,8 +115,35 @@ export default function MaterialsPage() {
     }
   }
 
-  const folders = entries.filter(e => e.tag === 'folder')
-  const files = entries.filter(e => e.tag === 'file')
+  // Apply search and filters
+  const query = searchQuery.toLowerCase().trim()
+  const allFolders = entries.filter(e => e.tag === 'folder')
+  const allFiles = entries.filter(e => e.tag === 'file')
+
+  const filteredFolders = query
+    ? allFolders.filter(f => f.name.toLowerCase().includes(query))
+    : allFolders
+
+  let filteredFiles = allFiles
+  if (query) filteredFiles = filteredFiles.filter(f => f.name.toLowerCase().includes(query))
+  if (filterType) filteredFiles = filteredFiles.filter(f => f.fileType === filterType)
+
+  // Sort files
+  filteredFiles = [...filteredFiles].sort((a, b) => {
+    if (sortBy === 'date') return (b.modified || '').localeCompare(a.modified || '')
+    if (sortBy === 'size') return (b.size || 0) - (a.size || 0)
+    return a.name.localeCompare(b.name)
+  })
+
+  // Get unique file types for filter
+  const availableTypes = [...new Set(allFiles.map(f => f.fileType))].sort()
+  const typeLabels: Record<string, string> = {
+    video: 'Vídeo', audio: 'Áudio', pdf: 'PDF', document: 'Documento',
+    presentation: 'Apresentação', spreadsheet: 'Planilha', image: 'Imagem',
+    archive: 'Arquivo', other: 'Outro',
+  }
+
+  const hasActiveFilters = !!query || !!filterType || sortBy !== 'name'
 
   return (
     <div>
@@ -117,6 +151,62 @@ export default function MaterialsPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-gray-900">{t('materials.title')}</h1>
       </div>
+
+      {/* Search bar */}
+      <div className="flex gap-2 mb-4">
+        <div className="flex-1 relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder={t('materials.searchPlaceholder')}
+            className="w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-gray-300 focus:border-gray-900 outline-none"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X size={14} />
+            </button>
+          )}
+        </div>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg text-sm transition ${showFilters || hasActiveFilters ? 'bg-gray-900 text-white border-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
+        >
+          <SlidersHorizontal size={16} />
+          {t('materials.filterLabel')}
+          {hasActiveFilters && !showFilters && <span className="w-2 h-2 rounded-full bg-white" />}
+        </button>
+      </div>
+
+      {/* Filters row */}
+      {showFilters && (
+        <div className="flex flex-wrap gap-3 mb-4 bg-white border rounded-lg p-3 items-end">
+          <div className="min-w-[160px]">
+            <label className="block text-xs font-medium text-gray-500 mb-1">{t('materials.fileType')}</label>
+            <select value={filterType} onChange={e => setFilterType(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm bg-white">
+              <option value="">{t('materials.allTypes')}</option>
+              {availableTypes.map(ft => (
+                <option key={ft} value={ft}>{typeLabels[ft] || ft}</option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-[160px]">
+            <label className="block text-xs font-medium text-gray-500 mb-1">{t('materials.sortByLabel')}</label>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="w-full border rounded-lg px-3 py-2 text-sm bg-white">
+              <option value="name">{t('materials.sortName')}</option>
+              <option value="date">{t('materials.sortDate')}</option>
+              <option value="size">{t('materials.sortSize')}</option>
+            </select>
+          </div>
+          {hasActiveFilters && (
+            <button onClick={() => { setSearchQuery(''); setFilterType(''); setSortBy('name') }}
+              className="text-sm text-red-600 hover:text-red-800 px-3 py-2">
+              {t('materials.clearFilters')}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-1 mb-6 text-sm flex-wrap bg-white border rounded-lg px-4 py-3">
@@ -127,7 +217,7 @@ export default function MaterialsPage() {
         )}
         <button onClick={() => navigateTo('')} className={`flex items-center gap-1 hover:text-gray-900 transition ${!currentPath ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}>
           <Home size={15} />
-          <span>Dropbox</span>
+          <span>{t('materials.title')}</span>
         </button>
         {breadcrumbs.map((bc, i) => (
           <span key={bc.path} className="flex items-center gap-1">
@@ -141,9 +231,9 @@ export default function MaterialsPage() {
           </span>
         ))}
         <span className="ml-auto text-xs text-gray-400">
-          {folders.length > 0 && `${folders.length} ${t('materials.folders')}`}
-          {folders.length > 0 && files.length > 0 && ' · '}
-          {files.length > 0 && `${files.length} ${t('materials.files')}`}
+          {filteredFolders.length > 0 && `${filteredFolders.length} ${t('materials.folders')}`}
+          {filteredFolders.length > 0 && filteredFiles.length > 0 && ' · '}
+          {filteredFiles.length > 0 && `${filteredFiles.length} ${t('materials.files')}`}
         </span>
       </div>
 
@@ -163,18 +253,27 @@ export default function MaterialsPage() {
       )}
 
       {/* Empty */}
-      {!loading && !error && entries.length === 0 && (
+      {!loading && !error && filteredFolders.length === 0 && filteredFiles.length === 0 && (
         <div className="text-center py-20 text-gray-400">
-          <Folder size={48} className="mx-auto mb-3 text-gray-300" />
-          <p>{t('materials.emptyFolder')}</p>
+          {query || filterType ? (
+            <>
+              <Search size={48} className="mx-auto mb-3 text-gray-300" />
+              <p>{t('materials.noResults')}</p>
+            </>
+          ) : (
+            <>
+              <Folder size={48} className="mx-auto mb-3 text-gray-300" />
+              <p>{t('materials.emptyFolder')}</p>
+            </>
+          )}
         </div>
       )}
 
       {/* Folders */}
-      {!loading && folders.length > 0 && (
+      {!loading && filteredFolders.length > 0 && (
         <div className="mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {folders.map(folder => (
+            {filteredFolders.map(folder => (
               <button
                 key={folder.id}
                 onClick={() => navigateTo(folder.path)}
@@ -195,11 +294,11 @@ export default function MaterialsPage() {
       )}
 
       {/* Files */}
-      {!loading && files.length > 0 && (
+      {!loading && filteredFiles.length > 0 && (
         <div>
-          {folders.length > 0 && <div className="border-t mb-4" />}
+          {filteredFolders.length > 0 && <div className="border-t mb-4" />}
           <div className="space-y-2">
-            {files.map(file => (
+            {filteredFiles.map(file => (
               <div
                 key={file.id}
                 className="flex items-center gap-3 bg-white border rounded-xl p-3 hover:shadow-sm transition group"
