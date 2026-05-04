@@ -36,6 +36,7 @@ const T = {
   TIMELINE: 'RedeInspire-Timeline',
   MINISTRIES: 'RedeInspire-Ministries',
   MATERIALS: 'RedeInspire-Materials',
+  COMMENTS: 'RedeInspire-Comments',
 };
 
 function res(statusCode, body) {
@@ -188,6 +189,10 @@ export async function handler(event) {
     // ---- YouTube ----
     if (path === '/youtube/videos' && method === 'GET') return await youtubeListVideos(qs(event), getUserFromToken(event));
     if (path === '/youtube/search' && method === 'GET') return await youtubeSearch(qs(event), getUserFromToken(event));
+
+    // ---- Comments ----
+    if (path === '/comments' && method === 'GET') return await commentsList(qs(event), getUserFromToken(event));
+    if (path === '/comments' && method === 'POST') return await commentsCreate(body(event), getUserFromToken(event));
 
     return res(404, { message: 'Rota não encontrada', path, method });
   } catch (err) {
@@ -1438,4 +1443,75 @@ async function youtubeSearch(query, user) {
     console.error('YouTube search error:', err);
     return res(500, { message: 'Erro YouTube', error: err.message });
   }
+}
+
+
+// =============================================================================
+// COMMENTS
+// =============================================================================
+async function commentsList(query, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!query.videoId) return res(400, { message: 'videoId obrigatorio.' });
+
+  const data = await ddb.send(new ScanCommand({
+    TableName: T.COMMENTS,
+    FilterExpression: 'videoId = :v',
+    ExpressionAttributeValues: { ':v': query.videoId },
+  }));
+  const items = (data.Items || []).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  return res(200, items);
+}
+
+async function commentsCreate(data, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!data.videoId || !data.text) return res(400, { message: 'videoId e text obrigatorios.' });
+
+  const comment = {
+    id: uuid(),
+    videoId: data.videoId,
+    videoTitle: data.videoTitle || '',
+    userId: user.id,
+    userName: user.name,
+    userPhoto: '',
+    text: data.text.trim(),
+    createdAt: new Date().toISOString(),
+  };
+
+  // Get user photo
+  try {
+    const userData = await ddb.send(new GetCommand({ TableName: T.USERS, Key: { id: user.id } }));
+    if (userData.Item?.photoUrl) comment.userPhoto = userData.Item.photoUrl;
+  } catch {}
+
+  await ddb.send(new PutCommand({ TableName: T.COMMENTS, Item: comment }));
+
+  // Notify all admins via internal message
+  try {
+    const usersData = await ddb.send(new ScanCommand({
+      TableName: T.USERS,
+      FilterExpression: '#r = :admin',
+      ExpressionAttributeNames: { '#r': 'role' },
+      ExpressionAttributeValues: { ':admin': 'admin' },
+    }));
+    const admins = usersData.Items || [];
+    for (const admin of admins) {
+      await ddb.send(new PutCommand({
+        TableName: T.MESSAGES,
+        Item: {
+          id: uuid(),
+          fromUserId: user.id,
+          fromName: user.name,
+          toUserId: admin.id,
+          subject: `Novo comentario em: ${data.videoTitle || data.videoId}`,
+          body: `${user.name} comentou:\n\n"${data.text.trim()}"`,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+        },
+      }));
+    }
+  } catch (e) {
+    console.error('Error notifying admins:', e.message);
+  }
+
+  return res(201, comment);
 }

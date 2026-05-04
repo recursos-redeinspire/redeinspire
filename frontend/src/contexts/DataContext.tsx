@@ -88,6 +88,8 @@ interface DataContextType {
   getDropboxLink: (dropboxPath: string) => Promise<{ link: string }>
   getYoutubeVideos: (pageToken?: string, limit?: number) => Promise<{ videos: any[]; totalResults: number; nextPageToken: string | null; prevPageToken: string | null }>
   searchYoutube: (q: string, pageToken?: string) => Promise<{ videos: any[]; totalResults: number; nextPageToken: string | null }>
+  getComments: (videoId: string) => Promise<any[]>
+  addComment: (videoId: string, videoTitle: string, text: string) => Promise<any>
   getUploadPresignedUrl: (fileName: string, contentType: string) => Promise<{ uploadUrl: string; fileUrl: string }>
   createMinistry: (data: { name: string; description: string; leaderId?: string; leaderName?: string }) => Promise<any>
   updateMinistry: (id: string, data: Record<string, any>) => Promise<boolean>
@@ -523,6 +525,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return apiFetch(url)
   }, [])
 
+  const getComments = useCallback(async (videoId: string): Promise<any[]> => {
+    return apiFetch<any[]>(`/comments?videoId=${encodeURIComponent(videoId)}`)
+  }, [])
+
+  const addComment = useCallback(async (videoId: string, videoTitle: string, text: string): Promise<any> => {
+    return apiFetch<any>('/comments', { method: 'POST', body: JSON.stringify({ videoId, videoTitle, text }) })
+  }, [])
+
   const getUploadPresignedUrl = useCallback(async (fileName: string, contentType: string) => {
     return apiFetch<{ uploadUrl: string; fileUrl: string }>('/upload/presign', { method: 'POST', body: JSON.stringify({ fileName, contentType }) })
   }, [])
@@ -661,7 +671,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getMetrics, getLeaderRanking, getTimeline, getRecentAccesses,
     getMessages, getUnreadCount, markAsRead, sendMessage, getMessageRecipients,
     getMinistries, createMinistry, deleteMinistry, updateMinistry, getMyPoints, getPointsRanking,
-    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, getUploadPresignedUrl,
+    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, getComments, addComment, getUploadPresignedUrl,
     getChurches, getTopChurches, createChurch, deleteChurch, updateChurch,
     getPlans, savePlan, deletePlan,
     getPodcastEpisodes, createPodcast, updatePodcast, deletePodcast, getPodcastProgress, updatePodcastProgress,
