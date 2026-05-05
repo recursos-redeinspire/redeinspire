@@ -37,6 +37,7 @@ const T = {
   MINISTRIES: 'RedeInspire-Ministries',
   MATERIALS: 'RedeInspire-Materials',
   COMMENTS: 'RedeInspire-Comments',
+  VIDEO_TAGS: 'RedeInspire-VideoTags',
 };
 
 function res(statusCode, body) {
@@ -195,6 +196,11 @@ export async function handler(event) {
     // ---- Comments ----
     if (path === '/comments' && method === 'GET') return await commentsList(qs(event), getUserFromToken(event));
     if (path === '/comments' && method === 'POST') return await commentsCreate(body(event), getUserFromToken(event));
+
+    // ---- Video Tags ----
+    if (path === '/video-tags' && method === 'GET') return await videoTagsGet(qs(event), getUserFromToken(event));
+    if (path === '/video-tags' && method === 'POST') return await videoTagsSave(body(event), getUserFromToken(event));
+    if (path === '/video-tags/all' && method === 'GET') return await videoTagsAll(getUserFromToken(event));
 
     return res(404, { message: 'Rota não encontrada', path, method });
   } catch (err) {
@@ -1800,4 +1806,38 @@ async function dropboxSmartSearch(query, user) {
     console.error('Dropbox smart search error:', err);
     return res(500, { message: 'Erro na busca', error: err.message });
   }
+}
+
+
+// =============================================================================
+// VIDEO TAGS
+// =============================================================================
+async function videoTagsGet(query, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!query.videoId) return res(400, { message: 'videoId obrigatorio.' });
+  const data = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: query.videoId } }));
+  return res(200, data.Item || { videoId: query.videoId, tags: [] });
+}
+
+async function videoTagsSave(data, user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem gerenciar tags.' });
+  if (!data.videoId) return res(400, { message: 'videoId obrigatorio.' });
+  const tags = (data.tags || []).map(t => t.trim().toLowerCase()).filter(Boolean);
+  const item = { videoId: data.videoId, tags, updatedAt: new Date().toISOString(), updatedBy: user.id };
+  await ddb.send(new PutCommand({ TableName: T.VIDEO_TAGS, Item: item }));
+  return res(200, item);
+}
+
+async function videoTagsAll(user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  const data = await ddb.send(new ScanCommand({ TableName: T.VIDEO_TAGS }));
+  const items = data.Items || [];
+  // Build a map of videoId -> tags and a set of all unique tags
+  const tagMap = {};
+  const allTags = new Set();
+  for (const item of items) {
+    tagMap[item.videoId] = item.tags || [];
+    (item.tags || []).forEach(t => allTags.add(t));
+  }
+  return res(200, { tagMap, allTags: [...allTags].sort() });
 }

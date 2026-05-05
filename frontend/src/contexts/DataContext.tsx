@@ -92,6 +92,9 @@ interface DataContextType {
   smartSearchYoutube: (q: string) => Promise<{ videos: any[]; totalResults: number; keywords: string[] }>
   getComments: (videoId: string) => Promise<any[]>
   addComment: (videoId: string, videoTitle: string, text: string) => Promise<any>
+  getVideoTags: (videoId: string) => Promise<{ videoId: string; tags: string[] }>
+  saveVideoTags: (videoId: string, tags: string[]) => Promise<any>
+  getAllVideoTags: () => Promise<{ tagMap: Record<string, string[]>; allTags: string[] }>
   getUploadPresignedUrl: (fileName: string, contentType: string) => Promise<{ uploadUrl: string; fileUrl: string }>
   createMinistry: (data: { name: string; description: string; leaderId?: string; leaderName?: string }) => Promise<any>
   updateMinistry: (id: string, data: Record<string, any>) => Promise<boolean>
@@ -543,6 +546,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return apiFetch<any>('/comments', { method: 'POST', body: JSON.stringify({ videoId, videoTitle, text }) })
   }, [])
 
+  const getVideoTags = useCallback(async (videoId: string): Promise<{ videoId: string; tags: string[] }> => {
+    return apiFetch(`/video-tags?videoId=${encodeURIComponent(videoId)}`)
+  }, [])
+
+  const saveVideoTags = useCallback(async (videoId: string, tags: string[]): Promise<any> => {
+    return apiFetch('/video-tags', { method: 'POST', body: JSON.stringify({ videoId, tags }) })
+  }, [])
+
+  const getAllVideoTags = useCallback(async (): Promise<{ tagMap: Record<string, string[]>; allTags: string[] }> => {
+    return apiFetch('/video-tags/all')
+  }, [])
+
   const getUploadPresignedUrl = useCallback(async (fileName: string, contentType: string) => {
     return apiFetch<{ uploadUrl: string; fileUrl: string }>('/upload/presign', { method: 'POST', body: JSON.stringify({ fileName, contentType }) })
   }, [])
@@ -681,7 +696,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getMetrics, getLeaderRanking, getTimeline, getRecentAccesses,
     getMessages, getUnreadCount, markAsRead, sendMessage, getMessageRecipients,
     getMinistries, createMinistry, deleteMinistry, updateMinistry, getMyPoints, getPointsRanking,
-    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, smartSearchDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, smartSearchYoutube, getComments, addComment, getUploadPresignedUrl,
+    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, smartSearchDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, smartSearchYoutube, getComments, addComment, getVideoTags, saveVideoTags, getAllVideoTags, getUploadPresignedUrl,
     getChurches, getTopChurches, createChurch, deleteChurch, updateChurch,
     getPlans, savePlan, deletePlan,
     getPodcastEpisodes, createPodcast, updatePodcast, deletePodcast, getPodcastProgress, updatePodcastProgress,

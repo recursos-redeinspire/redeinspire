@@ -3,7 +3,7 @@ import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
 import {
-  Search, Loader2, Play, ChevronLeft, ChevronRight, X, Calendar, Video, ArrowLeft, Send, MessageSquare
+  Search, Loader2, Play, ChevronLeft, ChevronRight, X, Calendar, Video, ArrowLeft, Send, MessageSquare, Tag, Plus
 } from 'lucide-react'
 import YouTubePlayer from '../components/YouTubePlayer'
 
@@ -16,7 +16,7 @@ function formatDate(iso: string) {
 function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
   video: any; videos: any[]; onBack: () => void; onSelectVideo: (v: any) => void
 }) {
-  const { getComments, addComment } = useData()
+  const { getComments, addComment, getVideoTags, saveVideoTags } = useData()
   const { user } = useAuth()
   const { t } = useI18n()
   const [comments, setComments] = useState<any[]>([])
@@ -24,11 +24,18 @@ function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
   const [sending, setSending] = useState(false)
   const [showFullDesc, setShowFullDesc] = useState(false)
 
+  // Tags
+  const [tags, setTags] = useState<string[]>([])
+  const [showTagEditor, setShowTagEditor] = useState(false)
+  const [tagInput, setTagInput] = useState('')
+  const isAdmin = user?.role === 'admin'
+
   const suggestions = videos.filter(v => v.id !== video.id).slice(0, 10)
 
   useEffect(() => {
     getComments(video.id).then(setComments).catch(() => {})
-  }, [video.id, getComments])
+    getVideoTags(video.id).then(data => setTags(data.tags || [])).catch(() => {})
+  }, [video.id, getComments, getVideoTags])
 
   const handleSubmitComment = async () => {
     if (!commentText.trim() || sending) return
@@ -39,6 +46,21 @@ function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
       setCommentText('')
     } catch { /* ignore */ }
     finally { setSending(false) }
+  }
+
+  const handleAddTag = async () => {
+    const newTag = tagInput.trim().toLowerCase()
+    if (!newTag || tags.includes(newTag)) { setTagInput(''); return }
+    const updated = [...tags, newTag]
+    setTags(updated)
+    setTagInput('')
+    await saveVideoTags(video.id, updated)
+  }
+
+  const handleRemoveTag = async (tag: string) => {
+    const updated = tags.filter(t => t !== tag)
+    setTags(updated)
+    await saveVideoTags(video.id, updated)
   }
 
   const initials = (name: string) => name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?'
@@ -64,6 +86,42 @@ function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
             <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
               <span className="flex items-center gap-1"><Calendar size={14} /> {formatDate(video.publishedAt)}</span>
               {video.channelTitle && <span>· {video.channelTitle}</span>}
+            </div>
+
+            {/* Tags */}
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
+              <Tag size={14} className="text-gray-400" />
+              {tags.map(tag => (
+                <span key={tag} className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-full flex items-center gap-1">
+                  {tag}
+                  {isAdmin && (
+                    <button onClick={() => handleRemoveTag(tag)} className="text-gray-400 hover:text-red-500 ml-0.5"><X size={12} /></button>
+                  )}
+                </span>
+              ))}
+              {tags.length === 0 && !isAdmin && <span className="text-xs text-gray-400">Sem tags</span>}
+              {isAdmin && (
+                showTagEditor ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      value={tagInput}
+                      onChange={e => setTagInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleAddTag(); if (e.key === 'Escape') setShowTagEditor(false) }}
+                      placeholder="Nova tag..."
+                      className="border rounded-full px-3 py-1 text-xs w-32 outline-none focus:ring-1 focus:ring-gray-300"
+                      autoFocus
+                    />
+                    <button onClick={handleAddTag} className="text-gray-500 hover:text-gray-900"><Plus size={16} /></button>
+                    <button onClick={() => setShowTagEditor(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                  </div>
+                ) : (
+                  <button onClick={() => setShowTagEditor(true)}
+                    className="text-xs text-gray-400 hover:text-gray-700 border border-dashed border-gray-300 rounded-full px-2.5 py-1 flex items-center gap-1 hover:border-gray-400 transition">
+                    <Plus size={12} /> Adicionar tag
+                  </button>
+                )
+              )}
             </div>
           </div>
 
@@ -169,7 +227,7 @@ function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
 
 // ---- Main Catalog Page ----
 export default function CatalogPage() {
-  const { getYoutubeVideos, smartSearchYoutube } = useData()
+  const { getYoutubeVideos, smartSearchYoutube, getAllVideoTags } = useData()
   const { user: _user } = useAuth()
   const { t } = useI18n()
 
@@ -186,6 +244,11 @@ export default function CatalogPage() {
   const [searchNextToken, _setSearchNextToken] = useState<string | null>(null)
 
   const [selectedVideo, setSelectedVideo] = useState<any | null>(null)
+
+  // Tags
+  const [tagMap, setTagMap] = useState<Record<string, string[]>>({})
+  const [allTags, setAllTags] = useState<string[]>([])
+  const [filterTag, setFilterTag] = useState('')
 
   const loadVideos = useCallback(async (pageToken?: string) => {
     setLoading(true)
@@ -221,6 +284,7 @@ export default function CatalogPage() {
   }, [smartSearchYoutube, loadVideos])
 
   useEffect(() => { loadVideos() }, [loadVideos])
+  useEffect(() => { getAllVideoTags().then(data => { setTagMap(data.tagMap); setAllTags(data.allTags) }).catch(() => {}) }, [getAllVideoTags])
 
   const handleSearch = () => {
     if (searchQuery.trim()) doSearch(searchQuery)
@@ -286,6 +350,23 @@ export default function CatalogPage() {
         </div>
       )}
 
+      {/* Tag filters */}
+      {allTags.length > 0 && !activeSearch && (
+        <div className="flex gap-2 mb-4 flex-wrap items-center">
+          <Tag size={14} className="text-gray-400" />
+          <button onClick={() => setFilterTag('')}
+            className={`px-3 py-1 rounded-full text-xs transition ${!filterTag ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            Todos
+          </button>
+          {allTags.map(tag => (
+            <button key={tag} onClick={() => setFilterTag(tag === filterTag ? '' : tag)}
+              className={`px-3 py-1 rounded-full text-xs transition ${filterTag === tag ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
+
       {error && <div className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">{error}</div>}
 
       {loading && (
@@ -301,9 +382,15 @@ export default function CatalogPage() {
         </div>
       )}
 
-      {!loading && videos.length > 0 && (
+      {!loading && videos.length > 0 && (() => {
+        const displayVideos = filterTag
+          ? videos.filter(v => (tagMap[v.id] || []).includes(filterTag))
+          : videos
+        return displayVideos.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {videos.map(video => (
+          {displayVideos.map(video => {
+            const videoTags = tagMap[video.id] || []
+            return (
             <div key={video.id} onClick={() => setSelectedVideo(video)}
               className="bg-white border rounded-xl overflow-hidden hover:shadow-md transition cursor-pointer group">
               <div className="relative aspect-video bg-gray-100">
@@ -322,11 +409,27 @@ export default function CatalogPage() {
                   <Calendar size={12} />
                   <span>{formatDate(video.publishedAt)}</span>
                 </div>
+                {videoTags.length > 0 && (
+                  <div className="flex gap-1 mt-2 flex-wrap">
+                    {videoTags.slice(0, 3).map(tag => (
+                      <span key={tag} className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">{tag}</span>
+                    ))}
+                    {videoTags.length > 3 && <span className="text-xs text-gray-400">+{videoTags.length - 3}</span>}
+                  </div>
+                )}
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
-      )}
+        ) : (
+          <div className="text-center py-12 text-gray-400">
+            <Video size={48} className="mx-auto mb-3 text-gray-300" />
+            <p>Nenhum vídeo com a tag "{filterTag}"</p>
+            <button onClick={() => setFilterTag('')} className="mt-2 text-sm text-gray-600 hover:text-gray-900 underline">Ver todos</button>
+          </div>
+        )
+      })()}
 
       {!loading && !activeSearch && (prevPageToken || nextPageToken) && (
         <div className="flex items-center justify-center gap-4 mt-8">
