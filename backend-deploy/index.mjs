@@ -38,6 +38,7 @@ const T = {
   MATERIALS: 'RedeInspire-Materials',
   COMMENTS: 'RedeInspire-Comments',
   VIDEO_TAGS: 'RedeInspire-VideoTags',
+  VIDEO_RECS: 'RedeInspire-VideoRecommendations',
 };
 
 function res(statusCode, body) {
@@ -201,6 +202,11 @@ export async function handler(event) {
     if (path === '/video-tags' && method === 'GET') return await videoTagsGet(qs(event), getUserFromToken(event));
     if (path === '/video-tags' && method === 'POST') return await videoTagsSave(body(event), getUserFromToken(event));
     if (path === '/video-tags/all' && method === 'GET') return await videoTagsAll(getUserFromToken(event));
+
+    // ---- Video Recommendations ----
+    if (path === '/video-recs' && method === 'GET') return await videoRecsGet(qs(event), getUserFromToken(event));
+    if (path === '/video-recs' && method === 'POST') return await videoRecsSave(body(event), getUserFromToken(event));
+    if (path.match(/^\/video-recs\/[^/]+$/) && method === 'DELETE') return await videoRecsDeleteItem(path.split('/')[2], qs(event), getUserFromToken(event));
 
     return res(404, { message: 'Rota não encontrada', path, method });
   } catch (err) {
@@ -1840,4 +1846,57 @@ async function videoTagsAll(user) {
     (item.tags || []).forEach(t => allTags.add(t));
   }
   return res(200, { tagMap, allTags: [...allTags].sort() });
+}
+
+
+// =============================================================================
+// VIDEO RECOMMENDATIONS
+// =============================================================================
+async function videoRecsGet(query, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!query.videoId) return res(400, { message: 'videoId obrigatorio.' });
+  const data = await ddb.send(new GetCommand({ TableName: T.VIDEO_RECS, Key: { videoId: query.videoId } }));
+  return res(200, data.Item || { videoId: query.videoId, items: [] });
+}
+
+async function videoRecsSave(data, user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem gerenciar indicacoes.' });
+  if (!data.videoId) return res(400, { message: 'videoId obrigatorio.' });
+
+  // Get existing or create new
+  const existing = await ddb.send(new GetCommand({ TableName: T.VIDEO_RECS, Key: { videoId: data.videoId } }));
+  const current = existing.Item || { videoId: data.videoId, items: [] };
+
+  // Add new item
+  const newItem = {
+    id: uuid(),
+    type: data.type || 'external', // 'external', 'video', 'material'
+    title: data.title || '',
+    description: data.description || '',
+    url: data.url || '',
+    imageUrl: data.imageUrl || '',
+    videoId: data.linkedVideoId || '',
+    materialPath: data.materialPath || '',
+    createdAt: new Date().toISOString(),
+  };
+
+  current.items = [...(current.items || []), newItem];
+  current.updatedAt = new Date().toISOString();
+  current.updatedBy = user.id;
+
+  await ddb.send(new PutCommand({ TableName: T.VIDEO_RECS, Item: current }));
+  return res(201, newItem);
+}
+
+async function videoRecsDeleteItem(videoId, query, user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores.' });
+  const itemId = query.itemId;
+  if (!itemId) return res(400, { message: 'itemId obrigatorio.' });
+
+  const existing = await ddb.send(new GetCommand({ TableName: T.VIDEO_RECS, Key: { videoId } }));
+  if (!existing.Item) return res(404, { message: 'Nao encontrado.' });
+
+  existing.Item.items = (existing.Item.items || []).filter(i => i.id !== itemId);
+  await ddb.send(new PutCommand({ TableName: T.VIDEO_RECS, Item: existing.Item }));
+  return res(200, { ok: true });
 }

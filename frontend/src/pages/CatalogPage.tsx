@@ -12,6 +12,238 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
+// ---- Recommendations Section ----
+function RecommendationsSection({ videoId }: { videoId: string }) {
+  const { getVideoRecs, addVideoRec, deleteVideoRec } = useData()
+  const { user } = useAuth()
+  const [items, setItems] = useState<any[]>([])
+  const [showAdd, setShowAdd] = useState(false)
+  const [confirmUrl, setConfirmUrl] = useState('')
+  const isAdmin = user?.role === 'admin'
+
+  useEffect(() => {
+    getVideoRecs(videoId).then(data => setItems(data.items || [])).catch(() => {})
+  }, [videoId, getVideoRecs])
+
+  const handleAdd = async (data: any) => {
+    const newItem = await addVideoRec(videoId, data)
+    setItems(prev => [...prev, newItem])
+    setShowAdd(false)
+  }
+
+  const handleDelete = async (itemId: string) => {
+    if (!confirm('Remover esta indicação?')) return
+    await deleteVideoRec(videoId, itemId)
+    setItems(prev => prev.filter(i => i.id !== itemId))
+  }
+
+  const handleClick = (item: any) => {
+    if (item.type === 'external') {
+      setConfirmUrl(item.url)
+    } else if (item.type === 'video') {
+      window.location.href = `/catalogo`
+    } else if (item.type === 'material') {
+      window.location.href = `/materiais`
+    }
+  }
+
+  if (items.length === 0 && !isAdmin) return null
+
+  return (
+    <div className="mt-8">
+      <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-4">
+        📌 Indicações
+      </h3>
+
+      {items.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+          {items.map(item => (
+            <div key={item.id} className="relative group bg-white border rounded-xl overflow-hidden hover:shadow-md transition cursor-pointer"
+              onClick={() => handleClick(item)}>
+              {/* Image */}
+              <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
+                {item.imageUrl ? (
+                  <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+                ) : item.type === 'video' && item.videoId ? (
+                  <img src={`https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`} alt={item.title} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-gray-300 text-4xl">
+                    {item.type === 'external' ? '🔗' : item.type === 'video' ? '▶' : '📁'}
+                  </div>
+                )}
+              </div>
+              {/* Info */}
+              <div className="p-2.5">
+                <p className="font-medium text-xs text-gray-900 line-clamp-2">{item.title}</p>
+                {item.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{item.description}</p>}
+                <span className={`inline-block mt-1.5 text-xs px-2 py-0.5 rounded-full ${
+                  item.type === 'external' ? 'bg-blue-50 text-blue-600' :
+                  item.type === 'video' ? 'bg-purple-50 text-purple-600' :
+                  'bg-amber-50 text-amber-600'
+                }`}>
+                  {item.type === 'external' ? '🔗 Externo' : item.type === 'video' ? '▶ Vídeo' : '📁 Material'}
+                </span>
+              </div>
+              {/* Admin delete */}
+              {isAdmin && (
+                <button onClick={e => { e.stopPropagation(); handleDelete(item.id) }}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition">
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Admin add button */}
+      {isAdmin && (
+        <button onClick={() => setShowAdd(true)}
+          className="text-sm text-gray-500 hover:text-gray-900 border border-dashed border-gray-300 rounded-xl px-4 py-3 w-full flex items-center justify-center gap-2 hover:border-gray-400 transition">
+          <Plus size={16} /> Adicionar indicação
+        </button>
+      )}
+
+      {/* Add modal */}
+      {showAdd && <AddRecommendationModal onClose={() => setShowAdd(false)} onSave={handleAdd} />}
+
+      {/* External link confirmation */}
+      {confirmUrl && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setConfirmUrl('')}>
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center" onClick={e => e.stopPropagation()}>
+            <p className="text-lg font-semibold text-gray-900 mb-2">Redirecionamento externo</p>
+            <p className="text-sm text-gray-600 mb-4">Você será redirecionado para um site externo. Deseja continuar?</p>
+            <p className="text-xs text-gray-400 mb-4 truncate">{confirmUrl}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmUrl('')} className="flex-1 border rounded-lg py-2 text-sm text-gray-700 hover:bg-gray-50">Cancelar</button>
+              <button onClick={() => { window.open(confirmUrl, '_blank'); setConfirmUrl('') }}
+                className="flex-1 bg-gray-900 text-white rounded-lg py-2 text-sm hover:bg-gray-800">Continuar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---- Add Recommendation Modal ----
+function AddRecommendationModal({ onClose, onSave }: { onClose: () => void; onSave: (data: any) => void }) {
+  const [type, setType] = useState<'external' | 'video' | 'material'>('external')
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [url, setUrl] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
+  const [linkedVideoId, setLinkedVideoId] = useState('')
+  const [materialPath, setMaterialPath] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setImageUrl(reader.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  const handleSave = async () => {
+    if (!title.trim()) return
+    setSaving(true)
+    try {
+      await onSave({ type, title: title.trim(), description: description.trim(), url, imageUrl, linkedVideoId, materialPath })
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="p-6 border-b">
+          <h2 className="text-lg font-bold text-gray-900">Adicionar Indicação</h2>
+        </div>
+        <div className="p-6 space-y-4">
+          {/* Type selector */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+            <div className="flex gap-2">
+              {[
+                { value: 'external', label: '🔗 Link Externo' },
+                { value: 'video', label: '▶ Vídeo do Catálogo' },
+                { value: 'material', label: '📁 Material' },
+              ].map(opt => (
+                <button key={opt.value} onClick={() => setType(opt.value as any)}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${type === opt.value ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Title */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-300" placeholder="Nome da indicação" />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+            <input type="text" value={description} onChange={e => setDescription(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-300" placeholder="Breve descrição" />
+          </div>
+
+          {/* External URL */}
+          {type === 'external' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">URL externa *</label>
+              <input type="url" value={url} onChange={e => setUrl(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-300" placeholder="https://..." />
+            </div>
+          )}
+
+          {/* Video ID */}
+          {type === 'video' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ID do vídeo do YouTube *</label>
+              <input type="text" value={linkedVideoId} onChange={e => setLinkedVideoId(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-300" placeholder="Ex: dQw4w9WgXcQ" />
+              {linkedVideoId && (
+                <img src={`https://img.youtube.com/vi/${linkedVideoId}/mqdefault.jpg`} alt="Preview" className="mt-2 w-32 rounded-lg" />
+              )}
+            </div>
+          )}
+
+          {/* Material path */}
+          {type === 'material' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Caminho da pasta</label>
+              <input type="text" value={materialPath} onChange={e => setMaterialPath(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-300" placeholder="/Mensagens - Avulsas/2024" />
+            </div>
+          )}
+
+          {/* Image upload (for external and material) */}
+          {(type === 'external' || type === 'material') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Imagem (quadrada)</label>
+              <input type="file" accept="image/*" onChange={handleImageUpload}
+                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+              {imageUrl && <img src={imageUrl} alt="Preview" className="mt-2 w-24 h-24 object-cover rounded-lg border" />}
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 border-t flex gap-3">
+          <button onClick={onClose} className="flex-1 border rounded-lg py-2.5 text-sm text-gray-700 hover:bg-gray-50">Cancelar</button>
+          <button onClick={handleSave} disabled={!title.trim() || saving}
+            className="flex-1 bg-gray-900 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-gray-800 disabled:opacity-50">
+            {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ---- Video Player Page (YouTube-style layout) ----
 function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
   video: any; videos: any[]; onBack: () => void; onSelectVideo: (v: any) => void
@@ -193,6 +425,9 @@ function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
               )}
             </div>
           </div>
+
+          {/* Recommendations section */}
+          <RecommendationsSection videoId={video.id} />
         </div>
 
         {/* Suggestions - right sidebar */}
