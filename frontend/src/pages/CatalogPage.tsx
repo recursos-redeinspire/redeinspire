@@ -26,9 +26,13 @@ function RecommendationsSection({ videoId }: { videoId: string }) {
   }, [videoId, getVideoRecs])
 
   const handleAdd = async (data: any) => {
-    const newItem = await addVideoRec(videoId, data)
-    setItems(prev => [...prev, newItem])
-    setShowAdd(false)
+    try {
+      const newItem = await addVideoRec(videoId, data)
+      if (newItem?.id) setItems(prev => [...prev, newItem])
+      setShowAdd(false)
+    } catch {
+      alert('Erro ao salvar. Tente novamente.')
+    }
   }
 
   const handleDelete = async (itemId: string) => {
@@ -56,9 +60,9 @@ function RecommendationsSection({ videoId }: { videoId: string }) {
       </h3>
 
       {items.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 mb-4">
           {items.map(item => (
-            <div key={item.id} className="relative group bg-white border rounded-xl overflow-hidden hover:shadow-md transition cursor-pointer"
+            <div key={item.id} className="relative group bg-white border rounded-lg overflow-hidden hover:shadow-md transition cursor-pointer"
               onClick={() => handleClick(item)}>
               {/* Image */}
               <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
@@ -67,16 +71,16 @@ function RecommendationsSection({ videoId }: { videoId: string }) {
                 ) : item.type === 'video' && item.videoId ? (
                   <img src={`https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`} alt={item.title} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="text-gray-300 text-4xl">
+                  <div className="text-gray-300 text-2xl">
                     {item.type === 'external' ? '🔗' : item.type === 'video' ? '▶' : '📁'}
                   </div>
                 )}
               </div>
               {/* Info */}
-              <div className="p-2.5">
-                <p className="font-medium text-xs text-gray-900 line-clamp-2">{item.title}</p>
+              <div className="p-2">
+                <p className="font-medium text-xs text-gray-900 line-clamp-2 leading-tight">{item.title}</p>
                 {item.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{item.description}</p>}
-                <span className={`inline-block mt-1.5 text-xs px-2 py-0.5 rounded-full ${
+                <span className={`inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded-full ${
                   item.type === 'external' ? 'bg-blue-50 text-blue-600' :
                   item.type === 'video' ? 'bg-purple-50 text-purple-600' :
                   'bg-amber-50 text-amber-600'
@@ -140,9 +144,18 @@ function AddRecommendationModal({ onClose, onSave }: { onClose: () => void; onSa
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setImageUrl(reader.result as string)
-    reader.readAsDataURL(file)
+    // Compress image to max 200x200 and reduce quality
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    const img = new window.Image()
+    img.onload = () => {
+      const size = 200
+      canvas.width = size
+      canvas.height = size
+      ctx?.drawImage(img, 0, 0, size, size)
+      setImageUrl(canvas.toDataURL('image/jpeg', 0.7))
+    }
+    img.src = URL.createObjectURL(file)
   }
 
   const handleSave = async () => {
@@ -150,6 +163,8 @@ function AddRecommendationModal({ onClose, onSave }: { onClose: () => void; onSa
     setSaving(true)
     try {
       await onSave({ type, title: title.trim(), description: description.trim(), url, imageUrl, linkedVideoId, materialPath })
+    } catch (e) {
+      alert('Erro ao salvar indicação. Tente novamente.')
     } finally { setSaving(false) }
   }
 
