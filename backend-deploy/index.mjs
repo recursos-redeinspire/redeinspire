@@ -1165,6 +1165,7 @@ const DROPBOX_APP_KEY = process.env.DROPBOX_APP_KEY || '';
 const DROPBOX_APP_SECRET = process.env.DROPBOX_APP_SECRET || '';
 const DROPBOX_REFRESH_TOKEN = process.env.DROPBOX_REFRESH_TOKEN || '';
 const DROPBOX_FOLDER = process.env.DROPBOX_FOLDER || '';
+const DROPBOX_NAMESPACE_ID = process.env.DROPBOX_NAMESPACE_ID || '';
 const SYNC_BATCH = 100;
 
 let _dbxToken = '';
@@ -1180,6 +1181,12 @@ async function getDropboxToken() {
   _dbxToken = data.access_token;
   _dbxTokenExpiry = Date.now() + ((data.expires_in || 14400) - 300) * 1000;
   return _dbxToken;
+}
+
+function dbxHeaders(token) {
+  const h = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+  if (DROPBOX_NAMESPACE_ID) h['Dropbox-API-Path-Root'] = JSON.stringify({".tag": "namespace_id", "namespace_id": DROPBOX_NAMESPACE_ID});
+  return h;
 }
 
 async function dropboxSync(user) {
@@ -1201,7 +1208,7 @@ async function dropboxSync(user) {
         : { path: folderPath, recursive: true, limit: 2000 };
       const r = await fetch(url, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${await getDropboxToken()}`, 'Content-Type': 'application/json' },
+        headers: dbxHeaders(await getDropboxToken()),
         body: JSON.stringify(payload),
       });
       const data = await r.json();
@@ -1282,7 +1289,7 @@ async function dropboxGetLink(data, user) {
   try {
     const r = await fetch('https://api.dropboxapi.com/2/files/get_temporary_link', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${await getDropboxToken()}`, 'Content-Type': 'application/json' },
+      headers: dbxHeaders(await getDropboxToken()),
       body: JSON.stringify({ path: dropboxPath }),
     });
     const result = await r.json();
@@ -1304,7 +1311,7 @@ async function dropboxBrowse(query, user) {
   try {
     const r = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${await getDropboxToken()}`, 'Content-Type': 'application/json' },
+      headers: dbxHeaders(await getDropboxToken()),
       body: JSON.stringify({ path: folderPath, recursive: false, limit: 2000 }),
     });
     const data = await r.json();
@@ -1360,7 +1367,7 @@ async function dropboxDownload(data, user) {
   try {
     const r = await fetch('https://api.dropboxapi.com/2/files/get_temporary_link', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${await getDropboxToken()}`, 'Content-Type': 'application/json' },
+      headers: dbxHeaders(await getDropboxToken()),
       body: JSON.stringify({ path: data.path }),
     });
     const result = await r.json();
@@ -1740,7 +1747,7 @@ async function dropboxSmartSearch(query, user) {
         : { path: '', recursive: true, limit: 2000 };
       const r = await fetch(url, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: dbxHeaders(token),
         body: JSON.stringify(payload),
       });
       const data = await r.json();
