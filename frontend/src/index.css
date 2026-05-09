@@ -19,17 +19,15 @@
 .dark .border {
   border-color: #374151 !important;
 }
-.dark .text-gray-900 {
-  color: #f3f4f6 !important;
-}
+.dark .text-gray-900,
 .dark .text-gray-800 {
-  color: #e5e7eb !important;
+  color: #f9fafb !important;
 }
 .dark .text-gray-700 {
-  color: #d1d5db !important;
+  color: #e5e7eb !important;
 }
 .dark .text-gray-600 {
-  color: #9ca3af !important;
+  color: #d1d5db !important;
 }
 .dark .text-gray-500 {
   color: #9ca3af !important;
@@ -52,6 +50,9 @@
 .dark .border-t {
   border-color: #374151 !important;
 }
+.dark .border-r {
+  border-color: #374151 !important;
+}
 .dark .divide-y > :not([hidden]) ~ :not([hidden]) {
   border-color: #374151 !important;
 }
@@ -61,13 +62,55 @@
 .dark .hover\:bg-gray-50:hover {
   background-color: #1f2937 !important;
 }
+.dark .hover\:shadow-md:hover {
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.4) !important;
+}
 .dark input, .dark textarea, .dark select {
   background-color: #1f2937 !important;
   border-color: #374151 !important;
-  color: #e5e7eb !important;
+  color: #f3f4f6 !important;
 }
-.dark .shadow-md, .dark .shadow-lg, .dark .shadow-xl {
+.dark input::placeholder, .dark textarea::placeholder {
+  color: #6b7280 !important;
+}
+.dark .shadow-md, .dark .shadow-lg, .dark .shadow-xl, .dark .shadow-sm {
   box-shadow: 0 4px 6px -1px rgba(0,0,0,0.4), 0 2px 4px -2px rgba(0,0,0,0.3) !important;
+}
+/* Dark mode: ensure font-medium/semibold/bold text inside cards is visible */
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: #f9fafb !important;
+}
+.dark .font-medium, .dark .font-semibold, .dark .font-bold {
+  color: #f3f4f6;
+}
+.dark .font-medium.text-gray-900,
+.dark .font-semibold.text-gray-900,
+.dark .font-bold.text-gray-900,
+.dark .font-medium.text-gray-800,
+.dark .font-semibold.text-gray-800,
+.dark .font-bold.text-gray-800 {
+  color: #f9fafb !important;
+}
+/* Dark mode: specific overrides for colored backgrounds */
+.dark .bg-gradient-to-r {
+  opacity: 0.95;
+}
+.dark .bg-gray-50.rounded-lg, .dark .bg-gray-50.rounded-xl {
+  background-color: #1f2937 !important;
+}
+/* Ensure text-sm inside cards is visible */
+.dark p, .dark span, .dark a {
+  color: inherit;
+}
+.dark .text-sm.text-gray-900,
+.dark .text-xs.text-gray-900,
+.dark .text-sm.text-gray-800,
+.dark .text-xs.text-gray-800 {
+  color: #f3f4f6 !important;
+}
+.dark .text-sm.font-medium,
+.dark .text-xs.font-medium {
+  color: #e5e7eb;
 }
 
 /* Church theme color overrides — applied when --church-color is set */
