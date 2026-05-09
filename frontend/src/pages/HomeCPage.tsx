@@ -3,25 +3,29 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
-import { Play, Star, Route, Calendar, ArrowRight, TrendingUp, Zap } from 'lucide-react'
+import { Play, Star, Calendar, ArrowRight, TrendingUp, Zap, Flame, Lightbulb, BookOpen } from 'lucide-react'
 
 export default function HomeCPage() {
-  const { user: _user } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
-  const { t: _t } = useI18n()
-  const { getYoutubeVideos, getTrails, getWebinars, getPointsRanking, getMyPoints } = useData()
+  const { t } = useI18n()
+  const { getYoutubeVideos, getTrails, getWebinars, getPointsRanking, getMyPoints, getTopContents, getRecommendedContents } = useData()
 
   const [videos, setVideos] = useState<any[]>([])
   const [trails, setTrails] = useState<any[]>([])
   const [nextWebinar, setNextWebinar] = useState<any>(null)
   const [pointsRanking, setPointsRanking] = useState<any[]>([])
   const [myPoints, setMyPoints] = useState(0)
+  const [top10, setTop10] = useState<any[]>([])
+  const [recommended, setRecommended] = useState<any[]>([])
 
   useEffect(() => {
     getYoutubeVideos(undefined, 12).then(d => setVideos(d.videos))
     getTrails().then(setTrails)
     getPointsRanking().then(setPointsRanking)
     getMyPoints().then(setMyPoints)
+    getTopContents(10).then(setTop10)
+    getRecommendedContents().then(setRecommended)
     getWebinars().then(w => {
       const sorted = w.sort((a: any, b: any) => a.scheduledAt?.localeCompare(b.scheduledAt || ''))
       setNextWebinar(sorted[0] || null)
@@ -39,8 +43,8 @@ export default function HomeCPage() {
       {featured && (
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-xl text-gray-900 flex items-center gap-2"><Zap size={20} className="text-amber-500" /> Destaques</h2>
-            <Link to="/catalogo" className="text-sm text-gray-500 hover:text-gray-900 flex items-center gap-1">Ver tudo <ArrowRight size={14} /></Link>
+            <h2 className="font-bold text-xl text-gray-900 flex items-center gap-2"><Zap size={20} className="text-amber-500" /> {t('home.welcome')} {user?.name?.split(' ')[0]}!</h2>
+            <Link to="/catalogo" className="text-sm text-gray-500 hover:text-gray-900 flex items-center gap-1">Ver catálogo <ArrowRight size={14} /></Link>
           </div>
           <div className="grid md:grid-cols-3 gap-4">
             {/* Main featured */}
@@ -87,12 +91,12 @@ export default function HomeCPage() {
           {nextWebinar && (
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-5 text-white flex items-center justify-between flex-wrap gap-4">
               <div>
-                <p className="text-xs text-white/70 uppercase font-semibold flex items-center gap-1"><Calendar size={12} /> Próximo evento</p>
+                <p className="text-xs text-white/70 uppercase font-semibold flex items-center gap-1"><Calendar size={12} /> {t('home.nextWebinar')}</p>
                 <h3 className="font-bold text-lg mt-1">{nextWebinar.title}</h3>
                 <p className="text-sm text-white/80 mt-0.5">{nextWebinar.hostName} · {new Date(nextWebinar.scheduledAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>
               </div>
               <Link to="/mentorias" className="bg-white text-indigo-700 px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-indigo-50 transition">
-                Inscrever-se
+                {t('home.accessZoom')}
               </Link>
             </div>
           )}
@@ -100,9 +104,9 @@ export default function HomeCPage() {
           {/* Trails in progress */}
           {inProgressTrails.length > 0 && (
             <section>
-              <h2 className="font-semibold text-lg text-gray-900 mb-3 flex items-center gap-2"><Route size={18} className="text-blue-500" /> Suas trilhas</h2>
-              <div className="grid sm:grid-cols-2 gap-3">
-                {inProgressTrails.slice(0, 4).map(tr => (
+              <h2 className="font-semibold text-lg text-gray-900 mb-3 flex items-center gap-2"><BookOpen size={18} className="text-blue-500" /> {t('home.trainingInProgress')}</h2>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {inProgressTrails.slice(0, 3).map(tr => (
                   <Link to="/trilhas" key={tr.id} className="bg-white border rounded-xl p-4 hover:shadow-md transition">
                     <p className="font-medium text-sm text-gray-900">{tr.title}</p>
                     <div className="flex items-center gap-2 mt-3">
@@ -115,10 +119,41 @@ export default function HomeCPage() {
             </section>
           )}
 
+          {/* Top 10 Content */}
+          {top10.length > 0 && (
+            <section>
+              <h2 className="font-semibold text-lg text-gray-900 mb-3 flex items-center gap-2"><Flame size={18} className="text-orange-500" /> {t('home.top10Content')}</h2>
+              <div className="bg-white border rounded-xl divide-y">
+                {top10.slice(0, 5).map((item, i) => (
+                  <div key={item.id} onClick={() => navigate(`/conteudo/${item.id}`)} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition">
+                    <span className="text-lg font-bold text-gray-400 w-6 text-center">{i + 1}</span>
+                    <span className="flex-1 font-medium text-sm text-gray-900">{item.title}</span>
+                    <span className="text-xs text-gray-500">{item.views} {t('home.views')}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Suggestions */}
+          {recommended.length > 0 && (
+            <section>
+              <h2 className="font-semibold text-lg text-gray-900 mb-3 flex items-center gap-2"><Lightbulb size={18} className="text-yellow-500" /> {t('home.suggestions')}</h2>
+              <div className="grid sm:grid-cols-3 gap-3">
+                {recommended.slice(0, 3).map(item => (
+                  <div key={item.id} className="bg-white border rounded-xl p-4 hover:shadow-md transition cursor-pointer" onClick={() => navigate(`/conteudo/${item.id}`)}>
+                    <h3 className="font-medium text-sm text-gray-900">{item.title}</h3>
+                    <p className="text-xs text-gray-500 mt-1">{t('home.basedOnMinistry')}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* More videos grid */}
           <section>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold text-lg text-gray-900 flex items-center gap-2"><TrendingUp size={18} className="text-green-500" /> Mais conteúdos</h2>
+              <h2 className="font-semibold text-lg text-gray-900 flex items-center gap-2"><TrendingUp size={18} className="text-green-500" /> {t('home.trending')}</h2>
               <Link to="/catalogo" className="text-sm text-gray-500 hover:text-gray-900">Ver todos →</Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -150,11 +185,11 @@ export default function HomeCPage() {
               </div>
               <div>
                 <p className="text-xl font-bold text-gray-900">{myPoints}</p>
-                <p className="text-xs text-gray-500">Seus pontos</p>
+                <p className="text-xs text-gray-500">{t('header.points')}</p>
               </div>
             </div>
             <div className="border-t pt-3">
-              <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Top 5</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase mb-2">{t('home.top10Leaders')}</p>
               <div className="space-y-2">
                 {pointsRanking.slice(0, 5).map(u => (
                   <div key={u.rank} className="flex items-center gap-2">
@@ -170,15 +205,15 @@ export default function HomeCPage() {
 
           {/* Quick links */}
           <div className="bg-white border rounded-xl p-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase mb-3">Navegação</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase mb-3">{t('nav.management')}</p>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { to: '/materiais', label: '📁 Materiais' },
-                { to: '/podcast', label: '🎙 Podcast' },
-                { to: '/mensagens', label: '💬 Mensagens' },
-                { to: '/mapa', label: '🗺 Mapa' },
-                { to: '/planejamento', label: '📅 Planejar' },
-                { to: '/dashboard', label: '📊 Dashboard' },
+                { to: '/materiais', label: '📁 ' + t('nav.materials') },
+                { to: '/podcast', label: '🎙 ' + t('nav.podcast') },
+                { to: '/mensagens', label: '💬 ' + t('nav.messages') },
+                { to: '/mapa', label: '🗺 ' + t('nav.map') },
+                { to: '/planejamento', label: '📅 ' + t('nav.planning') },
+                { to: '/dashboard', label: '📊 ' + t('nav.dashboard') },
               ].map(item => (
                 <Link key={item.to} to={item.to} className="text-xs text-gray-700 bg-gray-50 rounded-lg px-3 py-2 hover:bg-gray-100 transition text-center">
                   {item.label}
@@ -186,6 +221,21 @@ export default function HomeCPage() {
               ))}
             </div>
           </div>
+
+          {/* Next webinar compact */}
+          {nextWebinar && (
+            <div className="bg-white border rounded-xl p-4">
+              <p className="text-xs text-purple-600 font-semibold uppercase mb-2">{t('home.nextWebinar')}</p>
+              <h3 className="font-bold text-sm text-gray-900 line-clamp-2">{nextWebinar.title}</h3>
+              <p className="text-xs text-gray-500 mt-1">{nextWebinar.hostName}</p>
+              <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                <Calendar size={12} /> {new Date(nextWebinar.scheduledAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </p>
+              <Link to="/mentorias" className="mt-3 block text-center bg-purple-600 text-white py-2 rounded-lg text-xs font-medium hover:bg-purple-700 transition">
+                Ver detalhes
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>
