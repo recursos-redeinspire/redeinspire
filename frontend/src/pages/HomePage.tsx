@@ -9,7 +9,7 @@ export default function HomePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { t } = useI18n()
-  const { getYoutubeVideos, getTrails, getWebinars, getPointsRanking, getMyPoints, getTopContents, getRecommendedContents, getMentoringSessions } = useData()
+  const { getYoutubeVideos, getTrails, getWebinars, getPointsRanking, getMyPoints, getTopContents, getRecommendedContents, getMentoringSessions, getTopDownloads } = useData()
 
   const [videos, setVideos] = useState<any[]>([])
   const [trails, setTrails] = useState<any[]>([])
@@ -17,6 +17,7 @@ export default function HomePage() {
   const [pointsRanking, setPointsRanking] = useState<any[]>([])
   const [myPoints, setMyPoints] = useState(0)
   const [top10, setTop10] = useState<any[]>([])
+  const [topDownloads, setTopDownloads] = useState<any[]>([])
   const [recommended, setRecommended] = useState<any[]>([])
   const [nextMentoring, setNextMentoring] = useState<any>(null)
   useEffect(() => {
@@ -26,6 +27,7 @@ export default function HomePage() {
     getMyPoints().then(setMyPoints)
     getTopContents(10).then(setTop10)
     getRecommendedContents().then(setRecommended)
+    getTopDownloads().then(setTopDownloads)
     getWebinars().then(w => {
       const sorted = w.sort((a: any, b: any) => a.scheduledAt?.localeCompare(b.scheduledAt || ''))
       setNextWebinar(sorted[0] || null)
@@ -135,8 +137,24 @@ export default function HomePage() {
             </section>
           )}
 
-          {/* Top 10 Content */}
-          {top10.length > 0 && (
+          {/* Top 10 Materials */}
+          {topDownloads.length > 0 && (
+            <section>
+              <h2 className="font-semibold text-lg text-gray-900 mb-3 flex items-center gap-2"><Flame size={18} className="text-orange-500" /> Top 10 Materiais</h2>
+              <div className="bg-white border rounded-xl divide-y">
+                {topDownloads.map(item => (
+                  <div key={item.filePath} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition" onClick={() => navigate('/materiais')}>
+                    <span className="text-lg font-bold text-gray-400 w-6 text-center">{item.rank}</span>
+                    <span className="flex-1 font-medium text-sm text-gray-900 truncate">{item.fileName.replace(/\.[^/.]+$/, '')}</span>
+                    <span className="text-xs text-gray-500">{item.downloads} downloads</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* If no downloads yet, show top 10 content as fallback */}
+          {topDownloads.length === 0 && top10.length > 0 && (
             <section>
               <h2 className="font-semibold text-lg text-gray-900 mb-3 flex items-center gap-2"><Flame size={18} className="text-orange-500" /> {t('home.top10Content')}</h2>
               <div className="bg-white border rounded-xl divide-y">

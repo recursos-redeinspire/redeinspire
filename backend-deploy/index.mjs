@@ -39,6 +39,7 @@ const T = {
   COMMENTS: 'RedeInspire-Comments',
   VIDEO_TAGS: 'RedeInspire-VideoTags',
   VIDEO_RECS: 'RedeInspire-VideoRecommendations',
+  DOWNLOADS: 'RedeInspire-Downloads',
 };
 
 function res(statusCode, body) {
@@ -188,6 +189,8 @@ export async function handler(event) {
     if (path === '/dropbox/browse' && method === 'GET') return await dropboxBrowse(qs(event), getUserFromToken(event));
     if (path === '/dropbox/download' && method === 'POST') return await dropboxDownload(body(event), getUserFromToken(event));
     if (path === '/dropbox/smart-search' && method === 'GET') return await dropboxSmartSearch(qs(event), getUserFromToken(event));
+    if (path === '/dropbox/track-download' && method === 'POST') return await dropboxTrackDownload(body(event), getUserFromToken(event));
+    if (path === '/dropbox/top-downloads' && method === 'GET') return await dropboxTopDownloads(getUserFromToken(event));
 
     // ---- YouTube ----
     if (path === '/youtube/videos' && method === 'GET') return await youtubeListVideos(qs(event), getUserFromToken(event));
@@ -1372,7 +1375,19 @@ async function dropboxDownload(data, user) {
     });
     const result = await r.json();
     if (result.error) return res(400, { message: 'Erro Dropbox', error: result.error_summary });
-    return res(200, { url: result.link, name: result.metadata?.name || '' });
+
+    // Track download
+    const fileName = result.metadata?.name || data.path.split('/').pop() || '';
+    try {
+      await ddb.send(new UpdateCommand({
+        TableName: T.DOWNLOADS,
+        Key: { filePath: data.path },
+        UpdateExpression: 'SET downloads = if_not_exists(downloads, :zero) + :one, fileName = :name, lastDownloadAt = :now',
+        ExpressionAttributeValues: { ':zero': 0, ':one': 1, ':name': fileName, ':now': new Date().toISOString() },
+      }));
+    } catch {}
+
+    return res(200, { url: result.link, name: fileName });
   } catch (err) {
     console.error('Dropbox download error:', err);
     return res(500, { message: 'Erro ao gerar link', error: err.message });
@@ -1906,4 +1921,35 @@ async function videoRecsDeleteItem(videoId, query, user) {
   existing.Item.items = (existing.Item.items || []).filter(i => i.id !== itemId);
   await ddb.send(new PutCommand({ TableName: T.VIDEO_RECS, Item: existing.Item }));
   return res(200, { ok: true });
+}
+
+
+// --- Dropbox Track Download (manual tracking) ---
+async function dropboxTrackDownload(data, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!data.path) return res(400, { message: 'path obrigatorio.' });
+  const fileName = data.fileName || data.path.split('/').pop() || '';
+  await ddb.send(new UpdateCommand({
+    TableName: T.DOWNLOADS,
+    Key: { filePath: data.path },
+    UpdateExpression: 'SET downloads = if_not_exists(downloads, :zero) + :one, fileName = :name, lastDownloadAt = :now',
+    ExpressionAttributeValues: { ':zero': 0, ':one': 1, ':name': fileName, ':now': new Date().toISOString() },
+  }));
+  return res(200, { ok: true });
+}
+
+// --- Dropbox Top Downloads ---
+async function dropboxTopDownloads(user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  const data = await ddb.send(new ScanCommand({ TableName: T.DOWNLOADS }));
+  const items = (data.Items || [])
+    .sort((a, b) => (b.downloads || 0) - (a.downloads || 0))
+    .slice(0, 10)
+    .map((item, i) => ({
+      rank: i + 1,
+      filePath: item.filePath,
+      fileName: item.fileName || item.filePath.split('/').pop(),
+      downloads: item.downloads || 0,
+    }));
+  return res(200, items);
 }

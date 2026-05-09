@@ -98,6 +98,7 @@ interface DataContextType {
   getVideoRecs: (videoId: string) => Promise<{ videoId: string; items: any[] }>
   addVideoRec: (videoId: string, data: any) => Promise<any>
   deleteVideoRec: (videoId: string, itemId: string) => Promise<any>
+  getTopDownloads: () => Promise<{ rank: number; filePath: string; fileName: string; downloads: number }[]>
   getUploadPresignedUrl: (fileName: string, contentType: string) => Promise<{ uploadUrl: string; fileUrl: string }>
   createMinistry: (data: { name: string; description: string; leaderId?: string; leaderName?: string }) => Promise<any>
   updateMinistry: (id: string, data: Record<string, any>) => Promise<boolean>
@@ -573,6 +574,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return apiFetch(`/video-recs/${encodeURIComponent(videoId)}?itemId=${encodeURIComponent(itemId)}`, { method: 'DELETE' })
   }, [])
 
+  const getTopDownloads = useCallback(async (): Promise<{ rank: number; filePath: string; fileName: string; downloads: number }[]> => {
+    return apiFetch('/dropbox/top-downloads')
+  }, [])
+
   const getUploadPresignedUrl = useCallback(async (fileName: string, contentType: string) => {
     return apiFetch<{ uploadUrl: string; fileUrl: string }>('/upload/presign', { method: 'POST', body: JSON.stringify({ fileName, contentType }) })
   }, [])
@@ -711,7 +716,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getMetrics, getLeaderRanking, getTimeline, getRecentAccesses,
     getMessages, getUnreadCount, markAsRead, sendMessage, getMessageRecipients,
     getMinistries, createMinistry, deleteMinistry, updateMinistry, getMyPoints, getPointsRanking,
-    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, smartSearchDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, smartSearchYoutube, getComments, addComment, getVideoTags, saveVideoTags, getAllVideoTags, getVideoRecs, addVideoRec, deleteVideoRec, getUploadPresignedUrl,
+    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, smartSearchDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, smartSearchYoutube, getComments, addComment, getVideoTags, saveVideoTags, getAllVideoTags, getVideoRecs, addVideoRec, deleteVideoRec, getTopDownloads, getUploadPresignedUrl,
     getChurches, getTopChurches, createChurch, deleteChurch, updateChurch,
     getPlans, savePlan, deletePlan,
     getPodcastEpisodes, createPodcast, updatePodcast, deletePodcast, getPodcastProgress, updatePodcastProgress,
