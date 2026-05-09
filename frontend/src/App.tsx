@@ -7,6 +7,9 @@ import { seedIfNeeded } from './store/seedData'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import HomePage from './pages/HomePage'
+import HomeAPage from './pages/HomeAPage'
+import HomeBPage from './pages/HomeBPage'
+import HomeCPage from './pages/HomeCPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import CatalogPage from './pages/CatalogPage'
@@ -42,6 +45,9 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<Protected><HomePage /></Protected>} />
+            <Route path="/home-a" element={<Protected><HomeAPage /></Protected>} />
+            <Route path="/home-b" element={<Protected><HomeBPage /></Protected>} />
+            <Route path="/home-c" element={<Protected><HomeCPage /></Protected>} />
             <Route path="/registro" element={<Protected><RegisterPage /></Protected>} />
             <Route path="/catalogo" element={<Protected><CatalogPage /></Protected>} />
             <Route path="/conteudo/:id" element={<Protected><ContentPlayerPage /></Protected>} />

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
+import { useTheme } from '../contexts/ThemeContext'
 import { LANG_OPTIONS, type Lang } from '../i18n/translations'
 import {
   Home, BookOpen, Search, Route, GraduationCap, Mic,
@@ -13,6 +14,7 @@ import {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { t, lang, setLang } = useI18n()
+  const { isDark, toggleTheme } = useTheme()
 
   const navItems = [
     { path: '/', label: t('nav.home'), icon: <Home size={18} /> },
@@ -85,10 +87,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const roleLabel = user?.role === 'admin' ? t('role.admin') : user?.role === 'pastor_presidente' ? t('role.pastor') : user?.role === 'lider' ? t('role.leader') : t('role.member')
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="border-b sticky top-0 z-30" style={themeColor ? { backgroundColor: themeColor } : { backgroundColor: 'white' }}>
-        <div className="px-4 flex items-center justify-between h-16">
+      <header className="border-b dark:border-gray-700 sticky top-0 z-30" style={themeColor ? { backgroundColor: themeColor } : undefined}>
+        <div className={`px-4 flex items-center justify-between h-16 ${!themeColor ? 'bg-white dark:bg-gray-800' : ''}`}>
           <div className="flex items-center gap-4">
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className={`lg:hidden ${themeColor ? 'text-white/80 hover:text-white' : 'text-gray-600 hover:text-gray-800'}`}>
               <Menu size={24} />
@@ -96,7 +98,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Link to="/" className="flex items-center gap-2">
               <img src="/logo_rede.png" alt="Rede Inspire" className="h-8 w-8 object-contain" />
               {churchLogo && <img src={churchLogo} alt={churchName} className="h-8 w-8 object-contain" />}
-              <span className={`text-xl font-bold hidden sm:inline ${themeColor ? 'text-white' : 'text-gray-900'}`}>Rede Inspire{churchName ? ` - ${churchName}` : ''}</span>
+              <span className={`text-xl font-bold hidden sm:inline ${themeColor ? 'text-white' : 'text-gray-900 dark:text-white'}`}>Rede Inspire{churchName ? ` - ${churchName}` : ''}</span>
             </Link>
           </div>
 
@@ -108,6 +110,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Dark mode toggle */}
+            <button onClick={toggleTheme}
+              className={`p-1.5 rounded-lg transition ${themeColor ? 'text-white/80 hover:bg-white/20' : 'text-gray-600 hover:bg-gray-100'}`}
+              title={isDark ? 'Modo claro' : 'Modo escuro'}>
+              {isDark ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+              )}
+            </button>
             {/* Language selector */}
             <div className="relative">
               <button onClick={() => setShowLangMenu(!showLangMenu)}
@@ -160,7 +172,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <div className="flex items-start">
         {/* Sidebar */}
-        <aside className={`fixed lg:sticky top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-white border-r z-20 overflow-y-auto transition-transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <aside className={`fixed lg:sticky top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-white dark:bg-gray-800 border-r dark:border-gray-700 z-20 overflow-y-auto transition-transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
           <nav className="p-4 space-y-1">
             {navItems.map((item) => {
               const isActive = location.pathname === item.path
@@ -223,7 +235,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 min-w-0 p-4 md:p-6 lg:p-8">{children}</main>
       </div>
 
-      <footer className="bg-white border-t mt-12">
+      <footer className="bg-white dark:bg-gray-800 border-t dark:border-gray-700 mt-12">
         <div className="container mx-auto px-4 py-8">
           <div className="grid md:grid-cols-4 gap-8">
             <div>
