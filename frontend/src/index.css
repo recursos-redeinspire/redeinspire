@@ -10,30 +10,16 @@
 }
 
 /* Dark mode base overrides */
+.dark {
+  color-scheme: dark;
+}
 .dark body {
   color: #e5e7eb;
 }
+
+/* Backgrounds */
 .dark .bg-white {
   background-color: #1f2937 !important;
-}
-.dark .border {
-  border-color: #374151 !important;
-}
-.dark .text-gray-900,
-.dark .text-gray-800 {
-  color: #f9fafb !important;
-}
-.dark .text-gray-700 {
-  color: #e5e7eb !important;
-}
-.dark .text-gray-600 {
-  color: #d1d5db !important;
-}
-.dark .text-gray-500 {
-  color: #9ca3af !important;
-}
-.dark .text-gray-400 {
-  color: #6b7280 !important;
 }
 .dark .bg-gray-50 {
   background-color: #111827 !important;
@@ -44,73 +30,100 @@
 .dark .bg-gray-200 {
   background-color: #374151 !important;
 }
-.dark .border-b {
-  border-color: #374151 !important;
+.dark .from-gray-50 {
+  --tw-gradient-from: #111827 !important;
 }
-.dark .border-t {
-  border-color: #374151 !important;
+.dark .to-gray-50 {
+  --tw-gradient-to: #111827 !important;
 }
-.dark .border-r {
+.dark .from-gray-900 {
+  --tw-gradient-from: #000000 !important;
+}
+.dark .to-gray-900 {
+  --tw-gradient-to: #000000 !important;
+}
+
+/* Borders */
+.dark .border,
+.dark .border-b,
+.dark .border-t,
+.dark .border-r,
+.dark .border-l,
+.dark [class*="border-gray"],
+.dark [class*="border-b"],
+.dark [class*="border-t"] {
   border-color: #374151 !important;
 }
 .dark .divide-y > :not([hidden]) ~ :not([hidden]) {
   border-color: #374151 !important;
 }
-.dark .hover\:bg-gray-100:hover {
-  background-color: #374151 !important;
+
+/* ALL text colors in dark mode */
+.dark .text-gray-900 { color: #f9fafb !important; }
+.dark .text-gray-800 { color: #f3f4f6 !important; }
+.dark .text-gray-700 { color: #e5e7eb !important; }
+.dark .text-gray-600 { color: #d1d5db !important; }
+.dark .text-gray-500 { color: #9ca3af !important; }
+.dark .text-gray-400 { color: #6b7280 !important; }
+
+/* Headings always white in dark */
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: #f9fafb !important;
 }
-.dark .hover\:bg-gray-50:hover {
-  background-color: #1f2937 !important;
+
+/* Any text that doesn't have an explicit color class */
+.dark p:not([class*="text-white"]):not([class*="text-red"]):not([class*="text-green"]):not([class*="text-blue"]):not([class*="text-yellow"]):not([class*="text-purple"]):not([class*="text-amber"]):not([class*="text-orange"]):not([class*="text-pink"]):not([class*="text-emerald"]):not([class*="text-indigo"]):not([class*="text-teal"]):not([class*="text-cyan"]) {
+  color: #e5e7eb;
 }
-.dark .hover\:shadow-md:hover {
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.4) !important;
+.dark span:not([class*="text-white"]):not([class*="text-red"]):not([class*="text-green"]):not([class*="text-blue"]):not([class*="text-yellow"]):not([class*="text-purple"]):not([class*="text-amber"]):not([class*="text-orange"]) {
+  color: inherit;
 }
+
+/* Font weight text visibility */
+.dark .font-medium:not([class*="text-white"]):not([class*="text-red"]):not([class*="text-green"]):not([class*="text-blue"]):not([class*="text-yellow"]):not([class*="text-purple"]) {
+  color: #f3f4f6;
+}
+.dark .font-semibold:not([class*="text-white"]):not([class*="text-red"]):not([class*="text-green"]):not([class*="text-blue"]):not([class*="text-yellow"]):not([class*="text-purple"]) {
+  color: #f9fafb;
+}
+.dark .font-bold:not([class*="text-white"]):not([class*="text-red"]):not([class*="text-green"]):not([class*="text-blue"]):not([class*="text-yellow"]):not([class*="text-purple"]) {
+  color: #f9fafb;
+}
+
+/* Hover states */
+.dark .hover\:bg-gray-100:hover { background-color: #374151 !important; }
+.dark .hover\:bg-gray-50:hover { background-color: #1f2937 !important; }
+.dark .hover\:bg-gray-200:hover { background-color: #4b5563 !important; }
+.dark .hover\:shadow-md:hover { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5) !important; }
+
+/* Inputs */
 .dark input, .dark textarea, .dark select {
-  background-color: #1f2937 !important;
+  background-color: #111827 !important;
   border-color: #374151 !important;
   color: #f3f4f6 !important;
 }
 .dark input::placeholder, .dark textarea::placeholder {
   color: #6b7280 !important;
 }
-.dark .shadow-md, .dark .shadow-lg, .dark .shadow-xl, .dark .shadow-sm {
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.4), 0 2px 4px -2px rgba(0,0,0,0.3) !important;
+
+/* Shadows */
+.dark .shadow-sm, .dark .shadow-md, .dark .shadow-lg, .dark .shadow-xl, .dark .shadow-2xl {
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5), 0 2px 4px -2px rgba(0,0,0,0.4) !important;
 }
-/* Dark mode: ensure font-medium/semibold/bold text inside cards is visible */
-.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
-  color: #f9fafb !important;
-}
-.dark .font-medium, .dark .font-semibold, .dark .font-bold {
-  color: #f3f4f6;
-}
-.dark .font-medium.text-gray-900,
-.dark .font-semibold.text-gray-900,
-.dark .font-bold.text-gray-900,
-.dark .font-medium.text-gray-800,
-.dark .font-semibold.text-gray-800,
-.dark .font-bold.text-gray-800 {
-  color: #f9fafb !important;
-}
-/* Dark mode: specific overrides for colored backgrounds */
-.dark .bg-gradient-to-r {
-  opacity: 0.95;
-}
-.dark .bg-gray-50.rounded-lg, .dark .bg-gray-50.rounded-xl {
-  background-color: #1f2937 !important;
-}
-/* Ensure text-sm inside cards is visible */
-.dark p, .dark span, .dark a {
-  color: inherit;
-}
-.dark .text-sm.text-gray-900,
-.dark .text-xs.text-gray-900,
-.dark .text-sm.text-gray-800,
-.dark .text-xs.text-gray-800 {
-  color: #f3f4f6 !important;
-}
-.dark .text-sm.font-medium,
-.dark .text-xs.font-medium {
-  color: #e5e7eb;
+
+/* Specific component overrides */
+.dark .bg-yellow-50 { background-color: #422006 !important; }
+.dark .bg-green-50 { background-color: #052e16 !important; }
+.dark .bg-blue-50 { background-color: #172554 !important; }
+.dark .bg-red-50 { background-color: #450a0a !important; }
+.dark .bg-purple-50 { background-color: #3b0764 !important; }
+.dark .bg-amber-50 { background-color: #451a03 !important; }
+.dark .bg-orange-50 { background-color: #431407 !important; }
+.dark .bg-indigo-50 { background-color: #1e1b4b !important; }
+
+/* Italic text (testimonials) */
+.dark .italic {
+  color: #d1d5db !important;
 }
 
 /* Church theme color overrides — applied when --church-color is set */
