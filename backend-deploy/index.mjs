@@ -1390,15 +1390,25 @@ async function dropboxDownload(data, user) {
     const result = await r.json();
     if (result.error) return res(400, { message: 'Erro Dropbox', error: result.error_summary });
 
-    // Track download
+    // Track based on action: 'download' or 'view' (default: view)
+    const action = data.action || 'view';
     const fileName = result.metadata?.name || data.path.split('/').pop() || '';
     try {
-      await ddb.send(new UpdateCommand({
-        TableName: T.DOWNLOADS,
-        Key: { filePath: data.path },
-        UpdateExpression: 'SET downloads = if_not_exists(downloads, :zero) + :one, fileName = :name, lastDownloadAt = :now',
-        ExpressionAttributeValues: { ':zero': 0, ':one': 1, ':name': fileName, ':now': new Date().toISOString() },
-      }));
+      if (action === 'download') {
+        await ddb.send(new UpdateCommand({
+          TableName: T.DOWNLOADS,
+          Key: { filePath: data.path },
+          UpdateExpression: 'SET downloads = if_not_exists(downloads, :zero) + :one, views = if_not_exists(views, :zero), fileName = :name, lastDownloadAt = :now',
+          ExpressionAttributeValues: { ':zero': 0, ':one': 1, ':name': fileName, ':now': new Date().toISOString() },
+        }));
+      } else {
+        await ddb.send(new UpdateCommand({
+          TableName: T.DOWNLOADS,
+          Key: { filePath: data.path },
+          UpdateExpression: 'SET views = if_not_exists(views, :zero) + :one, downloads = if_not_exists(downloads, :zero), fileName = :name, lastViewAt = :now',
+          ExpressionAttributeValues: { ':zero': 0, ':one': 1, ':name': fileName, ':now': new Date().toISOString() },
+        }));
+      }
     } catch {}
 
     return res(200, { url: result.link, name: fileName });
@@ -2067,9 +2077,16 @@ async function adminAnalytics(user) {
 
     // --- Top downloads ---
     const topDownloads = downloads
+      .filter(d => (d.downloads || 0) > 0)
       .sort((a, b) => (b.downloads || 0) - (a.downloads || 0))
       .slice(0, 10)
-      .map((d, i) => ({ rank: i + 1, fileName: d.fileName || d.filePath, downloads: d.downloads || 0 }));
+      .map((d, i) => ({ rank: i + 1, fileName: d.fileName || d.filePath, downloads: d.downloads || 0, views: d.views || 0 }));
+
+    const topViewed = downloads
+      .filter(d => (d.views || 0) > 0)
+      .sort((a, b) => (b.views || 0) - (a.views || 0))
+      .slice(0, 10)
+      .map((d, i) => ({ rank: i + 1, fileName: d.fileName || d.filePath, views: d.views || 0, downloads: d.downloads || 0 }));
 
     // --- Trails ---
     const totalTrails = trails.length;
@@ -2109,6 +2126,7 @@ async function adminAnalytics(user) {
       churchRanking,
       topContent,
       topDownloads,
+      topViewed,
       trails: { total: totalTrails, approved: approvedTrails, pending: pendingTrails, enrollments: totalEnrollments, completed: completedEnrollments, completionRate },
       popularTrails,
       topUsers,

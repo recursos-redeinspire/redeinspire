@@ -77,14 +77,14 @@ export default function MaterialsPreviewPage() {
 
   const handlePreview = async (file: any) => {
     setSelectedFile(file); setPreviewUrl(''); setPreviewLoading(true)
-    try { const r = await downloadDropbox(file.pathLower); setPreviewUrl(r.url) }
+    try { const r = await downloadDropbox(file.pathLower, 'view'); setPreviewUrl(r.url) }
     catch { setPreviewUrl('') }
     finally { setPreviewLoading(false) }
   }
 
   const handleDownload = async (file: any) => {
     setDownloading(file.pathLower)
-    try { const r = await downloadDropbox(file.pathLower); window.open(r.url, '_blank') }
+    try { const r = await downloadDropbox(file.pathLower, 'download'); window.open(r.url, '_blank') }
     catch { alert('Erro ao baixar') }
     finally { setDownloading(null) }
   }

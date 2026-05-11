@@ -165,7 +165,25 @@ export default function AdminPage() {
                       <div key={d.fileName} className="flex items-center gap-3">
                         <span className="text-xs font-bold text-gray-400 w-5">{d.rank}º</span>
                         <span className="flex-1 text-sm text-gray-700 truncate">{d.fileName?.replace(/\.[^/.]+$/, '')}</span>
-                        <span className="text-xs font-semibold text-gray-500">{d.downloads}</span>
+                        <span className="text-xs font-semibold text-gray-500">{d.downloads} ↓</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Top Viewed */}
+              <div className="bg-white border rounded-xl p-5">
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">👁 Top Materiais Visualizados</h3>
+                {(!analytics.topViewed || analytics.topViewed.length === 0) ? (
+                  <p className="text-sm text-gray-400 text-center py-4">Nenhuma visualização registrada</p>
+                ) : (
+                  <div className="space-y-2">
+                    {analytics.topViewed.map((d: any) => (
+                      <div key={d.fileName} className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-gray-400 w-5">{d.rank}º</span>
+                        <span className="flex-1 text-sm text-gray-700 truncate">{d.fileName?.replace(/\.[^/.]+$/, '')}</span>
+                        <span className="text-xs font-semibold text-gray-500">{d.views} 👁</span>
                       </div>
                     ))}
                   </div>

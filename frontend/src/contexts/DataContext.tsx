@@ -84,7 +84,7 @@ interface DataContextType {
   deleteMaterial: (id: string) => Promise<boolean>
   syncDropbox: () => Promise<{ synced: number; total: number; message: string }>
   browseDropbox: (path: string) => Promise<{ path: string; entries: any[] }>
-  downloadDropbox: (path: string) => Promise<{ url: string; name: string }>
+  downloadDropbox: (path: string, action?: 'view' | 'download') => Promise<{ url: string; name: string }>
   smartSearchDropbox: (q: string) => Promise<{ entries: any[]; totalResults: number; keywords: string[] }>
   getDropboxLink: (dropboxPath: string) => Promise<{ link: string }>
   getYoutubeVideos: (pageToken?: string, limit?: number) => Promise<{ videos: any[]; totalResults: number; nextPageToken: string | null; prevPageToken: string | null }>
@@ -515,8 +515,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return apiFetch<{ path: string; entries: any[] }>(`/dropbox/browse?path=${encoded}`)
   }, [])
 
-  const downloadDropbox = useCallback(async (path: string): Promise<{ url: string; name: string }> => {
-    return apiFetch<{ url: string; name: string }>('/dropbox/download', { method: 'POST', body: JSON.stringify({ path }) })
+  const downloadDropbox = useCallback(async (path: string, action?: 'view' | 'download'): Promise<{ url: string; name: string }> => {
+    return apiFetch<{ url: string; name: string }>('/dropbox/download', { method: 'POST', body: JSON.stringify({ path, action: action || 'view' }) })
   }, [])
 
   const smartSearchDropbox = useCallback(async (q: string): Promise<{ entries: any[]; totalResults: number; keywords: string[] }> => {
