@@ -21,6 +21,7 @@ export default function HomePage() {
   const [recommended, setRecommended] = useState<any[]>([])
   const [nextMentoring, setNextMentoring] = useState<any>(null)
   const [banner, setBanner] = useState<{ active: boolean; message: string; type: string }>({ active: false, message: '', type: 'info' })
+  const [bannerDismissed, setBannerDismissed] = useState(false)
   useEffect(() => {
     getYoutubeVideos(undefined, 12).then(d => setVideos(d.videos))
     getTrails().then(setTrails)
@@ -59,13 +60,20 @@ export default function HomePage() {
   return (
     <div className="space-y-8">
       {/* Admin Banner */}
-      {banner.active && banner.message && (
-        <div className={`rounded-xl p-4 text-sm font-medium ${
+      {banner.active && banner.message && !bannerDismissed && (
+        <div className={`rounded-xl p-4 text-sm font-medium relative ${
           banner.type === 'warning' ? 'bg-yellow-50 text-yellow-800 border border-yellow-200' :
           banner.type === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
           'bg-blue-50 text-blue-800 border border-blue-200'
         }`}>
           {banner.message}
+          <button onClick={() => setBannerDismissed(true)}
+            className={`absolute top-3 right-3 opacity-60 hover:opacity-100 transition ${
+              banner.type === 'warning' ? 'text-yellow-800' :
+              banner.type === 'error' ? 'text-red-800' : 'text-blue-800'
+            }`}>
+            ✕
+          </button>
         </div>
       )}
 
