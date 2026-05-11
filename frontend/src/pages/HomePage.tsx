@@ -9,7 +9,7 @@ export default function HomePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { t } = useI18n()
-  const { getYoutubeVideos, getTrails, getWebinars, getPointsRanking, getMyPoints, getTopContents, getRecommendedContents, getMentoringSessions, getTopDownloads } = useData()
+  const { getYoutubeVideos, getTrails, getWebinars, getPointsRanking, getMyPoints, getTopContents, getRecommendedContents, getMentoringSessions, getTopDownloads, getBanner } = useData()
 
   const [videos, setVideos] = useState<any[]>([])
   const [trails, setTrails] = useState<any[]>([])
@@ -20,6 +20,7 @@ export default function HomePage() {
   const [topDownloads, setTopDownloads] = useState<any[]>([])
   const [recommended, setRecommended] = useState<any[]>([])
   const [nextMentoring, setNextMentoring] = useState<any>(null)
+  const [banner, setBanner] = useState<{ active: boolean; message: string; type: string }>({ active: false, message: '', type: 'info' })
   useEffect(() => {
     getYoutubeVideos(undefined, 12).then(d => setVideos(d.videos))
     getTrails().then(setTrails)
@@ -28,6 +29,7 @@ export default function HomePage() {
     getTopContents(10).then(setTop10)
     getRecommendedContents().then(setRecommended)
     getTopDownloads().then(setTopDownloads)
+    getBanner().then(setBanner)
     getWebinars().then(w => {
       const sorted = w.sort((a: any, b: any) => a.scheduledAt?.localeCompare(b.scheduledAt || ''))
       setNextWebinar(sorted[0] || null)
@@ -56,6 +58,17 @@ export default function HomePage() {
 
   return (
     <div className="space-y-8">
+      {/* Admin Banner */}
+      {banner.active && banner.message && (
+        <div className={`rounded-xl p-4 text-sm font-medium ${
+          banner.type === 'warning' ? 'bg-yellow-50 text-yellow-800 border border-yellow-200' :
+          banner.type === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
+          'bg-blue-50 text-blue-800 border border-blue-200'
+        }`}>
+          {banner.message}
+        </div>
+      )}
+
       {/* Featured section - 1 large + 2 small */}
       {featured && (
         <section>

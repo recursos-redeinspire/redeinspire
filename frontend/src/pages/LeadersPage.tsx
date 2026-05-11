@@ -15,6 +15,7 @@ function EditUserModal({ item, onClose, onSaved, churches, isAdmin }: { item: an
   const [churchId, setChurchId] = useState(item.churchId || '')
   const [role, setRole] = useState(item.role || 'lider')
   const [ministries, setMinistries] = useState<string[]>(item.ministries || [])
+  const [permissions, setPermissions] = useState<string[]>(item.permissions || [])
   const [photoUrl, setPhotoUrl] = useState(item.photoUrl || '')
   const [birthDate, setBirthDate] = useState(item.birthDate || '')
   const [availableMinistries, setAvailableMinistries] = useState<string[]>(AVAILABLE_MINISTRIES)
@@ -36,7 +37,7 @@ function EditUserModal({ item, onClose, onSaved, churches, isAdmin }: { item: an
   const handleSubmit = async () => {
     if (!name.trim() || !email.trim()) { setError(t('leaders.name') + ' / ' + t('leaders.email')); return }
     setSaving(true); setError(''); setSuccessMsg('')
-    const result = await updateUser(item.id, { name: name.trim(), email: email.trim(), churchId: churchId || undefined, role, ministries, photoUrl, birthDate })
+    const result = await updateUser(item.id, { name: name.trim(), email: email.trim(), churchId: churchId || undefined, role, ministries, permissions: permissions.length > 0 ? permissions : undefined, photoUrl, birthDate })
     if (result.success) onSaved(); else { setError(result.error || 'Erro.'); setSaving(false) }
   }
 
@@ -70,6 +71,46 @@ function EditUserModal({ item, onClose, onSaved, churches, isAdmin }: { item: an
           {isAdmin && <div><label className="block text-sm font-medium text-gray-700 mb-1">{t('leaders.church')}</label><select value={churchId} onChange={e => setChurchId(e.target.value)} className="w-full border rounded px-3 py-2 text-sm bg-white"><option value="">--</option>{churches.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>}
           <div><label className="block text-sm font-medium text-gray-700 mb-1">{t('leaders.role')}</label><select value={role} onChange={e => setRole(e.target.value)} className="w-full border rounded px-3 py-2 text-sm bg-white"><option value="lider">{t('role.leader')}</option>{isAdmin && <><option value="pastor_presidente">{t('role.pastor')}</option><option value="admin">{t('role.admin')}</option></>}</select></div>
           <div><label className="block text-sm font-medium text-gray-700 mb-2">{t('leaders.ministries')}</label><div className="flex flex-wrap gap-2">{availableMinistries.map(m => <button key={m} type="button" onClick={() => toggleMinistry(m)} className={`px-3 py-1 rounded-full text-xs border transition-colors ${ministries.includes(m) ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}>{m}</button>)}</div></div>
+          {/* Permissions (only for lider role) */}
+          {role === 'lider' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm font-medium text-blue-800 mb-2">🔒 Permissões de acesso</p>
+              <p className="text-xs text-blue-600 mb-3">Selecione as seções que este líder pode acessar. Se nenhuma for selecionada, terá acesso total.</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: 'catalogo', label: 'Catálogo' },
+                  { key: 'busca', label: 'Busca' },
+                  { key: 'trilhas', label: 'Trilhas' },
+                  { key: 'mentorias', label: 'Mentorias' },
+                  { key: 'podcast', label: 'Podcast' },
+                  { key: 'planejamento', label: 'Planejamento' },
+                  { key: 'materiais', label: 'Materiais' },
+                  { key: 'mapa', label: 'Mapa' },
+                  { key: 'dashboard', label: 'Dashboard' },
+                  { key: 'mensagens', label: 'Mensagens' },
+                ].map(p => (
+                  <label key={p.key} className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input type="checkbox" checked={permissions.length === 0 || permissions.includes(p.key)}
+                      onChange={e => {
+                        if (permissions.length === 0) {
+                          // First uncheck: set all except this one
+                          setPermissions(['catalogo','busca','trilhas','mentorias','podcast','planejamento','materiais','mapa','dashboard','mensagens'].filter(k => k !== p.key))
+                        } else if (e.target.checked) {
+                          setPermissions([...permissions, p.key])
+                        } else {
+                          setPermissions(permissions.filter(k => k !== p.key))
+                        }
+                      }}
+                      className="rounded border-gray-300" />
+                    <span className="text-gray-700">{p.label}</span>
+                  </label>
+                ))}
+              </div>
+              {permissions.length > 0 && (
+                <button onClick={() => setPermissions([])} className="mt-2 text-xs text-blue-600 hover:text-blue-800">Restaurar acesso total</button>
+              )}
+            </div>
+          )}
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <div><p className="text-sm font-medium text-amber-800">🔑 {t('leaders.resetPassword')}</p><p className="text-xs text-amber-600 mt-0.5">{t('leaders.resetPasswordDesc')}</p></div>

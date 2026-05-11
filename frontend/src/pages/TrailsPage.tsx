@@ -10,7 +10,7 @@ export default function TrailsPage() {
   const { getTrails, deleteTrail, startTrail, completeModule, getAcademyCourses, enrollCourse } = useData()
   const { user } = useAuth()
   const { t } = useI18n()
-  const isPastor = user?.role === 'admin'
+  const isPastor = user?.role === 'admin' || user?.role === 'pastor_presidente'
   const [tab, setTab] = useState<'trilhas' | 'academy'>('trilhas')
   const [expandedTrail, setExpandedTrail] = useState<string | null>(null)
   const [enrolledMsg, setEnrolledMsg] = useState('')
@@ -69,6 +69,8 @@ export default function TrailsPage() {
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-lg">{trail.title}</h3>
                       {trail.isMandatory && <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">{t('trails.mandatory')}</span>}
+                      {trail.status === 'pending' && <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full">⏳ Pendente</span>}
+                      {trail.createdByName && trail.status !== 'pending' && <span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full">👤 {trail.createdByName}</span>}
                       {isComplete && <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">✓ {t('trails.completed')}</span>}
                     </div>
                     <p className="text-gray-600 text-sm mt-1">{trail.description}</p>
