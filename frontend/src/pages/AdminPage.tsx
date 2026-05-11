@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
-import { CheckCircle, Megaphone, Route, Settings, ArrowLeft } from 'lucide-react'
+import { CheckCircle, Megaphone, Route, Settings, ArrowLeft, BarChart3, Users, Download, Trophy, Loader2 } from 'lucide-react'
 
 export default function AdminPage() {
   const { user } = useAuth()
@@ -11,7 +11,7 @@ export default function AdminPage() {
   const { t: _t } = useI18n()
   const { getTrails, getBanner } = useData()
 
-  const [tab, setTab] = useState<'trails' | 'banner'>('trails')
+  const [tab, setTab] = useState<'analytics' | 'trails' | 'banner'>('analytics')
   const [pendingTrails, setPendingTrails] = useState<any[]>([])
   const [bannerMessage, setBannerMessage] = useState('')
   const [bannerType, setBannerType] = useState('info')
@@ -19,6 +19,8 @@ export default function AdminPage() {
   const [bannerExpires, setBannerExpires] = useState('')
   const [saving, setSaving] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
+  const [analytics, setAnalytics] = useState<any>(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(true)
 
   // Redirect non-admin
   useEffect(() => {
@@ -35,6 +37,11 @@ export default function AdminPage() {
       setBannerMessage(data.message || '')
       setBannerType(data.type || 'info')
     })
+    // Load analytics
+    const token = localStorage.getItem('ri_token')
+    fetch('https://h28wyjr7u7.execute-api.us-east-1.amazonaws.com/admin/analytics', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }).then(r => r.json()).then(setAnalytics).catch(() => {}).finally(() => setAnalyticsLoading(false))
   }, [getTrails, getBanner])
 
   const handleApproveTrail = async (trailId: string) => {
@@ -84,6 +91,10 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <div className="flex gap-4 mb-6 border-b">
+        <button onClick={() => setTab('analytics')}
+          className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'analytics' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
+          <BarChart3 size={16} /> Analytics
+        </button>
         <button onClick={() => setTab('trails')}
           className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'trails' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
           <Route size={16} /> Aprovar Trilhas
@@ -91,9 +102,152 @@ export default function AdminPage() {
         </button>
         <button onClick={() => setTab('banner')}
           className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'banner' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
-          <Megaphone size={16} /> Banner / Comunicado
+          <Megaphone size={16} /> Banner
         </button>
       </div>
+
+      {/* Analytics */}
+      {tab === 'analytics' && (
+        analyticsLoading ? (
+          <div className="flex justify-center py-20"><Loader2 size={32} className="animate-spin text-gray-400" /></div>
+        ) : analytics ? (
+          <div className="space-y-6">
+            {/* Overview cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-white border rounded-xl p-4 text-center">
+                <Users size={20} className="mx-auto text-blue-500 mb-1" />
+                <p className="text-2xl font-bold text-gray-900">{analytics.users.total}</p>
+                <p className="text-xs text-gray-500">Total usuários</p>
+              </div>
+              <div className="bg-white border rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-green-600">{analytics.users.active}</p>
+                <p className="text-xs text-gray-500">Ativos</p>
+              </div>
+              <div className="bg-white border rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-purple-600">{analytics.totalChurches}</p>
+                <p className="text-xs text-gray-500">Igrejas</p>
+              </div>
+              <div className="bg-white border rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-amber-600">{analytics.trails.total}</p>
+                <p className="text-xs text-gray-500">Trilhas</p>
+              </div>
+            </div>
+
+            {/* Users breakdown */}
+            <div className="bg-white border rounded-xl p-5">
+              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Users size={18} /> Usuários por papel</h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xl font-bold text-gray-900">{analytics.users.admins}</p>
+                  <p className="text-xs text-gray-500">Admins</p>
+                </div>
+                <div className="text-center p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xl font-bold text-gray-900">{analytics.users.pastors}</p>
+                  <p className="text-xs text-gray-500">Pastores</p>
+                </div>
+                <div className="text-center p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xl font-bold text-gray-900">{analytics.users.leaders}</p>
+                  <p className="text-xs text-gray-500">Líderes</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Two columns */}
+            <div className="grid lg:grid-cols-2 gap-6">
+              {/* Top Downloads */}
+              <div className="bg-white border rounded-xl p-5">
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Download size={18} /> Top Materiais Baixados</h3>
+                {analytics.topDownloads.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-4">Nenhum download registrado</p>
+                ) : (
+                  <div className="space-y-2">
+                    {analytics.topDownloads.map((d: any) => (
+                      <div key={d.fileName} className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-gray-400 w-5">{d.rank}º</span>
+                        <span className="flex-1 text-sm text-gray-700 truncate">{d.fileName?.replace(/\.[^/.]+$/, '')}</span>
+                        <span className="text-xs font-semibold text-gray-500">{d.downloads}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Top Users */}
+              <div className="bg-white border rounded-xl p-5">
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Trophy size={18} className="text-yellow-500" /> Usuários mais ativos</h3>
+                {analytics.topUsers.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-4">Nenhum dado</p>
+                ) : (
+                  <div className="space-y-2">
+                    {analytics.topUsers.map((u: any) => (
+                      <div key={u.rank} className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-gray-400 w-5">{u.rank}º</span>
+                        <span className="flex-1 text-sm text-gray-700 truncate">{u.name}</span>
+                        <span className="text-xs font-semibold text-yellow-600">{u.points} pts</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Trails stats */}
+            <div className="bg-white border rounded-xl p-5">
+              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Route size={18} /> Trilhas</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div className="text-center p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xl font-bold text-gray-900">{analytics.trails.enrollments}</p>
+                  <p className="text-xs text-gray-500">Inscrições</p>
+                </div>
+                <div className="text-center p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xl font-bold text-green-600">{analytics.trails.completed}</p>
+                  <p className="text-xs text-gray-500">Concluídas</p>
+                </div>
+                <div className="text-center p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xl font-bold text-blue-600">{analytics.trails.completionRate}%</p>
+                  <p className="text-xs text-gray-500">Taxa conclusão</p>
+                </div>
+                <div className="text-center p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xl font-bold text-yellow-600">{analytics.trails.pending}</p>
+                  <p className="text-xs text-gray-500">Pendentes</p>
+                </div>
+              </div>
+              {analytics.popularTrails.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Trilhas mais populares</p>
+                  <div className="space-y-2">
+                    {analytics.popularTrails.slice(0, 5).map((tr: any) => (
+                      <div key={tr.trailId} className="flex items-center gap-3">
+                        <span className="flex-1 text-sm text-gray-700 truncate">{tr.title}</span>
+                        <span className="text-xs text-gray-500">{tr.enrolled} inscritos</span>
+                        <span className="text-xs text-green-600">{tr.completed} concluídos</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Church ranking */}
+            {analytics.churchRanking.length > 0 && (
+              <div className="bg-white border rounded-xl p-5">
+                <h3 className="font-semibold text-gray-900 mb-3">Usuários por igreja</h3>
+                <div className="space-y-2">
+                  {analytics.churchRanking.map((c: any, i: number) => (
+                    <div key={c.churchId} className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-gray-400 w-5">{i + 1}º</span>
+                      <span className="flex-1 text-sm text-gray-700">{c.churchName}</span>
+                      <span className="text-xs font-semibold text-gray-500">{c.users} usuários</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-center text-gray-400 py-12">Erro ao carregar analytics</p>
+        )
+      )}
 
       {/* Approve Trails */}
       {tab === 'trails' && (

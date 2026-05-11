@@ -189,6 +189,9 @@ export async function handler(event) {
     if (path === '/banner' && method === 'GET') return await bannerGet(getUserFromToken(event));
     if (path === '/banner' && method === 'POST') return await bannerSave(body(event), getUserFromToken(event));
 
+    // ---- Admin Analytics ----
+    if (path === '/admin/analytics' && method === 'GET') return await adminAnalytics(getUserFromToken(event));
+
     // ---- Dropbox ----
     if (path === '/dropbox/sync' && method === 'POST') return await dropboxSync(getUserFromToken(event));
     if (path === '/dropbox/browse' && method === 'GET') return await dropboxBrowse(qs(event), getUserFromToken(event));
@@ -2005,4 +2008,114 @@ async function bannerSave(data, user) {
   };
   await ddb.send(new PutCommand({ TableName: T.CONTENT, Item: item }));
   return res(200, { ok: true });
+}
+
+
+// =============================================================================
+// ADMIN ANALYTICS
+// =============================================================================
+async function adminAnalytics(user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores.' });
+
+  try {
+    // Fetch all data in parallel
+    const [usersData, trailsData, progressData, contentData, downloadsData, churchesData] = await Promise.all([
+      ddb.send(new ScanCommand({ TableName: T.USERS })),
+      ddb.send(new ScanCommand({ TableName: T.TRAILS })),
+      ddb.send(new ScanCommand({ TableName: T.TRAIL_PROGRESS })),
+      ddb.send(new ScanCommand({ TableName: T.CONTENT })),
+      ddb.send(new ScanCommand({ TableName: T.DOWNLOADS })),
+      ddb.send(new ScanCommand({ TableName: T.CHURCHES })),
+    ]);
+
+    const users = usersData.Items || [];
+    const trails = trailsData.Items || [];
+    const progress = progressData.Items || [];
+    const content = contentData.Items || [];
+    const downloads = downloadsData.Items || [];
+    const churches = churchesData.Items || [];
+
+    // --- Users ---
+    const totalUsers = users.length;
+    const activeUsers = users.filter(u => u.status === 'active').length;
+    const blockedUsers = users.filter(u => u.status === 'blocked').length;
+    const admins = users.filter(u => u.role === 'admin').length;
+    const pastors = users.filter(u => u.role === 'pastor_presidente').length;
+    const leaders = users.filter(u => u.role === 'lider').length;
+
+    // --- Users by church ---
+    const usersByChurch = {};
+    users.forEach(u => {
+      const cId = u.churchId || 'sem-igreja';
+      if (!usersByChurch[cId]) usersByChurch[cId] = { count: 0, churchName: '' };
+      usersByChurch[cId].count++;
+    });
+    churches.forEach(c => {
+      if (usersByChurch[c.id]) usersByChurch[c.id].churchName = c.name;
+    });
+    const churchRanking = Object.entries(usersByChurch)
+      .map(([id, data]) => ({ churchId: id, churchName: data.churchName || 'Sem igreja', users: data.count }))
+      .sort((a, b) => b.users - a.users)
+      .slice(0, 10);
+
+    // --- Top content by views ---
+    const topContent = content
+      .filter(c => c.id !== '__BANNER__' && c.views > 0)
+      .sort((a, b) => (b.views || 0) - (a.views || 0))
+      .slice(0, 10)
+      .map(c => ({ title: c.title, views: c.views || 0, type: c.type }));
+
+    // --- Top downloads ---
+    const topDownloads = downloads
+      .sort((a, b) => (b.downloads || 0) - (a.downloads || 0))
+      .slice(0, 10)
+      .map((d, i) => ({ rank: i + 1, fileName: d.fileName || d.filePath, downloads: d.downloads || 0 }));
+
+    // --- Trails ---
+    const totalTrails = trails.length;
+    const approvedTrails = trails.filter(t => !t.status || t.status === 'approved').length;
+    const pendingTrails = trails.filter(t => t.status === 'pending').length;
+
+    // Trail progress stats
+    const totalEnrollments = progress.length;
+    const completedEnrollments = progress.filter(p => p.completedAt).length;
+    const completionRate = totalEnrollments > 0 ? Math.round((completedEnrollments / totalEnrollments) * 100) : 0;
+
+    // Most popular trails (by enrollments)
+    const trailEnrollments = {};
+    progress.forEach(p => {
+      const tId = p.trailId;
+      if (!trailEnrollments[tId]) trailEnrollments[tId] = { enrolled: 0, completed: 0 };
+      trailEnrollments[tId].enrolled++;
+      if (p.completedAt) trailEnrollments[tId].completed++;
+    });
+    const popularTrails = Object.entries(trailEnrollments)
+      .map(([trailId, data]) => {
+        const trail = trails.find(t => t.id === trailId);
+        return { trailId, title: trail?.title || 'Trilha removida', enrolled: data.enrolled, completed: data.completed };
+      })
+      .sort((a, b) => b.enrolled - a.enrolled)
+      .slice(0, 10);
+
+    // --- Top users by points ---
+    const topUsers = users
+      .filter(u => (u.points || 0) > 0)
+      .sort((a, b) => (b.points || 0) - (a.points || 0))
+      .slice(0, 10)
+      .map((u, i) => ({ rank: i + 1, name: u.name, points: u.points || 0, role: u.role, churchId: u.churchId }));
+
+    return res(200, {
+      users: { total: totalUsers, active: activeUsers, blocked: blockedUsers, admins, pastors, leaders },
+      churchRanking,
+      topContent,
+      topDownloads,
+      trails: { total: totalTrails, approved: approvedTrails, pending: pendingTrails, enrollments: totalEnrollments, completed: completedEnrollments, completionRate },
+      popularTrails,
+      topUsers,
+      totalChurches: churches.length,
+    });
+  } catch (err) {
+    console.error('Analytics error:', err);
+    return res(500, { message: 'Erro ao gerar analytics', error: err.message });
+  }
 }
