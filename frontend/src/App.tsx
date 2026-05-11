@@ -22,6 +22,7 @@ import LeadersPage from './pages/LeadersPage'
 import ContentPlayerPage from './pages/ContentPlayerPage'
 import ManagementPage from './pages/ManagementPage'
 import MaterialsPage from './pages/MaterialsPage'
+import AdminPage from './pages/AdminPage'
 
 function Protected({ children }: { children: React.ReactNode }) {
   return (
@@ -56,6 +57,7 @@ export default function App() {
             <Route path="/lideres" element={<Protected><LeadersPage /></Protected>} />
             <Route path="/gestao" element={<Protected><ManagementPage /></Protected>} />
             <Route path="/materiais" element={<Protected><MaterialsPage /></Protected>} />
+            <Route path="/admin" element={<Protected><AdminPage /></Protected>} />
           </Routes>
         </div>
       </DataProvider>
