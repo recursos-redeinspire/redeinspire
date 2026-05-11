@@ -39,10 +39,9 @@ export default function HomePage() {
       if (upcoming.length > 0) {
         setNextMentoring(upcoming[0])
       } else {
-        // Show last completed mentoring as reference
         const completed = sessions.filter((s: any) => s.status === 'completed')
           .sort((a: any, b: any) => (b.scheduledAt || '').localeCompare(a.scheduledAt || ''))
-        if (completed.length > 0) setNextMentoring({ ...completed[0], _isLast: true })
+        if (completed.length > 0) setNextMentoring(completed[0])
       }
     })
   }, [])
@@ -304,21 +303,15 @@ export default function HomePage() {
           {/* Next mentoring / last mentoring */}
           {nextMentoring && (
             <div className="bg-white border rounded-xl p-4">
-              <p className={`text-xs font-semibold uppercase mb-2 ${nextMentoring._isLast ? 'text-green-600' : 'text-teal-600'}`}>
-                {nextMentoring._isLast ? 'Última mentoria' : 'Próxima mentoria'}
-              </p>
+              <p className="text-xs text-blue-600 font-semibold uppercase mb-2">Próxima mentoria</p>
               <h3 className="font-bold text-sm text-gray-900 line-clamp-2">{nextMentoring.title}</h3>
               <p className="text-xs text-gray-500 mt-1">{nextMentoring.mentorName || nextMentoring.pastorName}</p>
               <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
                 <Calendar size={12} /> {new Date(nextMentoring.scheduledAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
               </p>
-              {nextMentoring._isLast ? (
-                <p className="mt-2 text-xs text-green-600 font-medium">✓ Concluída</p>
-              ) : (
-                <Link to="/mentorias" className="mt-3 block text-center bg-teal-600 text-white py-2 rounded-lg text-xs font-medium hover:bg-teal-700 transition">
-                  Ver detalhes
-                </Link>
-              )}
+              <Link to="/mentorias" className="mt-3 block text-center bg-blue-600 text-white py-2 rounded-lg text-xs font-medium hover:bg-blue-700 transition">
+                Ver detalhes
+              </Link>
             </div>
           )}
         </div>
