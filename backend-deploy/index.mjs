@@ -1398,18 +1398,19 @@ async function dropboxDownload(data, user) {
         await ddb.send(new UpdateCommand({
           TableName: T.DOWNLOADS,
           Key: { filePath: data.path },
-          UpdateExpression: 'SET downloads = if_not_exists(downloads, :zero) + :one, views = if_not_exists(views, :zero), fileName = :name, lastDownloadAt = :now',
-          ExpressionAttributeValues: { ':zero': 0, ':one': 1, ':name': fileName, ':now': new Date().toISOString() },
+          UpdateExpression: 'ADD downloads :one SET fileName = :name, lastDownloadAt = :now',
+          ExpressionAttributeValues: { ':one': 1, ':name': fileName, ':now': new Date().toISOString() },
         }));
       } else {
         await ddb.send(new UpdateCommand({
           TableName: T.DOWNLOADS,
           Key: { filePath: data.path },
-          UpdateExpression: 'SET views = if_not_exists(views, :zero) + :one, downloads = if_not_exists(downloads, :zero), fileName = :name, lastViewAt = :now',
-          ExpressionAttributeValues: { ':zero': 0, ':one': 1, ':name': fileName, ':now': new Date().toISOString() },
+          UpdateExpression: 'ADD #v :one SET fileName = :name, lastViewAt = :now',
+          ExpressionAttributeNames: { '#v': 'views' },
+          ExpressionAttributeValues: { ':one': 1, ':name': fileName, ':now': new Date().toISOString() },
         }));
       }
-    } catch {}
+    } catch (trackErr) { console.error('Track error:', trackErr.message); }
 
     return res(200, { url: result.link, name: fileName });
   } catch (err) {
