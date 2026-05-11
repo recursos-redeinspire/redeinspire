@@ -21,6 +21,7 @@ export default function AdminPage() {
   const [successMsg, setSuccessMsg] = useState('')
   const [analytics, setAnalytics] = useState<any>(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(true)
+  const [materialsFilter, setMaterialsFilter] = useState<'downloads' | 'views'>('downloads')
 
   // Redirect non-admin
   useEffect(() => {
@@ -154,40 +155,39 @@ export default function AdminPage() {
 
             {/* Two columns */}
             <div className="grid lg:grid-cols-2 gap-6">
-              {/* Top Downloads */}
+              {/* Top Materials - unified with toggle */}
               <div className="bg-white border rounded-xl p-5">
-                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Download size={18} /> Top Materiais Baixados</h3>
-                {analytics.topDownloads.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-4">Nenhum download registrado</p>
-                ) : (
-                  <div className="space-y-2">
-                    {analytics.topDownloads.map((d: any) => (
-                      <div key={d.fileName} className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-gray-400 w-5">{d.rank}º</span>
-                        <span className="flex-1 text-sm text-gray-700 truncate">{d.fileName?.replace(/\.[^/.]+$/, '')}</span>
-                        <span className="text-xs font-semibold text-gray-500">{d.downloads} ↓</span>
-                      </div>
-                    ))}
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><Download size={18} /> Top Materiais</h3>
+                  <div className="flex bg-gray-100 rounded-lg p-0.5">
+                    <button onClick={() => setMaterialsFilter('downloads')}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition ${materialsFilter === 'downloads' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
+                      ↓ Baixados
+                    </button>
+                    <button onClick={() => setMaterialsFilter('views')}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition ${materialsFilter === 'views' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
+                      👁 Visualizados
+                    </button>
                   </div>
-                )}
-              </div>
-
-              {/* Top Viewed */}
-              <div className="bg-white border rounded-xl p-5">
-                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">👁 Top Materiais Visualizados</h3>
-                {(!analytics.topViewed || analytics.topViewed.length === 0) ? (
-                  <p className="text-sm text-gray-400 text-center py-4">Nenhuma visualização registrada</p>
-                ) : (
-                  <div className="space-y-2">
-                    {analytics.topViewed.map((d: any) => (
-                      <div key={d.fileName} className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-gray-400 w-5">{d.rank}º</span>
-                        <span className="flex-1 text-sm text-gray-700 truncate">{d.fileName?.replace(/\.[^/.]+$/, '')}</span>
-                        <span className="text-xs font-semibold text-gray-500">{d.views} 👁</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                </div>
+                {(() => {
+                  const list = materialsFilter === 'downloads' ? analytics.topDownloads : (analytics.topViewed || [])
+                  return list.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-4">Nenhum dado registrado</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {list.map((d: any) => (
+                        <div key={d.fileName} className="flex items-center gap-3">
+                          <span className="text-xs font-bold text-gray-400 w-5">{d.rank}º</span>
+                          <span className="flex-1 text-sm text-gray-700 truncate">{d.fileName?.replace(/\.[^/.]+$/, '')}</span>
+                          <span className="text-xs font-semibold text-gray-500">
+                            {materialsFilter === 'downloads' ? `${d.downloads} ↓` : `${d.views} 👁`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
 
               {/* Top Users */}
