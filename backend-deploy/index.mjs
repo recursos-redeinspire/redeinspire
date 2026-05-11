@@ -121,6 +121,7 @@ export async function handler(event) {
     if (path.match(/^\/trails\/[^/]+\/enroll$/) && method === 'POST') return await trailEnroll(path.split('/')[2], getUserFromToken(event));
     if (path.match(/^\/trails\/[^/]+\/start$/) && method === 'POST') return await trailStart(path.split('/')[2], getUserFromToken(event));
     if (path.match(/^\/trails\/[^/]+\/complete-module$/) && method === 'POST') return await trailCompleteModule(path.split('/')[2], body(event), getUserFromToken(event));
+    if (path.match(/^\/trails\/[^/]+\/approve$/) && method === 'POST') return await trailApprove(path.split('/')[2], getUserFromToken(event));
     if (path.match(/^\/trails\/[^/]+$/) && method === 'DELETE') return await trailDelete(path.split('/')[2], getUserFromToken(event));
 
     // ---- Mentoring ----
@@ -184,6 +185,10 @@ export async function handler(event) {
     if (path === '/points/me' && method === 'GET') return await getMyPoints(getUserFromToken(event));
     if (path === '/points/ranking' && method === 'GET') return await getPointsRanking(getUserFromToken(event));
 
+    // ---- Banner/Announcements ----
+    if (path === '/banner' && method === 'GET') return await bannerGet(getUserFromToken(event));
+    if (path === '/banner' && method === 'POST') return await bannerSave(body(event), getUserFromToken(event));
+
     // ---- Dropbox ----
     if (path === '/dropbox/sync' && method === 'POST') return await dropboxSync(getUserFromToken(event));
     if (path === '/dropbox/browse' && method === 'GET') return await dropboxBrowse(qs(event), getUserFromToken(event));
@@ -228,7 +233,7 @@ async function authLogin({ email, password }) {
   const user = data.Items?.[0];
   if (!user || user.password !== password) return res(401, { message: 'E-mail ou senha incorretos.' });
   if (user.status === 'blocked') return res(403, { message: 'blocked', blockedMessage: '🚗 Sua conta está bloqueada. Para voltar a ter acesso, lave o carro do pastor!' });
-  const token = jwt.sign({ id: user.id, name: user.name, email: user.email, role: user.role, churchId: user.churchId, ministries: user.ministries, birthDate: user.birthDate || '' }, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign({ id: user.id, name: user.name, email: user.email, role: user.role, churchId: user.churchId, ministries: user.ministries, birthDate: user.birthDate || '', permissions: user.permissions || null }, JWT_SECRET, { expiresIn: '7d' });
   const { password: _, ...safe } = user;
   return res(200, { token, user: safe, firstLogin: !!user.firstLogin });
 }
@@ -339,6 +344,7 @@ async function authUpdateUser(userId, data, currentUser) {
   if (data.role !== undefined) { updates.push('#r = :r'); names['#r'] = 'role'; values[':r'] = data.role; }
   if (data.churchId !== undefined) { updates.push('churchId = :c'); values[':c'] = data.churchId; }
   if (data.ministries !== undefined) { updates.push('ministries = :m'); values[':m'] = data.ministries; }
+  if (data.permissions !== undefined) { updates.push('permissions = :perm'); values[':perm'] = data.permissions; }
   if (data.photoUrl !== undefined) { updates.push('photoUrl = :p'); values[':p'] = data.photoUrl; }
   if (data.birthDate !== undefined) { updates.push('birthDate = :bd'); values[':bd'] = data.birthDate; }
   if (updates.length === 0) return res(400, { message: 'Nenhum campo para atualizar.' });
@@ -593,7 +599,7 @@ async function trailsList(user) {
 }
 
 async function trailCreate(data, user) {
-  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem criar trilhas.' });
+  if (!user || !isAdminOrPastor(user)) return res(403, { message: 'Apenas administradores e pastores podem criar trilhas.' });
   if (!data.title) return res(400, { message: 'Título é obrigatório.' });
   const modules = (data.modules || []).map((m, i) => ({
     moduleId: m.moduleId || uuid(),
@@ -601,8 +607,10 @@ async function trailCreate(data, user) {
     order: m.order ?? (i + 1),
     durationMinutes: m.durationMinutes || 0,
     contentId: m.contentId || null,
+    externalUrl: m.externalUrl || null,
   }));
   const totalDurationMinutes = modules.reduce((s, m) => s + (m.durationMinutes || 0), 0);
+  const isPastor = user.role === 'pastor_presidente';
   const item = {
     id: uuid(),
     title: data.title,
@@ -613,6 +621,9 @@ async function trailCreate(data, user) {
     totalDurationMinutes,
     createdAt: new Date().toISOString(),
     createdBy: user.id,
+    createdByName: user.name,
+    createdByChurchId: user.churchId || '',
+    status: isPastor ? 'pending' : 'approved',
   };
   await ddb.send(new PutCommand({ TableName: T.TRAILS, Item: item }));
   return res(201, item);
@@ -1952,4 +1963,46 @@ async function dropboxTopDownloads(user) {
       downloads: item.downloads || 0,
     }));
   return res(200, items);
+}
+
+
+// --- Trail Approve (admin only) ---
+async function trailApprove(trailId, user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem aprovar trilhas.' });
+  await ddb.send(new UpdateCommand({
+    TableName: T.TRAILS, Key: { id: trailId },
+    UpdateExpression: 'SET #s = :s, approvedAt = :now, approvedBy = :by',
+    ExpressionAttributeNames: { '#s': 'status' },
+    ExpressionAttributeValues: { ':s': 'approved', ':now': new Date().toISOString(), ':by': user.id },
+  }));
+  return res(200, { ok: true });
+}
+
+
+// =============================================================================
+// BANNER / ANNOUNCEMENTS
+// =============================================================================
+async function bannerGet(user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  const data = await ddb.send(new GetCommand({ TableName: T.CONTENT, Key: { id: '__BANNER__' } }));
+  const banner = data.Item;
+  if (!banner || !banner.active) return res(200, { active: false });
+  // Check expiration
+  if (banner.expiresAt && new Date(banner.expiresAt) < new Date()) return res(200, { active: false });
+  return res(200, { active: true, message: banner.message || '', type: banner.bannerType || 'info', createdAt: banner.createdAt });
+}
+
+async function bannerSave(data, user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores.' });
+  const item = {
+    id: '__BANNER__',
+    active: !!data.active,
+    message: data.message || '',
+    bannerType: data.type || 'info',
+    expiresAt: data.expiresAt || null,
+    createdAt: new Date().toISOString(),
+    createdBy: user.id,
+  };
+  await ddb.send(new PutCommand({ TableName: T.CONTENT, Item: item }));
+  return res(200, { ok: true });
 }

@@ -17,17 +17,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { isDark, toggleTheme } = useTheme()
 
   const navItems = [
-    { path: '/', label: t('nav.home'), icon: <Home size={18} /> },
-    { path: '/catalogo', label: t('nav.catalog'), icon: <BookOpen size={18} /> },
-    { path: '/busca', label: t('nav.search'), icon: <Search size={18} /> },
-    { path: '/trilhas', label: t('nav.trails'), icon: <Route size={18} /> },
-    { path: '/mentorias', label: t('nav.mentoring'), icon: <GraduationCap size={18} /> },
-    { path: '/podcast', label: t('nav.podcast'), icon: <Mic size={18} /> },
-    { path: '/planejamento', label: t('nav.planning'), icon: <CalendarDays size={18} /> },
-    { path: '/materiais', label: t('nav.materials'), icon: <FolderDown size={18} /> },
-    { path: '/mapa', label: t('nav.map'), icon: <MapPin size={18} /> },
-    { path: '/dashboard', label: t('nav.dashboard'), icon: <BarChart3 size={18} /> },
-    { path: '/mensagens', label: t('nav.messages'), icon: <MessageSquare size={18} /> },
+    { path: '/', label: t('nav.home'), icon: <Home size={18} />, key: 'home' },
+    { path: '/catalogo', label: t('nav.catalog'), icon: <BookOpen size={18} />, key: 'catalogo' },
+    { path: '/busca', label: t('nav.search'), icon: <Search size={18} />, key: 'busca' },
+    { path: '/trilhas', label: t('nav.trails'), icon: <Route size={18} />, key: 'trilhas' },
+    { path: '/mentorias', label: t('nav.mentoring'), icon: <GraduationCap size={18} />, key: 'mentorias' },
+    { path: '/podcast', label: t('nav.podcast'), icon: <Mic size={18} />, key: 'podcast' },
+    { path: '/planejamento', label: t('nav.planning'), icon: <CalendarDays size={18} />, key: 'planejamento' },
+    { path: '/materiais', label: t('nav.materials'), icon: <FolderDown size={18} />, key: 'materiais' },
+    { path: '/mapa', label: t('nav.map'), icon: <MapPin size={18} />, key: 'mapa' },
+    { path: '/dashboard', label: t('nav.dashboard'), icon: <BarChart3 size={18} />, key: 'dashboard' },
+    { path: '/mensagens', label: t('nav.messages'), icon: <MessageSquare size={18} />, key: 'mensagens' },
   ]
 
   const categories = [
@@ -49,6 +49,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const { getUnreadCount, getChurches, getMyPoints } = useData()
+
+  // Filter nav items based on user permissions (only applies to lider role)
+  const userPermissions = (user as any)?.permissions as string[] | null | undefined
+  const filteredNavItems = (!userPermissions || user?.role !== 'lider')
+    ? navItems
+    : navItems.filter(item => item.key === 'home' || userPermissions.includes(item.key))
   const [unreadCount, setUnreadCount] = useState(0)
   const [userPoints, setUserPoints] = useState(0)
 
@@ -176,7 +182,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Sidebar */}
         <aside className={`fixed lg:sticky top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-white dark:bg-gray-800 border-r dark:border-gray-700 z-20 overflow-y-auto transition-transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
           <nav className="p-4 space-y-1">
-            {navItems.map((item) => {
+            {filteredNavItems.map((item) => {
               const isActive = location.pathname === item.path
               return (
               <Link key={item.path} to={item.path} onClick={() => setSidebarOpen(false)}
