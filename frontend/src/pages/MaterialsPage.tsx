@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
@@ -37,6 +38,8 @@ export default function MaterialsPreviewPage() {
   const { browseDropbox, downloadDropbox, smartSearchDropbox } = useData()
   const { user: _user } = useAuth()
   const { t } = useI18n()
+  const [searchParams] = useSearchParams()
+  const initialPath = searchParams.get('path') || ''
 
   const [path, setPath] = useState('')
   const [entries, setEntries] = useState<any[]>([])
@@ -62,7 +65,7 @@ export default function MaterialsPreviewPage() {
     finally { setLoading(false) }
   }, [browseDropbox])
 
-  useEffect(() => { loadFolder('') }, [loadFolder])
+  useEffect(() => { loadFolder(initialPath) }, [loadFolder, initialPath])
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) { loadFolder(path); return }

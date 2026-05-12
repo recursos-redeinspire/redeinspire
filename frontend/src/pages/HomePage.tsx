@@ -143,12 +143,15 @@ export default function HomePage() {
             <section>
               <h2 className="font-semibold text-lg text-gray-900 mb-3 flex items-center gap-2"><Download size={18} className="text-orange-500" /> Top 10 Materiais</h2>
               <div className="bg-white border rounded-xl divide-y">
-                {topDownloads.slice(0, 10).map(item => (
-                  <div key={item.filePath} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition" onClick={() => navigate('/materiais')}>
+                {topDownloads.slice(0, 10).map(item => {
+                  const folderPath = item.filePath ? item.filePath.split('/').slice(0, -1).join('/') : ''
+                  return (
+                  <div key={item.filePath} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition" onClick={() => navigate(`/materiais?path=${encodeURIComponent(folderPath)}`)}>
                     <span className="text-lg font-bold text-gray-400 w-6 text-center">{item.rank}</span>
                     <span className="flex-1 font-medium text-sm text-gray-900 truncate">{item.fileName?.replace(/\.[^/.]+$/, '')}</span>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </section>
           )}
@@ -158,7 +161,7 @@ export default function HomePage() {
               <h2 className="font-semibold text-lg text-gray-900 mb-3 flex items-center gap-2"><Flame size={18} className="text-red-500" /> {t('home.top10Content')}</h2>
               <div className="bg-white border rounded-xl divide-y">
                 {top10.slice(0, 5).map((item, i) => (
-                  <div key={item.id} onClick={() => navigate(`/conteudo/${item.id}`)} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition">
+                  <div key={item.id} onClick={() => navigate(`/catalogo?video=${item.id}`)} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition">
                     <span className="text-lg font-bold text-gray-400 w-6 text-center">{i + 1}</span>
                     <span className="flex-1 font-medium text-sm text-gray-900">{item.title}</span>
                   </div>

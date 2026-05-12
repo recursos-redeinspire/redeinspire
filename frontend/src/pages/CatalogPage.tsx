@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
@@ -494,6 +495,7 @@ export default function CatalogPage() {
   const [searchNextToken, _setSearchNextToken] = useState<string | null>(null)
 
   const [selectedVideo, setSelectedVideo] = useState<any | null>(null)
+  const [searchParams] = useSearchParams()
 
   // Tags
   const [tagMap, setTagMap] = useState<Record<string, string[]>>({})
@@ -535,6 +537,16 @@ export default function CatalogPage() {
 
   useEffect(() => { loadVideos() }, [loadVideos])
   useEffect(() => { getAllVideoTags().then(data => { setTagMap(data.tagMap); setAllTags(data.allTags) }).catch(() => {}) }, [getAllVideoTags])
+
+  // Auto-select video from URL param
+  useEffect(() => {
+    const videoId = searchParams.get('video')
+    if (videoId && videos.length > 0 && !selectedVideo) {
+      const found = videos.find(v => v.id === videoId)
+      if (found) setSelectedVideo(found)
+      else setSelectedVideo({ id: videoId, title: '', description: '', thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`, publishedAt: '', channelTitle: '' })
+    }
+  }, [searchParams, videos, selectedVideo])
 
   const handleSearch = () => {
     if (searchQuery.trim()) doSearch(searchQuery)
