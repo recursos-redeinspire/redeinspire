@@ -9,7 +9,7 @@ export default function HomePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { t } = useI18n()
-  const { getYoutubeVideos, getTrails, getWebinars, getPointsRanking, getMyPoints, getTopContents, getRecommendedContents, getMentoringSessions, getTopDownloads, getBanner } = useData()
+  const { getYoutubeVideos, getTrails, getWebinars, getPointsRanking, getMyPoints, getRecommendedContents, getMentoringSessions, getTopDownloads, getBanner } = useData()
 
   const [videos, setVideos] = useState<any[]>([])
   const [trails, setTrails] = useState<any[]>([])
@@ -17,7 +17,6 @@ export default function HomePage() {
   const [upcomingWebinars, setUpcomingWebinars] = useState<any[]>([])
   const [pointsRanking, setPointsRanking] = useState<any[]>([])
   const [myPoints, setMyPoints] = useState(0)
-  const [top10, setTop10] = useState<any[]>([])
   const [topDownloads, setTopDownloads] = useState<any[]>([])
   const [recommended, setRecommended] = useState<any[]>([])
   const [nextMentoring, setNextMentoring] = useState<any>(null)
@@ -30,7 +29,6 @@ export default function HomePage() {
     getTrails().then(setTrails)
     getPointsRanking().then(setPointsRanking)
     getMyPoints().then(setMyPoints)
-    getTopContents(10).then(setTop10)
     getRecommendedContents().then(setRecommended)
     getTopDownloads().then(setTopDownloads)
     getBanner().then(setBanner)
@@ -144,11 +142,13 @@ export default function HomePage() {
               <h2 className="font-semibold text-lg text-gray-900 mb-3 flex items-center gap-2"><Download size={18} className="text-orange-500" /> Top 10 Materiais</h2>
               <div className="bg-white border rounded-xl divide-y">
                 {topDownloads.slice(0, 10).map(item => {
-                  const folderPath = item.filePath ? item.filePath.split('/').slice(0, -1).join('/') : ''
+                  const parts = (item.filePath || '').split('/')
+                  const folderName = parts.length > 2 ? parts[parts.length - 2] : parts[1] || ''
+                  const folderPath = parts.slice(0, -1).join('/')
                   return (
                   <div key={item.filePath} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition" onClick={() => navigate(`/materiais?path=${encodeURIComponent(folderPath)}`)}>
                     <span className="text-lg font-bold text-gray-400 w-6 text-center">{item.rank}</span>
-                    <span className="flex-1 font-medium text-sm text-gray-900 truncate">{item.fileName?.replace(/\.[^/.]+$/, '')}</span>
+                    <span className="flex-1 font-medium text-sm text-gray-900 truncate">{folderName}</span>
                   </div>
                   )
                 })}
@@ -156,14 +156,14 @@ export default function HomePage() {
             </section>
           )}
 
-          {top10.length > 0 && (
+          {videos.length > 0 && (
             <section>
               <h2 className="font-semibold text-lg text-gray-900 mb-3 flex items-center gap-2"><Flame size={18} className="text-red-500" /> {t('home.top10Content')}</h2>
               <div className="bg-white border rounded-xl divide-y">
-                {top10.slice(0, 5).map((item, i) => (
-                  <div key={item.id} onClick={() => navigate(`/catalogo?video=${item.id}`)} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition">
+                {videos.slice(0, 5).map((video, i) => (
+                  <div key={video.id} onClick={() => navigate(`/catalogo?video=${video.id}`)} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition">
                     <span className="text-lg font-bold text-gray-400 w-6 text-center">{i + 1}</span>
-                    <span className="flex-1 font-medium text-sm text-gray-900">{item.title}</span>
+                    <span className="flex-1 font-medium text-sm text-gray-900">{video.title}</span>
                   </div>
                 ))}
               </div>
