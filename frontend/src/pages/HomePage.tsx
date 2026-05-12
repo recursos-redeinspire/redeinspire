@@ -147,7 +147,6 @@ export default function HomePage() {
                   <div key={item.filePath} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition" onClick={() => navigate('/materiais')}>
                     <span className="text-lg font-bold text-gray-400 w-6 text-center">{item.rank}</span>
                     <span className="flex-1 font-medium text-sm text-gray-900 truncate">{item.fileName?.replace(/\.[^/.]+$/, '')}</span>
-                    <span className="text-xs text-gray-500">{item.downloads} downloads</span>
                   </div>
                 ))}
               </div>
@@ -162,7 +161,6 @@ export default function HomePage() {
                   <div key={item.id} onClick={() => navigate(`/conteudo/${item.id}`)} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition">
                     <span className="text-lg font-bold text-gray-400 w-6 text-center">{i + 1}</span>
                     <span className="flex-1 font-medium text-sm text-gray-900">{item.title}</span>
-                    <span className="text-xs text-gray-500">{item.views} {t('home.views')}</span>
                   </div>
                 ))}
               </div>
