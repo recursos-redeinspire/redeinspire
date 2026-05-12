@@ -96,12 +96,12 @@ export default function HomePage() {
         </section>
       )}
 
-      <section className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-5 flex items-center justify-between flex-wrap gap-4">
+      <section className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 border border-emerald-200 dark:border-emerald-700 rounded-xl p-5 flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
-          <GraduationCap size={24} className="text-emerald-600" />
+          <GraduationCap size={24} className="text-emerald-600 dark:text-emerald-400" />
           <div>
-            <p className="font-semibold text-gray-900 text-sm">Novo na plataforma?</p>
-            <p className="text-xs text-gray-600">Assista os vídeos de treinamento e aproveite ao máximo</p>
+            <p className="font-semibold text-gray-900 dark:text-white text-sm">Novo na plataforma?</p>
+            <p className="text-xs text-gray-600 dark:text-gray-300">Assista os vídeos de treinamento e aproveite ao máximo</p>
           </div>
         </div>
         <Link to="/trilhas" className="bg-emerald-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition">Ver treinamentos</Link>
