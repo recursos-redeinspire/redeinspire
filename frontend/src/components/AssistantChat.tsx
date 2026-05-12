@@ -3,6 +3,18 @@ import { X, Send, Loader2, Bot, User } from 'lucide-react'
 
 const API = import.meta.env.VITE_API_BASE_URL || 'https://h28wyjr7u7.execute-api.us-east-1.amazonaws.com'
 
+function formatMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/^\* (.+)$/gm, '<li class="ml-3 list-disc">$1</li>')
+    .replace(/^- (.+)$/gm, '<li class="ml-3 list-disc">$1</li>')
+    .replace(/^(\d+)\. (.+)$/gm, '<li class="ml-3 list-decimal">$2</li>')
+    .replace(/(<li.*<\/li>\n?)+/g, '<ul class="space-y-1 my-1">$&</ul>')
+    .replace(/\n\n/g, '<br/><br/>')
+    .replace(/\n/g, '<br/>')
+}
+
 interface Message {
   role: 'user' | 'assistant'
   content: string
@@ -97,7 +109,11 @@ export default function AssistantChat() {
                     ? 'bg-gray-900 text-white rounded-br-md'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-md'
                 }`}>
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  {msg.role === 'user' ? (
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  ) : (
+                    <div className="text-sm space-y-1.5 [&_strong]:font-semibold" dangerouslySetInnerHTML={{ __html: formatMarkdown(msg.content) }} />
+                  )}
                 </div>
                 {msg.role === 'user' && (
                   <div className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center">
