@@ -23,6 +23,7 @@ import ContentPlayerPage from './pages/ContentPlayerPage'
 import ManagementPage from './pages/ManagementPage'
 import MaterialsPage from './pages/MaterialsPage'
 import AdminPage from './pages/AdminPage'
+import HomeNovaPage from './pages/HomeNovaPage'
 
 function Protected({ children }: { children: React.ReactNode }) {
   return (
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="/gestao" element={<Protected><ManagementPage /></Protected>} />
             <Route path="/materiais" element={<Protected><MaterialsPage /></Protected>} />
             <Route path="/admin" element={<Protected><AdminPage /></Protected>} />
+            <Route path="/home-nova" element={<Protected><HomeNovaPage /></Protected>} />
           </Routes>
         </div>
       </DataProvider>
