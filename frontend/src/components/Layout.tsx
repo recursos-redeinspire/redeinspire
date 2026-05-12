@@ -6,10 +6,10 @@ import { useI18n } from '../i18n/I18nContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { LANG_OPTIONS, type Lang } from '../i18n/translations'
 import {
-  Home, BookOpen, Search, Route, GraduationCap, Mic,
+  Home, BookOpen, Search, Route, GraduationCap,
   CalendarDays, FolderDown, MapPin, BarChart3, MessageSquare,
-  Users, UserPlus, Settings, ChevronDown, ChevronUp,
-  Menu, Bell, LogOut, Star, ChevronDown as ChevronDownSm
+  Users, UserPlus, Settings, ChevronDown,
+  Menu, Bell, LogOut, Star
 } from 'lucide-react'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -19,29 +19,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { path: '/', label: t('nav.home'), icon: <Home size={18} />, key: 'home' },
     { path: '/catalogo', label: t('nav.catalog'), icon: <BookOpen size={18} />, key: 'catalogo' },
-    { path: '/busca', label: t('nav.search'), icon: <Search size={18} />, key: 'busca' },
     { path: '/trilhas', label: t('nav.trails'), icon: <Route size={18} />, key: 'trilhas' },
     { path: '/mentorias', label: t('nav.mentoring'), icon: <GraduationCap size={18} />, key: 'mentorias' },
-    { path: '/podcast', label: t('nav.podcast'), icon: <Mic size={18} />, key: 'podcast' },
     { path: '/planejamento', label: t('nav.planning'), icon: <CalendarDays size={18} />, key: 'planejamento' },
     { path: '/materiais', label: t('nav.materials'), icon: <FolderDown size={18} />, key: 'materiais' },
     { path: '/mapa', label: t('nav.map'), icon: <MapPin size={18} />, key: 'mapa' },
     { path: '/dashboard', label: t('nav.dashboard'), icon: <BarChart3 size={18} />, key: 'dashboard' },
-    { path: '/mensagens', label: t('nav.messages'), icon: <MessageSquare size={18} />, key: 'mensagens' },
-  ]
-
-  const categories = [
-    'Mensagens', 'Série de Mensagens', 'Campanhas', 'Pequenos Grupos',
-    'Crianças', 'Jovens', 'Adolescentes', 'Homens', 'Mulheres', 'Casais',
-    '5 Propósitos', 'Empresários', '30 Semanas', 'Velos',
-    'Gestão Ministerial', 'Pesquisas', 'Mentorias', 'Webinar',
-    'Trilhas', 'Eventos', 'Casa de Paz', 'Materiais para Liderança', 'Retiros',
   ]
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [showCategories, setShowCategories] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showLangMenu, setShowLangMenu] = useState(false)
+  const [headerSearch, setHeaderSearch] = useState('')
   const [churchName, setChurchName] = useState('')
   const [churchLogo, setChurchLogo] = useState('')
   const [themeColor, setThemeColor] = useState('')
@@ -109,10 +98,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="hidden md:flex flex-1 max-w-md mx-8">
-            <Link to="/busca" className={`w-full flex items-center rounded-lg px-4 py-2 transition-colors ${themeColor ? 'bg-white/20 text-white/80 hover:bg-white/30' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-              <Search size={16} className="mr-2" />
-              {t('nav.searchContent')}
-            </Link>
+            <div className={`w-full flex items-center rounded-lg px-4 py-2 ${themeColor ? 'bg-white/20' : 'bg-gray-100'}`}>
+              <Search size={16} className={`mr-2 flex-shrink-0 ${themeColor ? 'text-white/60' : 'text-gray-400'}`} />
+              <input
+                type="text"
+                value={headerSearch}
+                onChange={e => setHeaderSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && headerSearch.trim()) { navigate(`/busca?q=${encodeURIComponent(headerSearch.trim())}`); setHeaderSearch('') } }}
+                placeholder={t('nav.searchContent')}
+                className={`w-full bg-transparent outline-none text-sm ${themeColor ? 'text-white placeholder-white/60' : 'text-gray-700 placeholder-gray-500'}`}
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-4">
@@ -133,7 +129,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <button onClick={() => setShowLangMenu(!showLangMenu)}
                 className={`flex items-center gap-1 px-2 py-1 rounded text-sm transition ${themeColor ? 'text-white/80 hover:bg-white/20' : 'text-gray-600 hover:bg-gray-100'}`}>
                 {LANG_OPTIONS.find(o => o.value === lang)?.flag} <span className="hidden sm:inline text-xs">{LANG_OPTIONS.find(o => o.value === lang)?.label}</span>
-                <ChevronDownSm size={12} />
+                <ChevronDown size={12} />
               </button>
               {showLangMenu && (
                 <div className="absolute right-0 mt-1 bg-white border rounded-lg shadow-lg py-1 z-50 w-36">
@@ -147,8 +143,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               )}
             </div>
             <Link to="/mensagens" className={`relative ${themeColor ? 'text-white/80 hover:text-white' : 'text-gray-600 hover:text-gray-800'}`}>
-              <Bell size={24} />
+              <MessageSquare size={22} />
               {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">{unreadCount}</span>}
+            </Link>
+            <Link to="/mensagens" className={`relative ${themeColor ? 'text-white/80 hover:text-white' : 'text-gray-600 hover:text-gray-800'}`}>
+              <Bell size={22} />
             </Link>
             <div className="relative flex items-center gap-2">
               <span className={`text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 ${themeColor ? 'bg-white/20 text-white' : 'bg-yellow-100 text-yellow-700'}`} title={t('header.points')}>
@@ -227,21 +226,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <span><Settings size={18} /></span><span>{user?.role === 'lider' ? t('nav.ministries') : t('nav.ministriesChurches')}</span>
             </Link>
           </nav>
-          <div className="border-t p-4">
-            <button onClick={() => setShowCategories(!showCategories)} className="flex items-center justify-between w-full text-sm font-medium text-gray-700">
-              <span>{t('nav.categories')}</span>
-              {showCategories ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-            {showCategories && (
-              <div className="mt-2 space-y-1">
-                {categories.map((cat) => (
-                  <Link key={cat} to={`/catalogo?category=${encodeURIComponent(cat)}`} onClick={() => setSidebarOpen(false)} className="block px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded">
-                    {cat}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
         </aside>
 
         {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-10 lg:hidden" onClick={() => setSidebarOpen(false)} />}
