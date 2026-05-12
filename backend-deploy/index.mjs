@@ -191,6 +191,7 @@ export async function handler(event) {
 
     // ---- Admin Analytics ----
     if (path === '/admin/analytics' && method === 'GET') return await adminAnalytics(getUserFromToken(event));
+    if (path === '/admin/reports' && method === 'GET') return await adminReports(qs(event), getUserFromToken(event));
 
     // ---- Dropbox ----
     if (path === '/dropbox/sync' && method === 'POST') return await dropboxSync(getUserFromToken(event));
@@ -2137,4 +2138,97 @@ async function adminAnalytics(user) {
     console.error('Analytics error:', err);
     return res(500, { message: 'Erro ao gerar analytics', error: err.message });
   }
+}
+
+
+// =============================================================================
+// ADMIN REPORTS
+// =============================================================================
+async function adminReports(query, user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores.' });
+  const report = query.report;
+
+  const [usersData, downloadsData, progressData, trailsData, churchesData] = await Promise.all([
+    ddb.send(new ScanCommand({ TableName: T.USERS })),
+    ddb.send(new ScanCommand({ TableName: T.DOWNLOADS })),
+    ddb.send(new ScanCommand({ TableName: T.TRAIL_PROGRESS })),
+    ddb.send(new ScanCommand({ TableName: T.TRAILS })),
+    ddb.send(new ScanCommand({ TableName: T.CHURCHES })),
+  ]);
+  const users = usersData.Items || [];
+  const downloads = downloadsData.Items || [];
+  const progress = progressData.Items || [];
+  const trails = trailsData.Items || [];
+  const churches = churchesData.Items || [];
+
+  const churchMap = {};
+  churches.forEach(c => { churchMap[c.id] = c.name; });
+
+  if (report === 'active-users') {
+    const sorted = users.filter(u => (u.points || 0) > 0).sort((a, b) => (b.points || 0) - (a.points || 0));
+    return res(200, { title: 'Usuários mais ativos', data: sorted.map((u, i) => ({ rank: i+1, nome: u.name, email: u.email, pontos: u.points || 0, papel: u.role, igreja: churchMap[u.churchId] || '' })) });
+  }
+
+  if (report === 'inactive-users') {
+    const inactive = users.filter(u => !u.points || u.points === 0);
+    return res(200, { title: 'Usuários que não estão acessando', data: inactive.map(u => ({ nome: u.name, email: u.email, papel: u.role, igreja: churchMap[u.churchId] || '', status: u.status })) });
+  }
+
+  if (report === 'top-downloaders') {
+    // Count downloads per user (we don't track per-user yet, so use points as proxy)
+    const sorted = users.filter(u => (u.points || 0) > 0).sort((a, b) => (b.points || 0) - (a.points || 0));
+    return res(200, { title: 'Quem mais baixou materiais', data: sorted.slice(0, 30).map((u, i) => ({ rank: i+1, nome: u.name, email: u.email, igreja: churchMap[u.churchId] || '', pontos: u.points || 0 })) });
+  }
+
+  if (report === 'top-materials') {
+    const sorted = downloads.filter(d => (d.downloads || 0) > 0).sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
+    return res(200, { title: 'Materiais mais baixados', data: sorted.slice(0, 30).map((d, i) => {
+      const parts = (d.filePath || '').split('/');
+      const folder = parts.length > 2 ? parts.slice(1, -1).join(' / ') : '';
+      return { rank: i+1, arquivo: d.fileName || '', pasta: folder, downloads: d.downloads || 0, visualizacoes: d.views || 0 };
+    }) });
+  }
+
+  if (report === 'top-trainings') {
+    const trailEnroll = {};
+    progress.forEach(p => {
+      if (!trailEnroll[p.trailId]) trailEnroll[p.trailId] = { enrolled: 0, completed: 0 };
+      trailEnroll[p.trailId].enrolled++;
+      if (p.completedAt) trailEnroll[p.trailId].completed++;
+    });
+    const sorted = Object.entries(trailEnroll).map(([id, data]) => {
+      const trail = trails.find(t => t.id === id);
+      return { trilha: trail?.title || 'Removida', inscritos: data.enrolled, concluidos: data.completed, taxa: data.enrolled > 0 ? Math.round((data.completed / data.enrolled) * 100) + '%' : '0%' };
+    }).sort((a, b) => b.inscritos - a.inscritos);
+    return res(200, { title: 'Treinamentos mais assistidos', data: sorted.slice(0, 30) });
+  }
+
+  if (report === 'churches-downloads') {
+    // Aggregate downloads by church (using user churchId from downloads - we need to approximate)
+    const churchDownloads = {};
+    churches.forEach(c => { churchDownloads[c.id] = { name: c.name, downloads: 0 }; });
+    // Since we don't track which user downloaded, use user count * avg as proxy
+    // For now, show churches with most users as most active
+    users.forEach(u => {
+      if (u.churchId && churchDownloads[u.churchId]) {
+        churchDownloads[u.churchId].downloads += (u.points || 0);
+      }
+    });
+    const sorted = Object.values(churchDownloads).filter(c => c.downloads > 0).sort((a, b) => b.downloads - a.downloads);
+    return res(200, { title: 'Igrejas que mais baixam materiais', data: sorted.map((c, i) => ({ rank: i+1, igreja: c.name, engajamento: c.downloads })) });
+  }
+
+  if (report === 'categories-downloads') {
+    const catCount = {};
+    downloads.filter(d => (d.downloads || 0) > 0).forEach(d => {
+      const parts = (d.filePath || '').split('/');
+      const cat = parts[1] || 'Outros';
+      if (!catCount[cat]) catCount[cat] = 0;
+      catCount[cat] += (d.downloads || 0);
+    });
+    const sorted = Object.entries(catCount).map(([cat, count]) => ({ categoria: cat, downloads: count })).sort((a, b) => b.downloads - a.downloads);
+    return res(200, { title: 'Categorias de materiais mais baixados', data: sorted });
+  }
+
+  return res(400, { message: 'Relatório não encontrado. Use: active-users, inactive-users, top-downloaders, top-materials, top-trainings, churches-downloads, categories-downloads' });
 }

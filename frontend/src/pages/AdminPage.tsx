@@ -11,7 +11,7 @@ export default function AdminPage() {
   const { t: _t } = useI18n()
   const { getTrails, getBanner } = useData()
 
-  const [tab, setTab] = useState<'analytics' | 'trails' | 'banner'>('analytics')
+  const [tab, setTab] = useState<'analytics' | 'trails' | 'banner' | 'reports'>('analytics')
   const [pendingTrails, setPendingTrails] = useState<any[]>([])
   const [bannerMessage, setBannerMessage] = useState('')
   const [bannerType, setBannerType] = useState('info')
@@ -22,6 +22,9 @@ export default function AdminPage() {
   const [analytics, setAnalytics] = useState<any>(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(true)
   const [materialsFilter, setMaterialsFilter] = useState<'downloads' | 'views'>('downloads')
+  const [reportData, setReportData] = useState<any>(null)
+  const [reportLoading, setReportLoading] = useState(false)
+  const [selectedReport, setSelectedReport] = useState('')
 
   // Redirect non-admin
   useEffect(() => {
@@ -104,6 +107,10 @@ export default function AdminPage() {
         <button onClick={() => setTab('banner')}
           className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'banner' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
           <Megaphone size={16} /> Banner
+        </button>
+        <button onClick={() => setTab('reports')}
+          className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'reports' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
+          <Download size={16} /> Relatórios
         </button>
       </div>
 
@@ -370,6 +377,102 @@ export default function AdminPage() {
               {saving ? 'Salvando...' : 'Salvar banner'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Reports */}
+      {tab === 'reports' && (
+        <div className="space-y-4">
+          {/* Report selector */}
+          <div className="bg-white border rounded-xl p-5">
+            <h3 className="font-semibold text-gray-900 mb-3">Selecione o relatório</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {[
+                { key: 'active-users', label: 'Usuários mais ativos' },
+                { key: 'inactive-users', label: 'Usuários que não estão acessando' },
+                { key: 'top-downloaders', label: 'Quem mais baixou materiais' },
+                { key: 'top-materials', label: 'Materiais mais baixados' },
+                { key: 'top-trainings', label: 'Treinamentos mais assistidos' },
+                { key: 'churches-downloads', label: 'Igrejas que mais baixam' },
+                { key: 'categories-downloads', label: 'Categorias mais baixadas' },
+              ].map(r => (
+                <button key={r.key} onClick={async () => {
+                  setSelectedReport(r.key); setReportLoading(true); setReportData(null)
+                  try {
+                    const token = localStorage.getItem('ri_token')
+                    const resp = await fetch(`https://h28wyjr7u7.execute-api.us-east-1.amazonaws.com/admin/reports?report=${r.key}`, { headers: { 'Authorization': `Bearer ${token}` } })
+                    const data = await resp.json()
+                    setReportData(data)
+                  } catch {} finally { setReportLoading(false) }
+                }}
+                  className={`text-left px-4 py-3 rounded-lg border text-sm transition ${selectedReport === r.key ? 'bg-gray-900 text-white border-gray-900' : 'hover:bg-gray-50 text-gray-700'}`}>
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Report results */}
+          {reportLoading && <div className="flex justify-center py-12"><Loader2 size={32} className="animate-spin text-gray-400" /></div>}
+
+          {reportData && !reportLoading && (
+            <div className="bg-white border rounded-xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900">{reportData.title}</h3>
+                <div className="flex gap-2">
+                  <button onClick={() => {
+                    if (!reportData?.data?.length) return
+                    const headers = Object.keys(reportData.data[0])
+                    const csv = [headers.join(','), ...reportData.data.map((row: any) => headers.map(h => `"${(row[h] ?? '').toString().replace(/"/g, '""')}"`).join(','))].join('\n')
+                    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a'); a.href = url; a.download = `${reportData.title}.csv`; a.click()
+                  }} className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-700 flex items-center gap-1">
+                    <Download size={14} /> CSV
+                  </button>
+                  <button onClick={() => {
+                    if (!reportData?.data?.length) return
+                    const headers = Object.keys(reportData.data[0])
+                    const printWindow = window.open('', '_blank')
+                    if (!printWindow) return
+                    printWindow.document.write(`<html><head><title>${reportData.title}</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #ddd;padding:8px;text-align:left;font-size:12px}th{background:#f3f4f6;font-weight:600}h1{font-size:18px}</style></head><body>`)
+                    printWindow.document.write(`<h1>${reportData.title}</h1><p style="color:#666;font-size:12px">Gerado em ${new Date().toLocaleDateString('pt-BR')}</p>`)
+                    printWindow.document.write('<table><thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>')
+                    reportData.data.forEach((row: any) => { printWindow.document.write('<tr>' + headers.map(h => `<td>${row[h] ?? ''}</td>`).join('') + '</tr>') })
+                    printWindow.document.write('</tbody></table></body></html>')
+                    printWindow.document.close()
+                    setTimeout(() => printWindow.print(), 500)
+                  }} className="bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-700 flex items-center gap-1">
+                    <Download size={14} /> PDF
+                  </button>
+                </div>
+              </div>
+              {reportData.data?.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">Nenhum dado disponível</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        {Object.keys(reportData.data[0] || {}).map(key => (
+                          <th key={key} className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase">{key}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {reportData.data.map((row: any, i: number) => (
+                        <tr key={i} className="hover:bg-gray-50">
+                          {Object.values(row).map((val: any, j: number) => (
+                            <td key={j} className="px-3 py-2 text-gray-700">{val}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
