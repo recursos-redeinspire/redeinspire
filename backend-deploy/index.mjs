@@ -2251,10 +2251,10 @@ async function assistantChat(data, user) {
     // 1. Get ALL platform content for context
     const token = await ytGetAccessToken();
     
-    // Fetch ALL videos with pagination
+    // Fetch ALL videos with pagination (limit to 200 most recent for context size)
     let allVideos = [];
     let pageToken = '';
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 4; i++) {
       let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${YT_UPLOADS_PLAYLIST}&maxResults=50`;
       if (pageToken) url += `&pageToken=${pageToken}`;
       const ytRes = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -2264,18 +2264,18 @@ async function assistantChat(data, user) {
       pageToken = ytData.nextPageToken;
       if (!pageToken) break;
     }
-    const videos = allVideos.map(i => `- ${i.snippet.title}`).join('\n');
+    const videos = allVideos.map(i => i.snippet.title).join('\n');
 
     // Fetch trails
     const trailsData = await ddb.send(new ScanCommand({ TableName: T.TRAILS }));
-    const trails = (trailsData.Items || []).map(t => `- ${t.title}: ${t.description || ''}`).join('\n');
+    const trails = (trailsData.Items || []).map(t => t.title).join('\n');
 
-    // Fetch ALL materials from Dropbox downloads table
+    // Fetch ALL materials from Dropbox downloads table (limit for context)
     const downloadsData = await ddb.send(new ScanCommand({ TableName: T.DOWNLOADS }));
-    const materials = (downloadsData.Items || []).map(d => {
+    const materials = (downloadsData.Items || []).slice(0, 40).map(d => {
       const parts = (d.filePath || '').split('/');
       const folder = parts.length > 2 ? parts.slice(1, -1).join(' > ') : '';
-      return `- ${d.fileName || parts[parts.length-1]}${folder ? ' ('+folder+')' : ''}`;
+      return `${d.fileName || parts[parts.length-1]}${folder ? ' ('+folder+')' : ''}`;
     }).join('\n');
 
     // Also list Dropbox folders for context
@@ -2292,30 +2292,20 @@ async function assistantChat(data, user) {
     } catch {}
 
     // 2. Build system prompt
-    const systemPrompt = `Você é o assistente da Plataforma Rede Inspire, uma plataforma de capacitação para líderes de igrejas.
+    const systemPrompt = `Você é o assistente da Plataforma Rede Inspire, para capacitação de líderes de igrejas.
+Responda APENAS sobre conteúdos da plataforma. Seja objetivo e amigável. Responda em português.
+Se não encontrar o conteúdo, diga que não encontrou.
 
-REGRAS IMPORTANTES:
-- Responda APENAS sobre conteúdos disponíveis na plataforma
-- Se não souber ou o conteúdo não existir, diga que não encontrou na plataforma
-- Seja útil, objetivo e amigável
-- Quando recomendar conteúdo, mencione o título exato
-- Pode fazer resumos baseados nos títulos e descrições disponíveis
-- Responda em português brasileiro
-- Não invente conteúdos que não existem na lista abaixo
-
-VÍDEOS DISPONÍVEIS NA PLATAFORMA:
+VÍDEOS (${allVideos.length} disponíveis):
 ${videos}
 
-TRILHAS DE TREINAMENTO:
+TRILHAS:
 ${trails}
 
-MATERIAIS DISPONÍVEIS:
+MATERIAIS:
 ${materials}
 
-PASTAS DE MATERIAIS DISPONÍVEIS:
-${folderList}
-
-Quando o usuário perguntar sobre um tema, busque nos conteúdos acima e recomende os mais relevantes. Se pedir resumo, faça baseado no título e contexto disponível.`;
+PASTAS: ${folderList}`;
 
     // 3. Call Groq
     const history = data.history || [];
