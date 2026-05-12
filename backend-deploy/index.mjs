@@ -1711,7 +1711,7 @@ async function youtubeSmartSearch(query, user) {
     // Fetch multiple pages of videos to search through
     let allVideos = [];
     let pageToken = '';
-    const maxPages = 5; // ~100 videos to search through
+    const maxPages = 3; // ~150 videos to search through
 
     for (let i = 0; i < maxPages; i++) {
       let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,status&playlistId=${YT_UPLOADS_PLAYLIST}&maxResults=50`;
@@ -1775,7 +1775,7 @@ async function dropboxSmartSearch(query, user) {
     let allFiles = [];
     let hasMore = true;
     let cursor = null;
-    const maxPages = 5;
+    const maxPages = 2;
     let pages = 0;
 
     while (hasMore && pages < maxPages) {
