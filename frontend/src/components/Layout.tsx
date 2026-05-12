@@ -11,6 +11,7 @@ import {
   Users, UserPlus, Settings, ChevronDown,
   Menu, Bell, LogOut, Star
 } from 'lucide-react'
+import AssistantChat from './AssistantChat'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { t, lang, setLang } = useI18n()
@@ -266,6 +267,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="border-t mt-8 pt-4 text-center text-xs text-gray-400">© 2026 Rede Inspire. {t('footer.rights')}</div>
         </div>
       </footer>
+      <AssistantChat />
     </div>
   )
 }

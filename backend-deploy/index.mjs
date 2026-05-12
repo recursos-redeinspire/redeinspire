@@ -220,6 +220,9 @@ export async function handler(event) {
     if (path === '/video-recs' && method === 'POST') return await videoRecsSave(body(event), getUserFromToken(event));
     if (path.match(/^\/video-recs\/[^/]+$/) && method === 'DELETE') return await videoRecsDeleteItem(path.split('/')[2], qs(event), getUserFromToken(event));
 
+    // ---- AI Assistant ----
+    if (path === '/assistant/chat' && method === 'POST') return await assistantChat(body(event), getUserFromToken(event));
+
     return res(404, { message: 'Rota não encontrada', path, method });
   } catch (err) {
     console.error('Error:', err);
@@ -2231,4 +2234,88 @@ async function adminReports(query, user) {
   }
 
   return res(400, { message: 'Relatório não encontrado. Use: active-users, inactive-users, top-downloaders, top-materials, top-trainings, churches-downloads, categories-downloads' });
+}
+
+
+// =============================================================================
+// AI ASSISTANT (Groq)
+// =============================================================================
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+
+async function assistantChat(data, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!GROQ_API_KEY) return res(500, { message: 'Assistente nao configurado.' });
+  if (!data.message) return res(400, { message: 'message obrigatoria.' });
+
+  try {
+    // 1. Get platform content for context
+    const token = await ytGetAccessToken();
+    
+    // Fetch recent videos (titles + descriptions)
+    const ytRes = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${YT_UPLOADS_PLAYLIST}&maxResults=50`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const ytData = await ytRes.json();
+    const videos = (ytData.items || []).map(i => `- ${i.snippet.title}`).join('\n');
+
+    // Fetch trails
+    const trailsData = await ddb.send(new ScanCommand({ TableName: T.TRAILS }));
+    const trails = (trailsData.Items || []).map(t => `- ${t.title}: ${t.description || ''}`).join('\n');
+
+    // Fetch top materials from Dropbox (use downloads table for names)
+    const downloadsData = await ddb.send(new ScanCommand({ TableName: T.DOWNLOADS }));
+    const materials = (downloadsData.Items || []).slice(0, 50).map(d => `- ${d.fileName || d.filePath}`).join('\n');
+
+    // 2. Build system prompt
+    const systemPrompt = `Você é o assistente da Plataforma Rede Inspire, uma plataforma de capacitação para líderes de igrejas.
+
+REGRAS IMPORTANTES:
+- Responda APENAS sobre conteúdos disponíveis na plataforma
+- Se não souber ou o conteúdo não existir, diga que não encontrou na plataforma
+- Seja útil, objetivo e amigável
+- Quando recomendar conteúdo, mencione o título exato
+- Pode fazer resumos baseados nos títulos e descrições disponíveis
+- Responda em português brasileiro
+- Não invente conteúdos que não existem na lista abaixo
+
+VÍDEOS DISPONÍVEIS NA PLATAFORMA:
+${videos}
+
+TRILHAS DE TREINAMENTO:
+${trails}
+
+MATERIAIS DISPONÍVEIS:
+${materials}
+
+Quando o usuário perguntar sobre um tema, busque nos conteúdos acima e recomende os mais relevantes. Se pedir resumo, faça baseado no título e contexto disponível.`;
+
+    // 3. Call Groq
+    const history = data.history || [];
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...history.slice(-6), // Keep last 6 messages for context
+      { role: 'user', content: data.message }
+    ];
+
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages,
+        max_tokens: 1000,
+        temperature: 0.3,
+      }),
+    });
+    const groqData = await groqRes.json();
+    
+    if (groqData.error) return res(400, { message: 'Erro no assistente', error: groqData.error.message });
+
+    const reply = groqData.choices?.[0]?.message?.content || 'Desculpe, não consegui processar sua pergunta.';
+
+    return res(200, { reply });
+  } catch (err) {
+    console.error('Assistant error:', err);
+    return res(500, { message: 'Erro no assistente', error: err.message });
+  }
 }
