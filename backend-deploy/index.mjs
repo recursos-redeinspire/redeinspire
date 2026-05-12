@@ -2248,23 +2248,48 @@ async function assistantChat(data, user) {
   if (!data.message) return res(400, { message: 'message obrigatoria.' });
 
   try {
-    // 1. Get platform content for context
+    // 1. Get ALL platform content for context
     const token = await ytGetAccessToken();
     
-    // Fetch recent videos (titles + descriptions)
-    const ytRes = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${YT_UPLOADS_PLAYLIST}&maxResults=50`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const ytData = await ytRes.json();
-    const videos = (ytData.items || []).map(i => `- ${i.snippet.title}`).join('\n');
+    // Fetch ALL videos with pagination
+    let allVideos = [];
+    let pageToken = '';
+    for (let i = 0; i < 20; i++) {
+      let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${YT_UPLOADS_PLAYLIST}&maxResults=50`;
+      if (pageToken) url += `&pageToken=${pageToken}`;
+      const ytRes = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+      const ytData = await ytRes.json();
+      const items = (ytData.items || []).filter(i => i.snippet.title !== 'Deleted video' && i.snippet.title !== 'Private video');
+      allVideos = allVideos.concat(items);
+      pageToken = ytData.nextPageToken;
+      if (!pageToken) break;
+    }
+    const videos = allVideos.map(i => `- ${i.snippet.title}`).join('\n');
 
     // Fetch trails
     const trailsData = await ddb.send(new ScanCommand({ TableName: T.TRAILS }));
     const trails = (trailsData.Items || []).map(t => `- ${t.title}: ${t.description || ''}`).join('\n');
 
-    // Fetch top materials from Dropbox (use downloads table for names)
+    // Fetch ALL materials from Dropbox downloads table
     const downloadsData = await ddb.send(new ScanCommand({ TableName: T.DOWNLOADS }));
-    const materials = (downloadsData.Items || []).slice(0, 50).map(d => `- ${d.fileName || d.filePath}`).join('\n');
+    const materials = (downloadsData.Items || []).map(d => {
+      const parts = (d.filePath || '').split('/');
+      const folder = parts.length > 2 ? parts.slice(1, -1).join(' > ') : '';
+      return `- ${d.fileName || parts[parts.length-1]}${folder ? ' ('+folder+')' : ''}`;
+    }).join('\n');
+
+    // Also list Dropbox folders for context
+    let folderList = '';
+    try {
+      const dbxToken = await getDropboxToken();
+      const fRes = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
+        method: 'POST', headers: dbxHeaders(dbxToken),
+        body: JSON.stringify({ path: '', recursive: false, limit: 2000 }),
+      });
+      const fData = await fRes.json();
+      const folders = (fData.entries || []).filter(e => e['.tag'] === 'folder').map(e => e.name);
+      folderList = folders.join(', ');
+    } catch {}
 
     // 2. Build system prompt
     const systemPrompt = `Você é o assistente da Plataforma Rede Inspire, uma plataforma de capacitação para líderes de igrejas.
@@ -2286,6 +2311,9 @@ ${trails}
 
 MATERIAIS DISPONÍVEIS:
 ${materials}
+
+PASTAS DE MATERIAIS DISPONÍVEIS:
+${folderList}
 
 Quando o usuário perguntar sobre um tema, busque nos conteúdos acima e recomende os mais relevantes. Se pedir resumo, faça baseado no título e contexto disponível.`;
 
