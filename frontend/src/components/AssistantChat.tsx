@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, Send, Loader2, User } from 'lucide-react'
+import { X, Send, Loader2, User, Zap } from 'lucide-react'
 
 const API = import.meta.env.VITE_API_BASE_URL || 'https://h28wyjr7u7.execute-api.us-east-1.amazonaws.com'
 
@@ -61,7 +61,7 @@ export default function AssistantChat() {
       {!open && (
         <button onClick={() => setOpen(true)}
           className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 rounded-full shadow-lg hover:bg-blue-700 transition flex items-center justify-center z-40 hover:scale-110">
-          <img src="/bot_icon.svg" alt="Assistente" className="w-8 h-8 invert" />
+          <Zap size={24} fill="white" />
         </button>
       )}
 
@@ -71,7 +71,7 @@ export default function AssistantChat() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-gray-900 text-white">
             <div className="flex items-center gap-2">
-              <img src="/bot_icon.svg" alt="" className="w-5 h-5 invert" />
+              <Zap size={18} fill="white" />
               <div>
                 <p className="font-semibold text-sm">Assistente Inspire</p>
                 <p className="text-xs text-white/60">Pergunte sobre conteúdos da plataforma</p>
@@ -84,7 +84,7 @@ export default function AssistantChat() {
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.length === 0 && (
               <div className="text-center text-gray-400 py-8">
-                <img src="/bot_icon.svg" alt="" className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <Zap size={40} className="mx-auto mb-3 text-gray-300" />
                 <p className="text-sm font-medium">Olá! Como posso ajudar?</p>
                 <p className="text-xs mt-1">Pergunte sobre vídeos, materiais ou treinamentos</p>
                 <div className="mt-4 space-y-2">
@@ -101,7 +101,7 @@ export default function AssistantChat() {
               <div key={i} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'assistant' && (
                   <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 flex items-center justify-center">
-                    <img src="/bot_icon.svg" alt="" className="w-4 h-4 invert" />
+                    <Zap size={14} fill="white" />
                   </div>
                 )}
                 <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm ${
@@ -125,7 +125,7 @@ export default function AssistantChat() {
             {loading && (
               <div className="flex gap-2 justify-start">
                 <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 flex items-center justify-center">
-                  <img src="/bot_icon.svg" alt="" className="w-4 h-4 invert" />
+                  <Zap size={14} fill="white" />
                 </div>
                 <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl rounded-bl-md px-4 py-3">
                   <Loader2 size={16} className="animate-spin text-gray-400" />
