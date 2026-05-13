@@ -60,8 +60,8 @@ export default function AssistantChat() {
       {/* Floating button */}
       {!open && (
         <button onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-gray-900 text-white rounded-full shadow-lg hover:bg-gray-800 transition flex items-center justify-center z-40 hover:scale-110">
-          <Bot size={24} />
+          className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition flex items-center justify-center z-40 hover:scale-110">
+          <Bot size={26} />
         </button>
       )}
 
