@@ -2240,7 +2240,7 @@ async function adminReports(query, user) {
 
 
 // =============================================================================
-// AI ASSISTANT (Amazon Bedrock)
+// AI ASSISTANT (Amazon Bedrock) - Search-first approach
 // =============================================================================
 
 async function assistantChat(data, user) {
@@ -2248,92 +2248,153 @@ async function assistantChat(data, user) {
   if (!data.message) return res(400, { message: 'message obrigatoria.' });
 
   try {
-    // 1. Get ALL platform content for context
-    const token = await ytGetAccessToken();
+    const userMessage = data.message.trim();
     
-    // Fetch ALL videos with pagination
+    // 1. First, search for relevant content using our smart search logic
+    const searchKeywords = extractKeywords(userMessage);
+    
+    // If too few keywords, ask for more context
+    if (searchKeywords.length === 0 || userMessage.length < 10) {
+      return res(200, { reply: 'Pode me dar mais detalhes sobre o que voce esta procurando? Por exemplo, qual tema, publico-alvo ou tipo de conteudo voce precisa?' });
+    }
+
+    // 2. Search videos
+    const token = await ytGetAccessToken();
     let allVideos = [];
     let pageToken = '';
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 10; i++) {
       let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${YT_UPLOADS_PLAYLIST}&maxResults=50`;
       if (pageToken) url += `&pageToken=${pageToken}`;
       const ytRes = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
       const ytData = await ytRes.json();
+      if (ytData.error) break;
       const items = (ytData.items || []).filter(i => i.snippet.title !== 'Deleted video' && i.snippet.title !== 'Private video');
       allVideos = allVideos.concat(items);
       pageToken = ytData.nextPageToken;
       if (!pageToken) break;
     }
-    const videos = allVideos.map(i => `[${i.snippet.resourceId?.videoId || ''}] ${i.snippet.title}`).join('\n');
 
-    // Fetch trails
-    const trailsData = await ddb.send(new ScanCommand({ TableName: T.TRAILS }));
-    const trails = (trailsData.Items || []).map(t => `${t.title}: ${t.description || ''}`).join('\n');
+    // Score videos by relevance
+    const scoredVideos = allVideos.map(v => {
+      const title = normalize(v.snippet.title);
+      const desc = normalize(v.snippet.description || '');
+      let score = 0;
+      for (const kw of searchKeywords) {
+        if (title.includes(kw)) score += 10;
+        if (desc.includes(kw)) score += 3;
+        const titleWords = title.split(/[\s\-|,]+/);
+        for (const tw of titleWords) {
+          if (tw.length > 3 && kw.length > 3 && (tw.startsWith(kw.substring(0, 4)) || kw.startsWith(tw.substring(0, 4)))) score += 2;
+        }
+      }
+      return { ...v, score };
+    }).filter(v => v.score > 0).sort((a, b) => b.score - a.score).slice(0, 8);
 
-    // Fetch ALL materials
-    const downloadsData = await ddb.send(new ScanCommand({ TableName: T.DOWNLOADS }));
-    const materials = (downloadsData.Items || []).map(d => {
-      const parts = (d.filePath || '').split('/');
-      const folder = parts.length > 2 ? parts.slice(1, -1).join(' > ') : '';
-      return `[${d.filePath || ''}] ${d.fileName || parts[parts.length-1]}${folder ? ' ('+folder+')' : ''}`;
-    }).join('\n');
-
-    // Dropbox folders
-    let folderList = '';
+    // 3. Search materials
+    let scoredMaterials = [];
     try {
       const dbxToken = await getDropboxToken();
-      const fRes = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
-        method: 'POST', headers: dbxHeaders(dbxToken),
-        body: JSON.stringify({ path: '', recursive: false, limit: 2000 }),
-      });
-      const fData = await fRes.json();
-      folderList = (fData.entries || []).filter(e => e['.tag'] === 'folder').map(e => e.name).join(', ');
+      let allFiles = [];
+      let hasMore = true;
+      let cursor = null;
+      let pages = 0;
+      while (hasMore && pages < 2) {
+        const url = cursor ? 'https://api.dropboxapi.com/2/files/list_folder/continue' : 'https://api.dropboxapi.com/2/files/list_folder';
+        const payload = cursor ? { cursor } : { path: '', recursive: true, limit: 2000 };
+        const r = await fetch(url, { method: 'POST', headers: dbxHeaders(dbxToken), body: JSON.stringify(payload) });
+        const d = await r.json();
+        if (d.error) break;
+        allFiles = allFiles.concat((d.entries || []).filter(e => e['.tag'] === 'file'));
+        hasMore = d.has_more;
+        cursor = d.cursor;
+        pages++;
+      }
+      scoredMaterials = allFiles.map(f => {
+        const name = normalize(f.name);
+        const path = normalize(f.path_display || '');
+        let score = 0;
+        for (const kw of searchKeywords) {
+          if (name.includes(kw)) score += 10;
+          if (path.includes(kw)) score += 3;
+          const nameWords = name.split(/[\s\-_.]+/);
+          for (const nw of nameWords) {
+            if (nw.length > 3 && kw.length > 3 && (nw.startsWith(kw.substring(0, 4)) || kw.startsWith(nw.substring(0, 4)))) score += 2;
+          }
+        }
+        return { ...f, score };
+      }).filter(f => f.score > 0).sort((a, b) => b.score - a.score).slice(0, 5);
     } catch {}
 
-    // 2. Build prompt
-    const systemPrompt = `Voce e o assistente da Plataforma Rede Inspire, para capacitacao de lideres de igrejas.
+    // 4. Search tags
+    let tagMatches = [];
+    try {
+      const tagsData = await ddb.send(new ScanCommand({ TableName: T.VIDEO_TAGS }));
+      const allTags = tagsData.Items || [];
+      for (const item of allTags) {
+        const tags = item.tags || [];
+        for (const kw of searchKeywords) {
+          if (tags.some(t => t.includes(kw) || kw.includes(t))) {
+            const video = allVideos.find(v => (v.snippet.resourceId?.videoId || '') === item.videoId);
+            if (video && !scoredVideos.find(sv => (sv.snippet.resourceId?.videoId || '') === item.videoId)) {
+              tagMatches.push(video);
+            }
+            break;
+          }
+        }
+      }
+    } catch {}
 
-REGRAS OBRIGATORIAS:
-1. Voce so pode recomendar conteudos que estao EXATAMENTE listados abaixo. NAO invente titulos.
-2. Se o usuario perguntar sobre um tema que NAO tem conteudo na lista abaixo, responda: "Nao encontrei conteudos sobre esse tema na plataforma no momento."
-3. Quando recomendar, copie o titulo EXATO da lista. So recomende se o titulo CLARAMENTE se relaciona com o tema pedido.
-4. NAO crie resumos inventados. Apenas indique os titulos relevantes.
-5. Responda em portugues brasileiro, de forma objetiva e amigavel.
-6. Se o usuario pedir algo que nao existe na plataforma, diga que nao tem e sugira os temas mais proximos que existem.
-7. Seja RIGOROSO na relevancia. Se o titulo nao menciona claramente o tema pedido, NAO recomende.
-8. Recomende no maximo 5 conteudos por resposta.
+    // 5. Build context for AI with ONLY relevant results
+    const videoContext = [...scoredVideos, ...tagMatches.slice(0, 3)].map(v => {
+      const id = v.snippet.resourceId?.videoId || '';
+      const title = v.snippet.title;
+      const desc = (v.snippet.description || '').substring(0, 150);
+      return `- [[video:${id}]]${title} | ${desc}`;
+    }).join('\n');
 
-Quando recomendar conteudo, use este formato:
-- [[video:ID_DO_VIDEO]]Titulo exato do video
-- [[material:caminho/do/arquivo]]Nome do arquivo
-- [[trilha]]Nome da trilha
+    const materialContext = scoredMaterials.map(f => {
+      const parts = f.path_display.split('/');
+      const folder = parts.slice(1, -1).join(' > ');
+      return `- [[material:${f.path_lower}]]${f.name} (${folder})`;
+    }).join('\n');
 
-Os IDs dos videos estao entre colchetes antes do titulo na lista abaixo. Use-os no formato [[video:ID]].
+    // 6. If no results found
+    if (scoredVideos.length === 0 && scoredMaterials.length === 0 && tagMatches.length === 0) {
+      return res(200, { reply: 'Nao encontrei conteudos sobre esse tema na plataforma no momento. Pode tentar com outras palavras-chave ou me dizer mais sobre o que precisa?' });
+    }
 
-VIDEOS (${allVideos.length} disponiveis):
-${videos}
+    // 7. Call Bedrock with focused context
+    const systemPrompt = `Voce e o assistente da Plataforma Rede Inspire. Sua funcao e recomendar conteudos da plataforma.
 
-TRILHAS DE TREINAMENTO:
-${trails}
+REGRAS:
+- Recomende APENAS os conteudos listados abaixo. Nao invente nada.
+- Mantenha o formato [[video:ID]]Titulo e [[material:path]]Nome exatamente como esta.
+- Seja breve e objetivo. Maximo 5 recomendacoes.
+- Se o usuario for vago, peca mais detalhes.
+- Responda em portugues brasileiro.
 
-MATERIAIS:
-${materials}
+CONTEUDOS ENCONTRADOS PARA A PERGUNTA "${userMessage}":
 
-PASTAS DE MATERIAIS: ${folderList}`;
+Videos relevantes:
+${videoContext || 'Nenhum video encontrado.'}
 
-    // 3. Call Bedrock (Llama 3.1 8B)
+Materiais relevantes:
+${materialContext || 'Nenhum material encontrado.'}
+
+Responda recomendando os mais relevantes da lista acima para o que o usuario pediu. Use o formato [[video:ID]]Titulo ou [[material:path]]Nome para que fiquem clicaveis.`;
+
     const history = data.history || [];
     let prompt = `<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n${systemPrompt}<|eot_id|>`;
-    for (const msg of history.slice(-6)) {
+    for (const msg of history.slice(-4)) {
       prompt += `<|start_header_id|>${msg.role}<|end_header_id|>\n${msg.content}<|eot_id|>`;
     }
-    prompt += `<|start_header_id|>user<|end_header_id|>\n${data.message}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n`;
+    prompt += `<|start_header_id|>user<|end_header_id|>\n${userMessage}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n`;
 
     const command = new InvokeModelCommand({
       modelId: 'us.meta.llama3-1-8b-instruct-v1:0',
       contentType: 'application/json',
       accept: 'application/json',
-      body: JSON.stringify({ prompt, max_gen_len: 1000, temperature: 0.1 }),
+      body: JSON.stringify({ prompt, max_gen_len: 800, temperature: 0.1 }),
     });
 
     const response = await bedrock.send(command);
