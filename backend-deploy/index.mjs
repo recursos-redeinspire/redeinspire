@@ -5,12 +5,14 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, ScanCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import jwt from 'jsonwebtoken';
 import { v4 as uuid } from 'uuid';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
 const s3 = new S3Client({ region: 'us-east-1' });
+const bedrock = new BedrockRuntimeClient({ region: 'us-east-1' });
 const UPLOAD_BUCKET = 'rede-inspire-uploads-danilo';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'rede-inspire-secret-2026';
@@ -2238,23 +2240,21 @@ async function adminReports(query, user) {
 
 
 // =============================================================================
-// AI ASSISTANT (Groq)
+// AI ASSISTANT (Amazon Bedrock)
 // =============================================================================
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 
 async function assistantChat(data, user) {
   if (!user) return res(401, { message: 'Nao autenticado' });
-  if (!GROQ_API_KEY) return res(500, { message: 'Assistente nao configurado.' });
   if (!data.message) return res(400, { message: 'message obrigatoria.' });
 
   try {
     // 1. Get ALL platform content for context
     const token = await ytGetAccessToken();
     
-    // Fetch ALL videos with pagination (limit to 200 most recent for context size)
+    // Fetch ALL videos with pagination
     let allVideos = [];
     let pageToken = '';
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 20; i++) {
       let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${YT_UPLOADS_PLAYLIST}&maxResults=50`;
       if (pageToken) url += `&pageToken=${pageToken}`;
       const ytRes = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -2268,17 +2268,17 @@ async function assistantChat(data, user) {
 
     // Fetch trails
     const trailsData = await ddb.send(new ScanCommand({ TableName: T.TRAILS }));
-    const trails = (trailsData.Items || []).map(t => t.title).join('\n');
+    const trails = (trailsData.Items || []).map(t => `${t.title}: ${t.description || ''}`).join('\n');
 
-    // Fetch ALL materials from Dropbox downloads table (limit for context)
+    // Fetch ALL materials
     const downloadsData = await ddb.send(new ScanCommand({ TableName: T.DOWNLOADS }));
-    const materials = (downloadsData.Items || []).slice(0, 40).map(d => {
+    const materials = (downloadsData.Items || []).map(d => {
       const parts = (d.filePath || '').split('/');
       const folder = parts.length > 2 ? parts.slice(1, -1).join(' > ') : '';
       return `${d.fileName || parts[parts.length-1]}${folder ? ' ('+folder+')' : ''}`;
     }).join('\n');
 
-    // Also list Dropbox folders for context
+    // Dropbox folders
     let folderList = '';
     try {
       const dbxToken = await getDropboxToken();
@@ -2287,51 +2287,46 @@ async function assistantChat(data, user) {
         body: JSON.stringify({ path: '', recursive: false, limit: 2000 }),
       });
       const fData = await fRes.json();
-      const folders = (fData.entries || []).filter(e => e['.tag'] === 'folder').map(e => e.name);
-      folderList = folders.join(', ');
+      folderList = (fData.entries || []).filter(e => e['.tag'] === 'folder').map(e => e.name).join(', ');
     } catch {}
 
-    // 2. Build system prompt
-    const systemPrompt = `Você é o assistente da Plataforma Rede Inspire, para capacitação de líderes de igrejas.
-Responda APENAS sobre conteúdos da plataforma. Seja objetivo e amigável. Responda em português.
-Se não encontrar o conteúdo, diga que não encontrou.
+    // 2. Build prompt
+    const systemPrompt = `Voce e o assistente da Plataforma Rede Inspire, para capacitacao de lideres de igrejas.
+Responda APENAS sobre conteudos da plataforma. Seja objetivo e amigavel. Responda em portugues brasileiro.
+Se nao encontrar o conteudo, diga que nao encontrou.
+Quando recomendar, mencione o titulo exato do video ou material.
 
-VÍDEOS (${allVideos.length} disponíveis):
+VIDEOS (${allVideos.length} disponiveis):
 ${videos}
 
-TRILHAS:
+TRILHAS DE TREINAMENTO:
 ${trails}
 
 MATERIAIS:
 ${materials}
 
-PASTAS: ${folderList}`;
+PASTAS DE MATERIAIS: ${folderList}`;
 
-    // 3. Call Groq
+    // 3. Call Bedrock (Llama 3.1 8B)
     const history = data.history || [];
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      ...history.slice(-6), // Keep last 6 messages for context
-      { role: 'user', content: data.message }
-    ];
+    let prompt = `<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n${systemPrompt}<|eot_id|>`;
+    for (const msg of history.slice(-6)) {
+      prompt += `<|start_header_id|>${msg.role}<|end_header_id|>\n${msg.content}<|eot_id|>`;
+    }
+    prompt += `<|start_header_id|>user<|end_header_id|>\n${data.message}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n`;
 
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        messages,
-        max_tokens: 1000,
-        temperature: 0.3,
-      }),
+    const command = new InvokeModelCommand({
+      modelId: 'us.meta.llama3-1-8b-instruct-v1:0',
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify({ prompt, max_gen_len: 1000, temperature: 0.3 }),
     });
-    const groqData = await groqRes.json();
-    
-    if (groqData.error) return res(400, { message: 'Erro no assistente', error: groqData.error.message });
 
-    const reply = groqData.choices?.[0]?.message?.content || 'Desculpe, não consegui processar sua pergunta.';
+    const response = await bedrock.send(command);
+    const result = JSON.parse(new TextDecoder().decode(response.body));
+    const reply = result.generation || 'Desculpe, nao consegui processar sua pergunta.';
 
-    return res(200, { reply });
+    return res(200, { reply: reply.trim() });
   } catch (err) {
     console.error('Assistant error:', err);
     return res(500, { message: 'Erro no assistente', error: err.message });
