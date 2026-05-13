@@ -61,7 +61,15 @@ export default function AssistantChat() {
       {!open && (
         <button onClick={() => setOpen(true)}
           className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition flex items-center justify-center z-40 hover:scale-110">
-          <Bot size={26} />
+          <svg width="28" height="28" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M50 10 C30 10 15 22 15 37 C15 42 17 47 20 51 L20 65 C20 68 22 70 25 70 C28 70 30 68 30 65 L30 55" />
+            <path d="M50 10 C70 10 85 22 85 37 C85 42 83 47 80 51 L80 65 C80 68 78 70 75 70 C72 70 70 68 70 65 L70 55" />
+            <ellipse cx="50" cy="52" rx="22" ry="18" />
+            <circle cx="42" cy="50" r="2.5" fill="currentColor" stroke="none" />
+            <circle cx="58" cy="50" r="2.5" fill="currentColor" stroke="none" />
+            <path d="M44 58 C46 61 54 61 56 58" strokeWidth="4" />
+            <path d="M72 68 C74 72 76 76 80 78" strokeWidth="5" />
+          </svg>
         </button>
       )}
 
