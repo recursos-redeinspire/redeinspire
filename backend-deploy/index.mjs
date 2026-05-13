@@ -2292,9 +2292,19 @@ async function assistantChat(data, user) {
 
     // 2. Build prompt
     const systemPrompt = `Voce e o assistente da Plataforma Rede Inspire, para capacitacao de lideres de igrejas.
-Responda APENAS sobre conteudos da plataforma. Seja objetivo e amigavel. Responda em portugues brasileiro.
-Se nao encontrar o conteudo, diga que nao encontrou.
-Quando recomendar, mencione o titulo exato do video ou material.
+
+REGRAS OBRIGATORIAS:
+1. Voce so pode recomendar conteudos que estao EXATAMENTE listados abaixo. NAO invente titulos.
+2. Se o usuario perguntar sobre um tema que NAO tem conteudo na lista abaixo, responda: "Nao encontrei conteudos sobre esse tema na plataforma no momento."
+3. Quando recomendar, copie o titulo EXATO da lista.
+4. NAO crie resumos inventados. Apenas indique os titulos relevantes.
+5. Responda em portugues brasileiro, de forma objetiva e amigavel.
+6. Se o usuario pedir ideias de mensagens ou conteudos que nao existem na plataforma, diga que nao tem e sugira os temas mais proximos que existem.
+
+Quando recomendar conteudo, use este formato:
+- Video: "Titulo exato do video"
+- Material: "Nome do arquivo (Pasta)"
+- Trilha: "Nome da trilha"
 
 VIDEOS (${allVideos.length} disponiveis):
 ${videos}
@@ -2319,7 +2329,7 @@ PASTAS DE MATERIAIS: ${folderList}`;
       modelId: 'us.meta.llama3-1-8b-instruct-v1:0',
       contentType: 'application/json',
       accept: 'application/json',
-      body: JSON.stringify({ prompt, max_gen_len: 1000, temperature: 0.3 }),
+      body: JSON.stringify({ prompt, max_gen_len: 1000, temperature: 0.1 }),
     });
 
     const response = await bedrock.send(command);
