@@ -6,23 +6,23 @@ const API = import.meta.env.VITE_API_BASE_URL || 'https://h28wyjr7u7.execute-api
 function formatMarkdown(text: string): string {
   return text
     // Format 1: [[video:ID]]Title[[/video]]
-    .replace(/\[\[video:([^\]]+)\]\]([^\[]+)\[\[\/video\]\]/g, '<a href="/catalogo?video=$1" class="text-blue-600 hover:underline font-medium inline-block my-0.5">▶ $2</a>')
-    // Format 2: [[video:ID]]Title (without closing tag - AI sometimes does this)
-    .replace(/\[\[video:([^\]]+)\]\]([^\n\[]+)/g, '<a href="/catalogo?video=$1" class="text-blue-600 hover:underline font-medium inline-block my-0.5">▶ $2</a>')
-    // Format 3: Video: [[video:ID]]Title
+    .replace(/\[\[video:([^\]]+)\]\]([^\[]+)\[\[\/video\]\]/g, '<a href="/catalogo?video=$1" class="underline decoration-white/40 hover:decoration-white/80 cursor-pointer">$2</a>')
+    // Format 2: [[video:ID]]Title (without closing tag)
+    .replace(/\[\[video:([^\]]+)\]\]([^\n\[]+)/g, '<a href="/catalogo?video=$1" class="underline decoration-white/40 hover:decoration-white/80 cursor-pointer">$2</a>')
+    // Remove "Video: " prefix before links
     .replace(/Video:\s*<a/g, '<a')
     // Convert material links
     .replace(/\[\[material:([^\]]+)\]\]([^\[]+)\[\[\/material\]\]/g, (_, path, name) => {
       const folderPath = path.split('/').slice(0, -1).join('/')
-      return `<a href="/materiais?path=${encodeURIComponent(folderPath)}" class="text-blue-600 hover:underline font-medium inline-block my-0.5">📁 ${name}</a>`
+      return `<a href="/materiais?path=${encodeURIComponent(folderPath)}" class="underline decoration-white/40 hover:decoration-white/80 cursor-pointer">${name}</a>`
     })
     .replace(/\[\[material:([^\]]+)\]\]([^\n\[]+)/g, (_, path, name) => {
       const folderPath = path.split('/').slice(0, -1).join('/')
-      return `<a href="/materiais?path=${encodeURIComponent(folderPath)}" class="text-blue-600 hover:underline font-medium inline-block my-0.5">📁 ${name}</a>`
+      return `<a href="/materiais?path=${encodeURIComponent(folderPath)}" class="underline decoration-white/40 hover:decoration-white/80 cursor-pointer">${name}</a>`
     })
     // Convert trail links
-    .replace(/\[\[trilha\]\]([^\[]+)\[\[\/trilha\]\]/g, '<a href="/trilhas" class="text-blue-600 hover:underline font-medium inline-block my-0.5">🎯 $1</a>')
-    .replace(/\[\[trilha\]\]([^\n\[]+)/g, '<a href="/trilhas" class="text-blue-600 hover:underline font-medium inline-block my-0.5">🎯 $1</a>')
+    .replace(/\[\[trilha\]\]([^\[]+)\[\[\/trilha\]\]/g, '<a href="/trilhas" class="underline decoration-white/40 hover:decoration-white/80 cursor-pointer">$1</a>')
+    .replace(/\[\[trilha\]\]([^\n\[]+)/g, '<a href="/trilhas" class="underline decoration-white/40 hover:decoration-white/80 cursor-pointer">$1</a>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/^\* (.+)$/gm, '<li class="ml-3 list-disc">$1</li>')
