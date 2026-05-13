@@ -5,6 +5,15 @@ const API = import.meta.env.VITE_API_BASE_URL || 'https://h28wyjr7u7.execute-api
 
 function formatMarkdown(text: string): string {
   return text
+    // Convert video links: [[video:ID]]Title[[/video]] -> clickable link
+    .replace(/\[\[video:([^\]]+)\]\]([^\[]+)\[\[\/video\]\]/g, '<a href="/catalogo?video=$1" class="text-blue-600 hover:underline font-medium">▶ $2</a>')
+    // Convert material links: [[material:path]]Name[[/material]] -> clickable link
+    .replace(/\[\[material:([^\]]+)\]\]([^\[]+)\[\[\/material\]\]/g, (_, path, name) => {
+      const folderPath = path.split('/').slice(0, -1).join('/')
+      return `<a href="/materiais?path=${encodeURIComponent(folderPath)}" class="text-blue-600 hover:underline font-medium">📁 ${name}</a>`
+    })
+    // Convert trail links: [[trilha]]Name[[/trilha]] -> clickable link
+    .replace(/\[\[trilha\]\]([^\[]+)\[\[\/trilha\]\]/g, '<a href="/trilhas" class="text-blue-600 hover:underline font-medium">🎯 $1</a>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/^\* (.+)$/gm, '<li class="ml-3 list-disc">$1</li>')

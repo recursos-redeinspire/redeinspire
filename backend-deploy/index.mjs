@@ -2264,7 +2264,7 @@ async function assistantChat(data, user) {
       pageToken = ytData.nextPageToken;
       if (!pageToken) break;
     }
-    const videos = allVideos.map(i => i.snippet.title).join('\n');
+    const videos = allVideos.map(i => `[${i.snippet.resourceId?.videoId || ''}] ${i.snippet.title}`).join('\n');
 
     // Fetch trails
     const trailsData = await ddb.send(new ScanCommand({ TableName: T.TRAILS }));
@@ -2275,7 +2275,7 @@ async function assistantChat(data, user) {
     const materials = (downloadsData.Items || []).map(d => {
       const parts = (d.filePath || '').split('/');
       const folder = parts.length > 2 ? parts.slice(1, -1).join(' > ') : '';
-      return `${d.fileName || parts[parts.length-1]}${folder ? ' ('+folder+')' : ''}`;
+      return `[${d.filePath || ''}] ${d.fileName || parts[parts.length-1]}${folder ? ' ('+folder+')' : ''}`;
     }).join('\n');
 
     // Dropbox folders
@@ -2302,9 +2302,11 @@ REGRAS OBRIGATORIAS:
 6. Se o usuario pedir ideias de mensagens ou conteudos que nao existem na plataforma, diga que nao tem e sugira os temas mais proximos que existem.
 
 Quando recomendar conteudo, use este formato:
-- Video: "Titulo exato do video"
-- Material: "Nome do arquivo (Pasta)"
-- Trilha: "Nome da trilha"
+- Video: [[video:ID_DO_VIDEO]]Titulo exato do video[[/video]]
+- Material: [[material:caminho/do/arquivo]]Nome do arquivo[[/material]]
+- Trilha: [[trilha]]Nome da trilha[[/trilha]]
+
+Os IDs dos videos estao entre colchetes antes do titulo na lista abaixo. Use-os no formato [[video:ID]].
 
 VIDEOS (${allVideos.length} disponiveis):
 ${videos}
