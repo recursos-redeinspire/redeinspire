@@ -22,6 +22,11 @@ const CORS = {
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
 };
 
+// Conexa.app integration
+const CONEXA_SUBDOMAIN = 'redeinspire';
+const CONEXA_API_TOKEN = '010fda7225ba32f944950e20bf909226975a69880d0d8675bb3a1d8bba867e55';
+const CONEXA_BASE_URL = `https://${CONEXA_SUBDOMAIN}.conexa.app/index.php/api/v2`;
+
 // Table names
 const T = {
   USERS: 'RedeInspire-Users',
@@ -42,6 +47,7 @@ const T = {
   VIDEO_TAGS: 'RedeInspire-VideoTags',
   VIDEO_RECS: 'RedeInspire-VideoRecommendations',
   DOWNLOADS: 'RedeInspire-Downloads',
+  CONEXA_CACHE: 'RedeInspire-ConexaCache',
 };
 
 function res(statusCode, body) {
@@ -222,6 +228,10 @@ export async function handler(event) {
     if (path === '/video-recs' && method === 'POST') return await videoRecsSave(body(event), getUserFromToken(event));
     if (path.match(/^\/video-recs\/[^/]+$/) && method === 'DELETE') return await videoRecsDeleteItem(path.split('/')[2], qs(event), getUserFromToken(event));
 
+    // ---- Conexa.app ----
+    if (path === '/conexa/sync' && method === 'POST') return await conexaSync(getUserFromToken(event));
+    if (path === '/conexa/status' && method === 'GET') return await conexaStatus(getUserFromToken(event));
+
     // ---- AI Assistant ----
     if (path === '/assistant/chat' && method === 'POST') return await assistantChat(body(event), getUserFromToken(event));
 
@@ -242,6 +252,13 @@ async function authLogin({ email, password }) {
   const user = data.Items?.[0];
   if (!user || user.password !== password) return res(401, { message: 'E-mail ou senha incorretos.' });
   if (user.status === 'blocked') return res(403, { message: 'blocked', blockedMessage: '🚗 Sua conta está bloqueada. Para voltar a ter acesso, lave o carro do pastor!' });
+
+  // Check Conexa.app payment status
+  const conexaBlock = await checkConexaBlocked(email.toLowerCase());
+  if (conexaBlock.blocked) {
+    return res(403, { message: 'blocked', blockedMessage: conexaBlock.message });
+  }
+
   const token = jwt.sign({ id: user.id, name: user.name, email: user.email, role: user.role, churchId: user.churchId, ministries: user.ministries, birthDate: user.birthDate || '', permissions: user.permissions || null }, JWT_SECRET, { expiresIn: '7d' });
   const { password: _, ...safe } = user;
   return res(200, { token, user: safe, firstLogin: !!user.firstLogin });
@@ -382,6 +399,187 @@ async function authResetPassword(userId, currentUser) {
     ExpressionAttributeValues: { ':p': defaultPassword, ':f': true },
   }));
   return res(200, { ok: true, message: 'Senha resetada. O usuário deverá trocar no próximo login.' });
+}
+
+// =============================================================================
+// CONEXA.APP INTEGRATION
+// =============================================================================
+
+// Cache of Conexa customers in memory (refreshed every 1h)
+let _conexaCache = null;
+let _conexaCacheExpiry = 0;
+const CONEXA_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+async function checkConexaBlocked(email) {
+  try {
+    // 1. Direct lookup in DynamoDB cache (fastest)
+    try {
+      const cached = await ddb.send(new GetCommand({ TableName: T.CONEXA_CACHE, Key: { email } }));
+      if (cached.Item && cached.Item.email !== '__sync_position__') {
+        if (cached.Item.isBlocked) {
+          return { blocked: true, message: '⚠️ Seu acesso está suspenso por pendência financeira. Entre em contato com a administração para regularizar sua situação.' };
+        }
+        return { blocked: false };
+      }
+    } catch (e) {
+      console.log('ConexaCache lookup error:', e.message);
+    }
+
+    // 2. If not in cache, do a quick live check (first 5 pages)
+    for (let page = 1; page <= 5; page++) {
+      const r = await fetch(`${CONEXA_BASE_URL}/customers?page=${page}`, {
+        headers: { 'Authorization': `Bearer ${CONEXA_API_TOKEN}`, 'Content-Type': 'application/json' },
+      });
+      const data = await r.json();
+      if (!data.data) break;
+      
+      for (const customer of data.data) {
+        const loginEmail = (customer.login || '').toLowerCase();
+        const financialEmails = (customer.emailsFinancialMessages || []).map(e => e.toLowerCase());
+        const messageEmails = (customer.emailsMessage || []).map(e => e.toLowerCase());
+        const allEmails = [loginEmail, ...financialEmails, ...messageEmails].filter(Boolean);
+        
+        if (allEmails.includes(email)) {
+          // Cache this result for future lookups
+          try {
+            await ddb.send(new PutCommand({
+              TableName: T.CONEXA_CACHE,
+              Item: { email, customerId: customer.customerId, customerName: customer.name || '', isBlocked: !!customer.isBlocked, isActive: !!customer.isActive, updatedAt: new Date().toISOString() },
+            }));
+          } catch {}
+          
+          if (customer.isBlocked) {
+            return { blocked: true, message: '⚠️ Seu acesso está suspenso por pendência financeira. Entre em contato com a administração para regularizar sua situação.' };
+          }
+          return { blocked: false };
+        }
+      }
+    }
+
+    // 3. Not found anywhere — allow access (user might not be a Conexa customer)
+    return { blocked: false };
+  } catch (err) {
+    console.error('Conexa check error:', err.message);
+    // On error, allow access (don't block users due to API issues)
+    return { blocked: false };
+  }
+}
+
+// Admin: Full sync of all Conexa customers to DynamoDB cache
+async function conexaSync(user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem sincronizar Conexa.' });
+
+  try {
+    const MAX_PAGES_PER_CALL = 10;
+    let startPage = 1;
+    let totalPages = 126; // default, will be updated
+
+    // Check if there's a previous sync position stored
+    try {
+      const pos = await ddb.send(new GetCommand({ TableName: T.CONEXA_CACHE, Key: { email: '__sync_position__' } }));
+      if (pos.Item && pos.Item.nextPage && !pos.Item.completed) {
+        startPage = pos.Item.nextPage;
+        totalPages = pos.Item.totalPages || 126;
+      }
+    } catch {}
+
+    let page = startPage;
+    let synced = 0;
+    let blocked = 0;
+    let totalCustomers = 0;
+    const endPage = Math.min(startPage + MAX_PAGES_PER_CALL - 1, totalPages);
+
+    while (page <= endPage) {
+      const r = await fetch(`${CONEXA_BASE_URL}/customers?page=${page}`, {
+        headers: { 'Authorization': `Bearer ${CONEXA_API_TOKEN}`, 'Content-Type': 'application/json' },
+      });
+      const data = await r.json();
+      if (!data.data || data.data.length === 0) break;
+      
+      totalPages = data.pagination?.totalPages || totalPages;
+      totalCustomers = data.pagination?.totalItems || 0;
+
+      for (const customer of data.data) {
+        const loginEmail = (customer.login || '').toLowerCase();
+        const financialEmails = (customer.emailsFinancialMessages || []).map(e => e.toLowerCase());
+        const messageEmails = (customer.emailsMessage || []).map(e => e.toLowerCase());
+        const allEmails = [...new Set([loginEmail, ...financialEmails, ...messageEmails].filter(Boolean))];
+
+        const writes = allEmails.map(email => ddb.send(new PutCommand({
+          TableName: T.CONEXA_CACHE,
+          Item: { email, customerId: customer.customerId, customerName: customer.name || '', isBlocked: !!customer.isBlocked, isActive: !!customer.isActive, updatedAt: new Date().toISOString() },
+        })));
+        await Promise.all(writes);
+        synced += allEmails.length;
+        if (customer.isBlocked) blocked++;
+      }
+      page++;
+    }
+
+    // Save sync position
+    const completed = page > totalPages;
+    await ddb.send(new PutCommand({
+      TableName: T.CONEXA_CACHE,
+      Item: {
+        email: '__sync_position__',
+        nextPage: completed ? 1 : page,
+        totalPages,
+        completed,
+        updatedAt: new Date().toISOString(),
+      },
+    }));
+
+    // Clear memory cache
+    _conexaCache = null;
+    _conexaCacheExpiry = 0;
+
+    return res(200, {
+      ok: true,
+      message: completed
+        ? `Sincronização Conexa concluída! Todos os ${totalCustomers} clientes foram sincronizados.`
+        : `Sincronização parcial (páginas ${startPage} a ${page - 1} de ${totalPages}). Execute novamente para continuar.`,
+      totalCustomers,
+      emailsSynced: synced,
+      blockedCustomers: blocked,
+      completed,
+      currentPage: page - 1,
+      totalPages,
+    });
+  } catch (err) {
+    console.error('Conexa sync error:', err);
+    return res(500, { message: 'Erro ao sincronizar Conexa', error: err.message });
+  }
+}
+
+// Admin: Check Conexa status summary
+async function conexaStatus(user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores.' });
+
+  try {
+    // Get first page to check connection and get totals
+    const r = await fetch(`${CONEXA_BASE_URL}/customers?page=1`, {
+      headers: { 'Authorization': `Bearer ${CONEXA_API_TOKEN}`, 'Content-Type': 'application/json' },
+    });
+    const data = await r.json();
+    
+    if (!data.data) return res(500, { message: 'Erro ao conectar com Conexa', details: data });
+
+    // Check cache status
+    let cacheCount = 0;
+    try {
+      const cached = await ddb.send(new ScanCommand({ TableName: T.CONEXA_CACHE, Select: 'COUNT' }));
+      cacheCount = cached.Count || 0;
+    } catch {}
+
+    return res(200, {
+      connected: true,
+      totalCustomers: data.pagination?.totalItems || 0,
+      cacheEntries: cacheCount,
+      subdomain: CONEXA_SUBDOMAIN,
+    });
+  } catch (err) {
+    return res(500, { message: 'Erro ao verificar Conexa', error: err.message });
+  }
 }
 
 // =============================================================================

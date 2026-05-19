@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
-import { CheckCircle, Megaphone, Route, Settings, ArrowLeft, BarChart3, Users, Download, Trophy, Loader2 } from 'lucide-react'
+import { CheckCircle, Megaphone, Route, Settings, ArrowLeft, BarChart3, Users, Download, Trophy, Loader2, Link2 } from 'lucide-react'
 
 export default function AdminPage() {
   const { user } = useAuth()
@@ -11,7 +11,7 @@ export default function AdminPage() {
   const { t: _t } = useI18n()
   const { getTrails, getBanner } = useData()
 
-  const [tab, setTab] = useState<'analytics' | 'trails' | 'banner' | 'reports'>('analytics')
+  const [tab, setTab] = useState<'analytics' | 'trails' | 'banner' | 'reports' | 'conexa'>('analytics')
   const [pendingTrails, setPendingTrails] = useState<any[]>([])
   const [bannerMessage, setBannerMessage] = useState('')
   const [bannerType, setBannerType] = useState('info')
@@ -25,6 +25,9 @@ export default function AdminPage() {
   const [reportData, setReportData] = useState<any>(null)
   const [reportLoading, setReportLoading] = useState(false)
   const [selectedReport, setSelectedReport] = useState('')
+  const [conexaStatus, setConexaStatus] = useState<any>(null)
+  const [conexaSyncing, setConexaSyncing] = useState(false)
+  const [conexaSyncResult, setConexaSyncResult] = useState<any>(null)
 
   // Redirect non-admin
   useEffect(() => {
@@ -111,6 +114,10 @@ export default function AdminPage() {
         <button onClick={() => setTab('reports')}
           className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'reports' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
           <Download size={16} /> Relatórios
+        </button>
+        <button onClick={() => setTab('conexa')}
+          className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'conexa' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
+          <Link2 size={16} /> Conexa
         </button>
       </div>
 
@@ -473,6 +480,121 @@ export default function AdminPage() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Conexa Integration */}
+      {tab === 'conexa' && (
+        <div className="space-y-6">
+          <div className="bg-white border rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+              <Link2 size={20} className="text-blue-500" /> Integração Conexa.app
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Controle de acesso baseado no status de pagamento dos clientes no Conexa.
+              Usuários bloqueados por inadimplência não conseguem fazer login na plataforma.
+            </p>
+
+            {/* Status */}
+            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-gray-700">Status da Conexão</h4>
+                <button
+                  onClick={async () => {
+                    const token = localStorage.getItem('ri_token')
+                    const r = await fetch('https://h28wyjr7u7.execute-api.us-east-1.amazonaws.com/conexa/status', {
+                      headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                    const data = await r.json()
+                    setConexaStatus(data)
+                  }}
+                  className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-lg hover:bg-blue-100"
+                >
+                  Verificar
+                </button>
+              </div>
+              {conexaStatus ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-green-600">{conexaStatus.connected ? '✓' : '✗'}</p>
+                    <p className="text-xs text-gray-500">Conectado</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-gray-900">{conexaStatus.totalCustomers || 0}</p>
+                    <p className="text-xs text-gray-500">Clientes Conexa</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-gray-900">{conexaStatus.cacheEntries || 0}</p>
+                    <p className="text-xs text-gray-500">Emails no Cache</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-gray-500 mt-1">Subdomínio</p>
+                    <p className="text-sm font-medium text-gray-700">{conexaStatus.subdomain}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">Clique em "Verificar" para ver o status</p>
+              )}
+            </div>
+
+            {/* Sync */}
+            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h4 className="font-medium text-gray-700">Sincronizar Clientes</h4>
+                  <p className="text-xs text-gray-500">Atualiza o cache local com os dados do Conexa (bloqueados/desbloqueados)</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    setConexaSyncing(true)
+                    setConexaSyncResult(null)
+                    const token = localStorage.getItem('ri_token')
+                    try {
+                      const r = await fetch('https://h28wyjr7u7.execute-api.us-east-1.amazonaws.com/conexa/sync', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                      })
+                      const data = await r.json()
+                      setConexaSyncResult(data)
+                    } catch (e: any) {
+                      setConexaSyncResult({ ok: false, message: e.message })
+                    }
+                    setConexaSyncing(false)
+                  }}
+                  disabled={conexaSyncing}
+                  className="text-xs bg-green-50 text-green-600 px-3 py-1 rounded-lg hover:bg-green-100 disabled:opacity-50"
+                >
+                  {conexaSyncing ? <Loader2 size={14} className="animate-spin" /> : 'Sincronizar'}
+                </button>
+              </div>
+              {conexaSyncResult && (
+                <div className={`text-sm p-3 rounded-lg ${conexaSyncResult.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                  <p className="font-medium">{conexaSyncResult.message}</p>
+                  {conexaSyncResult.ok && (
+                    <div className="mt-1 text-xs space-y-0.5">
+                      <p>Emails sincronizados: {conexaSyncResult.emailsSynced}</p>
+                      <p>Clientes bloqueados neste lote: {conexaSyncResult.blockedCustomers}</p>
+                      {!conexaSyncResult.completed && (
+                        <p className="text-yellow-600 font-medium mt-1">⚠️ Sincronização parcial — clique novamente para continuar</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Info */}
+            <div className="bg-blue-50 rounded-lg p-4 text-sm text-blue-700">
+              <p className="font-medium mb-1">Como funciona:</p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li>No login, o sistema verifica se o email do usuário está bloqueado no Conexa</li>
+                <li>Se estiver bloqueado (inadimplente), o acesso é negado com mensagem explicativa</li>
+                <li>Quando o cliente regulariza no Conexa, basta sincronizar para liberar o acesso</li>
+                <li>Usuários que não existem no Conexa têm acesso normal (não são afetados)</li>
+                <li>Recomendado sincronizar diariamente para manter o cache atualizado</li>
+              </ul>
+            </div>
+          </div>
         </div>
       )}
     </div>
