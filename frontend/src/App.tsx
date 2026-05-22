@@ -59,7 +59,7 @@ export default function App() {
             <Route path="/gestao" element={<Protected><ManagementPage /></Protected>} />
             <Route path="/materiais" element={<Protected><MaterialsPage /></Protected>} />
             <Route path="/admin" element={<Protected><AdminPage /></Protected>} />
-            <Route path="/preview-glass" element={<Protected><PreviewGlassPage /></Protected>} />
+            <Route path="/preview-glass" element={<PreviewGlassPage />} />
           </Routes>
         </div>
       </DataProvider>
