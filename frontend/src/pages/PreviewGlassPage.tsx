@@ -7,6 +7,21 @@ import {
   MessageSquare, Flame, Download, Users, Sparkles
 } from 'lucide-react'
 
+// Liquid Glass Icon — simulates Apple's glass material
+function GlassIcon({ children, size = 32, gradient = 'from-blue-400/90 to-cyan-300/90', className = '' }: {
+  children: React.ReactNode; size?: number; gradient?: string; className?: string
+}) {
+  return (
+    <div className={`relative flex items-center justify-center rounded-[10px] overflow-hidden ${className}`} style={{ width: size, height: size }}>
+      <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`} />
+      <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-white/5" />
+      <div className="absolute top-0 left-[10%] right-[10%] h-[45%] bg-gradient-to-b from-white/50 to-transparent rounded-b-full" />
+      <div className="absolute inset-[0.5px] rounded-[9.5px] shadow-[inset_0_-2px_4px_rgba(0,0,0,0.2),inset_0_1px_2px_rgba(255,255,255,0.4)]" />
+      <div className="relative z-10 text-white drop-shadow-sm">{children}</div>
+    </div>
+  )
+}
+
 const VIDEOS = [
   { id: '4CJQVNhVPv4', title: 'Como consolidar as bases ministeriais em sua igreja', author: 'Marcos Sanches', views: '2.4k', duration: '45 min' },
   { id: 'CHy2xDu-FFs', title: 'Saúde emocional da equipe ministerial', author: 'Carmen Rangel', views: '1.8k', duration: '38 min' },
@@ -74,9 +89,9 @@ export default function PreviewGlassPage() {
           isDark ? 'bg-white/[0.02] border-r border-white/[0.05]' : 'bg-white/60 border-r border-gray-200/50'
         } ${sidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 absolute'}`}>
           <div className="p-5 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/25">
-              <Zap size={16} className="text-white" />
-            </div>
+            <GlassIcon size={36} gradient="from-blue-400/90 to-cyan-300/90">
+              <Zap size={16} />
+            </GlassIcon>
             <span className={`font-semibold text-[15px] ${isDark ? 'text-white' : 'text-gray-900'}`}>Rede Inspire</span>
           </div>
 
@@ -202,16 +217,16 @@ export default function PreviewGlassPage() {
             <FadeIn delay={350}>
               <div className="grid grid-cols-4 gap-3">
                 {[
-                  { icon: <TrendingUp size={16} />, label: 'Assistidos', value: '47', gradient: 'from-blue-500 to-cyan-400', shadow: 'shadow-blue-500/20' },
-                  { icon: <Download size={16} />, label: 'Downloads', value: '23', gradient: 'from-emerald-500 to-teal-400', shadow: 'shadow-emerald-500/20' },
-                  { icon: <Route size={16} />, label: 'Trilhas', value: '3', gradient: 'from-violet-500 to-purple-400', shadow: 'shadow-violet-500/20' },
-                  { icon: <Star size={16} />, label: 'Pontos', value: '1.250', gradient: 'from-amber-500 to-orange-400', shadow: 'shadow-amber-500/20' },
+                  { icon: <TrendingUp size={16} />, label: 'Assistidos', value: '47', gradient: 'from-blue-400/90 to-cyan-300/90', shadow: 'shadow-blue-500/20' },
+                  { icon: <Download size={16} />, label: 'Downloads', value: '23', gradient: 'from-emerald-400/90 to-teal-300/90', shadow: 'shadow-emerald-500/20' },
+                  { icon: <Route size={16} />, label: 'Trilhas', value: '3', gradient: 'from-violet-400/90 to-purple-300/90', shadow: 'shadow-violet-500/20' },
+                  { icon: <Star size={16} />, label: 'Pontos', value: '1.250', gradient: 'from-amber-400/90 to-orange-300/90', shadow: 'shadow-amber-500/20' },
                 ].map((s, i) => (
                   <div key={i} className={`${card} rounded-2xl p-4 hover:scale-[1.03] transition-all duration-300 cursor-default`}>
                     <div className="flex items-center justify-between">
-                      <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${s.gradient} flex items-center justify-center text-white shadow-lg ${s.shadow}`}>
+                      <GlassIcon size={34} gradient={s.gradient}>
                         {s.icon}
-                      </div>
+                      </GlassIcon>
                       <p className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{s.value}</p>
                     </div>
                     <p className={`text-[11px] mt-2 ${isDark ? 'text-white/40' : 'text-gray-500'}`}>{s.label}</p>
@@ -227,7 +242,7 @@ export default function PreviewGlassPage() {
                 <div className={`col-span-5 ${card} rounded-2xl p-4`}>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className={`text-sm font-semibold flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                      <Flame size={15} className="text-orange-400" /> Em Alta
+                      <GlassIcon size={24} gradient="from-orange-400/90 to-red-400/90"><Flame size={12} /></GlassIcon> Em Alta
                     </h3>
                     <button className={`text-[10px] ${isDark ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}>Ver todos →</button>
                   </div>
@@ -249,7 +264,7 @@ export default function PreviewGlassPage() {
                 <div className={`col-span-4 ${card} rounded-2xl p-4`}>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className={`text-sm font-semibold flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                      <Download size={15} className="text-emerald-400" /> Top Materiais
+                      <GlassIcon size={24} gradient="from-emerald-400/90 to-teal-300/90"><Download size={12} /></GlassIcon> Top Materiais
                     </h3>
                     <button className={`text-[10px] ${isDark ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}>Ver todos →</button>
                   </div>
@@ -257,9 +272,9 @@ export default function PreviewGlassPage() {
                     {MATERIALS.map((m) => (
                       <div key={m.rank} className={`flex items-center gap-2.5 p-2 rounded-xl transition cursor-pointer ${isDark ? 'hover:bg-white/[0.03]' : 'hover:bg-gray-50'}`}>
                         <span className={`text-sm font-bold w-4 text-center ${m.rank <= 3 ? 'text-amber-400' : isDark ? 'text-white/20' : 'text-gray-300'}`}>{m.rank}</span>
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'bg-emerald-500/10' : 'bg-emerald-50'}`}>
-                          <FolderDown size={13} className="text-emerald-500" />
-                        </div>
+                        <GlassIcon size={28} gradient="from-emerald-400/80 to-teal-300/80">
+                          <FolderDown size={12} />
+                        </GlassIcon>
                         <div className="flex-1 min-w-0">
                           <p className={`text-xs font-medium line-clamp-1 ${isDark ? 'text-white/90' : 'text-gray-800'}`}>{m.name}</p>
                           <p className={`text-[10px] ${isDark ? 'text-white/30' : 'text-gray-400'}`}>{m.downloads} downloads</p>
@@ -275,7 +290,7 @@ export default function PreviewGlassPage() {
                   <div className={`${card} rounded-2xl p-4 relative overflow-hidden`}>
                     <div className={`absolute -top-4 -right-4 w-20 h-20 rounded-full blur-2xl ${isDark ? 'bg-blue-500/15' : 'bg-blue-200/50'}`} />
                     <h4 className={`text-xs font-semibold flex items-center gap-1.5 mb-2.5 relative ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                      <CalendarDays size={13} className="text-blue-400" /> Próximo Webinar
+                      <GlassIcon size={22} gradient="from-blue-400/90 to-indigo-400/90"><CalendarDays size={11} /></GlassIcon> Próximo Webinar
                     </h4>
                     <p className={`text-xs font-medium relative ${isDark ? 'text-white/90' : 'text-gray-800'}`}>Gestão Inovadora para Igrejas</p>
                     <p className={`text-[10px] mt-0.5 relative ${isDark ? 'text-white/40' : 'text-gray-500'}`}>Pr. Marcos Madaleno</p>
@@ -289,7 +304,7 @@ export default function PreviewGlassPage() {
                   <div className={`${card} rounded-2xl p-4 relative overflow-hidden`}>
                     <div className={`absolute -top-4 -right-4 w-20 h-20 rounded-full blur-2xl ${isDark ? 'bg-purple-500/15' : 'bg-purple-200/50'}`} />
                     <h4 className={`text-xs font-semibold flex items-center gap-1.5 mb-2.5 relative ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                      <Users size={13} className="text-purple-400" /> Próxima Mentoria
+                      <GlassIcon size={22} gradient="from-purple-400/90 to-pink-400/90"><Users size={11} /></GlassIcon> Próxima Mentoria
                     </h4>
                     <p className={`text-xs font-medium relative ${isDark ? 'text-white/90' : 'text-gray-800'}`}>Mentoria de Liderança</p>
                     <p className={`text-[10px] mt-0.5 relative ${isDark ? 'text-white/40' : 'text-gray-500'}`}>Pr. Carlos Silva</p>
@@ -306,7 +321,7 @@ export default function PreviewGlassPage() {
             <FadeIn delay={650}>
               <div className={`${card} rounded-2xl p-4`}>
                 <h3 className={`text-sm font-semibold flex items-center gap-1.5 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  <Route size={15} className="text-violet-400" /> Trilhas em Andamento
+                  <GlassIcon size={24} gradient="from-violet-400/90 to-purple-300/90"><Route size={12} /></GlassIcon> Trilhas em Andamento
                 </h3>
                 <div className="grid grid-cols-3 gap-3">
                   {[
@@ -318,9 +333,9 @@ export default function PreviewGlassPage() {
                       isDark ? 'bg-white/[0.02] border border-white/[0.05] hover:border-white/[0.1]' : 'bg-white/60 border border-gray-100 hover:border-gray-200'
                     }`}>
                       <div className="flex items-center gap-2 mb-2.5">
-                        <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${trail.gradient} flex items-center justify-center text-white`}>
-                          <GraduationCap size={12} />
-                        </div>
+                        <GlassIcon size={28} gradient={trail.gradient}>
+                          <GraduationCap size={13} />
+                        </GlassIcon>
                         <p className={`text-xs font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{trail.title}</p>
                       </div>
                       <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/[0.05]' : 'bg-gray-200'}`}>
@@ -340,7 +355,7 @@ export default function PreviewGlassPage() {
             <FadeIn delay={800}>
               <div className="flex items-center justify-between mb-3">
                 <h3 className={`text-sm font-semibold flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  <Sparkles size={15} className="text-cyan-400" /> Continue Assistindo
+                  <GlassIcon size={24} gradient="from-cyan-400/90 to-blue-300/90"><Sparkles size={12} /></GlassIcon> Continue Assistindo
                 </h3>
                 <button className={`text-[10px] ${isDark ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}>Ver todos →</button>
               </div>
