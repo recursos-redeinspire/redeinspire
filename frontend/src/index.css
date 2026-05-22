@@ -166,3 +166,49 @@
 ::-webkit-scrollbar {
   width: 6px;
 }
+
+/* Glass Preview isolation — disable ALL dark mode overrides inside the preview page */
+.glass-preview,
+.glass-preview * {
+  color: unset;
+}
+.dark .glass-preview .text-gray-900 { color: #111827 !important; }
+.dark .glass-preview .text-gray-800 { color: #1f2937 !important; }
+.dark .glass-preview .text-gray-700 { color: #374151 !important; }
+.dark .glass-preview .text-gray-600 { color: #4b5563 !important; }
+.dark .glass-preview .text-gray-500 { color: #6b7280 !important; }
+.dark .glass-preview .text-gray-400 { color: #9ca3af !important; }
+.dark .glass-preview .text-white { color: #ffffff !important; }
+.dark .glass-preview .text-white\/60 { color: rgba(255,255,255,0.6) !important; }
+.dark .glass-preview .text-white\/50 { color: rgba(255,255,255,0.5) !important; }
+.dark .glass-preview .text-white\/40 { color: rgba(255,255,255,0.4) !important; }
+.dark .glass-preview .text-white\/35 { color: rgba(255,255,255,0.35) !important; }
+.dark .glass-preview .text-white\/30 { color: rgba(255,255,255,0.3) !important; }
+.dark .glass-preview h1,
+.dark .glass-preview h2,
+.dark .glass-preview h3,
+.dark .glass-preview h4,
+.dark .glass-preview h5,
+.dark .glass-preview h6 { color: unset !important; }
+.dark .glass-preview p { color: unset !important; }
+.dark .glass-preview span { color: unset !important; }
+.dark .glass-preview .font-medium { color: unset !important; }
+.dark .glass-preview .font-semibold { color: unset !important; }
+.dark .glass-preview .font-bold { color: unset !important; }
+.dark .glass-preview input,
+.dark .glass-preview textarea,
+.dark .glass-preview select {
+  background-color: unset !important;
+  border-color: unset !important;
+  color: unset !important;
+}
+.dark .glass-preview input::placeholder,
+.dark .glass-preview textarea::placeholder {
+  color: unset !important;
+}
+.dark .glass-preview .bg-white { background-color: unset !important; }
+.dark .glass-preview .bg-gray-50 { background-color: unset !important; }
+.dark .glass-preview .shadow-sm,
+.dark .glass-preview .shadow-md,
+.dark .glass-preview .shadow-lg { box-shadow: unset !important; }
+.dark .glass-preview [class*="border-gray"] { border-color: unset !important; }

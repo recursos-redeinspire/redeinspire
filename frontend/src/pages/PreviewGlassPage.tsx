@@ -73,7 +73,7 @@ export default function PreviewGlassPage() {
   const t3 = d ? 'text-white/35' : 'text-gray-400'
 
   return (
-    <div className={`min-h-screen transition-all duration-700 relative overflow-hidden ${d ? 'bg-[#060612]' : 'bg-gradient-to-br from-sky-200 via-blue-300 to-indigo-400'}`}>
+    <div id="glass-preview" className={`glass-preview min-h-screen transition-all duration-700 relative overflow-hidden ${d ? 'bg-[#060612]' : 'bg-gradient-to-br from-sky-200 via-blue-300 to-indigo-400'}`}>
       {/* Ambient blobs */}
       {d && <>
         <div className="absolute top-[-25%] left-[-10%] w-[700px] h-[700px] rounded-full blur-[150px] bg-blue-600/25" />
