@@ -160,10 +160,10 @@ export default function PreviewGlassPage() {
 
             {/* Featured grid */}
             <FadeIn delay={200}>
-              <div className="grid grid-cols-12 gap-3">
+              <div className="grid grid-cols-12 gap-3" style={{ height: '320px' }}>
                 {/* Main featured */}
-                <div className="col-span-7 relative rounded-2xl overflow-hidden group cursor-pointer">
-                  <img src={yt(VIDEOS[0].id)} alt="" className="w-full aspect-[16/9] object-cover" />
+                <div className="col-span-7 relative rounded-2xl overflow-hidden group cursor-pointer h-full">
+                  <img src={yt(VIDEOS[0].id)} alt="" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
                   <div className="absolute bottom-0 left-0 right-0 p-5">
                     <span className="inline-block bg-gradient-to-r from-blue-500 to-cyan-400 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">Destaque</span>
@@ -178,9 +178,9 @@ export default function PreviewGlassPage() {
                 </div>
 
                 {/* Side videos */}
-                <div className="col-span-5 grid grid-rows-2 gap-3">
+                <div className="col-span-5 flex flex-col gap-3 h-full">
                   {VIDEOS.slice(1, 3).map((v) => (
-                    <div key={v.id} className="relative rounded-2xl overflow-hidden group cursor-pointer">
+                    <div key={v.id} className="relative rounded-2xl overflow-hidden group cursor-pointer flex-1">
                       <img src={yt(v.id)} alt="" className="w-full h-full object-cover absolute inset-0" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-3.5">
@@ -192,7 +192,6 @@ export default function PreviewGlassPage() {
                           <Play size={14} className="text-white ml-0.5" fill="white" />
                         </div>
                       </div>
-                      <div className="aspect-[16/9]" />
                     </div>
                   ))}
                 </div>
