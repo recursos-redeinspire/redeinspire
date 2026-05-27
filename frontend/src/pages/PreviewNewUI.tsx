@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Home, BookOpen, Route, GraduationCap, CalendarDays,
   FolderDown, MapPin, BarChart3, Play, ChevronRight,
-  Zap, Clock, Users, Star,
+  Zap, Clock, Users, Star, X,
   Search, LogOut, HelpCircle, Lightbulb, Flame
 } from "lucide-react";
 
@@ -32,6 +33,7 @@ const nav = [
 
 export default function PreviewNewUI() {
   const navigate = useNavigate();
+  const [showOnboarding, setShowOnboarding] = useState(true);
 
   return (
     <div className="min-h-screen bg-[#f5f5f0] flex" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -97,6 +99,20 @@ export default function PreviewNewUI() {
               </div>
             </div>
           </div>
+
+          {/* Dica / Onboarding — slim banner */}
+          {showOnboarding && (
+            <div className="bg-green-50 border border-green-100 rounded-xl px-5 py-3 flex items-center gap-4 mb-5">
+              <Lightbulb size={16} className="text-green-600 shrink-0" />
+              <p className="text-[12px] text-gray-700 flex-1"><span className="font-semibold">Novo por aqui?</span> Explore nossos treinamentos e comece sua jornada de capacitação ministerial.</p>
+              <button className="px-4 py-1.5 rounded-lg bg-green-600 text-white text-[11px] font-semibold hover:bg-green-700 transition shrink-0">
+                Começar agora
+              </button>
+              <button onClick={() => setShowOnboarding(false)} className="text-gray-400 hover:text-gray-600 transition shrink-0">
+                <X size={14} />
+              </button>
+            </div>
+          )}
 
           {/* HERO — Video destaque */}
           <div className="relative rounded-3xl overflow-hidden mb-7 group cursor-pointer shadow-lg shadow-green-900/5">
@@ -272,20 +288,6 @@ export default function PreviewNewUI() {
                 </button>
               </div>
             </div>
-          </div>
-
-          {/* Dica / Onboarding */}
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 rounded-2xl p-6 flex items-center gap-5 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-green-500 flex items-center justify-center shrink-0 shadow-md shadow-green-200">
-              <Lightbulb size={20} className="text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-[14px] font-bold text-gray-900">Novo por aqui?</h3>
-              <p className="text-[12px] text-gray-600 mt-0.5">Explore nossos treinamentos e comece sua jornada de capacitação ministerial.</p>
-            </div>
-            <button className="px-5 py-2.5 rounded-xl bg-green-600 text-white text-[12px] font-semibold hover:bg-green-700 transition shadow-sm">
-              Começar agora
-            </button>
           </div>
 
         </div>
