@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import {
   Home, BookOpen, Route, GraduationCap, CalendarDays,
   FolderDown, MapPin, BarChart3, Play, ChevronRight,
-  Zap, Clock, Users, Star, X,
-  Search, LogOut, HelpCircle, Lightbulb, Flame
+  Zap, Users, Star, X,
+  Search, LogOut, HelpCircle, Lightbulb, Flame,
+  TrendingUp, Calendar, Sparkles, Award
 } from "lucide-react";
 
 const VIDEOS = [
@@ -60,9 +61,7 @@ export default function PreviewNewUI() {
         <nav className="flex-1 px-3 mt-1 space-y-0.5">
           {nav.map((item, i) => (
             <button key={i} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-medium transition-all ${
-              item.active
-                ? "bg-green-50 text-green-700"
-                : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+              item.active ? "bg-green-50 text-green-700" : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
             }`}>
               <item.icon size={17} className={item.active ? "text-green-600" : "text-gray-400"} />
               <span>{item.label}</span>
@@ -72,12 +71,10 @@ export default function PreviewNewUI() {
 
         <div className="px-3 pb-5 space-y-1">
           <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-50 transition">
-            <HelpCircle size={17} className="text-gray-400" />
-            <span>Central de Ajuda</span>
+            <HelpCircle size={17} className="text-gray-400" /><span>Central de Ajuda</span>
           </button>
           <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-50 transition">
-            <LogOut size={17} className="text-gray-400" />
-            <span>Sair</span>
+            <LogOut size={17} className="text-gray-400" /><span>Sair</span>
           </button>
         </div>
       </aside>
@@ -89,28 +86,22 @@ export default function PreviewNewUI() {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-[28px] font-bold text-gray-900 tracking-tight">Olá, Danilo! 👋</h1>
+              <h1 className="text-[26px] font-bold text-gray-900 tracking-tight">Olá, Danilo! 👋</h1>
               <p className="text-[14px] text-gray-400 mt-1">Escolha o que assistir ou explore novos conteúdos.</p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                <input className="pl-9 pr-4 py-2.5 rounded-xl bg-white border border-gray-200 text-[13px] text-gray-800 placeholder-gray-400 outline-none focus:border-green-300 focus:ring-2 focus:ring-green-50 transition w-[220px]" placeholder="Buscar..." />
-              </div>
+            <div className="relative">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+              <input className="pl-9 pr-4 py-2.5 rounded-xl bg-white border border-gray-200 text-[13px] text-gray-800 placeholder-gray-400 outline-none focus:border-green-300 focus:ring-2 focus:ring-green-50 transition w-[240px]" placeholder="Buscar..." />
             </div>
           </div>
 
-          {/* Dica / Onboarding — slim banner */}
+          {/* Onboarding banner */}
           {showOnboarding && (
             <div className="bg-green-50 border border-green-100 rounded-xl px-5 py-3 flex items-center gap-4 mb-5">
               <Lightbulb size={16} className="text-green-600 shrink-0" />
               <p className="text-[12px] text-gray-700 flex-1"><span className="font-semibold">Novo por aqui?</span> Explore nossos treinamentos e comece sua jornada de capacitação ministerial.</p>
-              <button className="px-4 py-1.5 rounded-lg bg-green-600 text-white text-[11px] font-semibold hover:bg-green-700 transition shrink-0">
-                Começar agora
-              </button>
-              <button onClick={() => setShowOnboarding(false)} className="text-gray-400 hover:text-gray-600 transition shrink-0">
-                <X size={14} />
-              </button>
+              <button className="px-4 py-1.5 rounded-lg bg-green-600 text-white text-[11px] font-semibold hover:bg-green-700 transition shrink-0">Começar agora</button>
+              <button onClick={() => setShowOnboarding(false)} className="text-gray-400 hover:text-gray-600 transition shrink-0"><X size={14} /></button>
             </div>
           )}
 
@@ -133,159 +124,210 @@ export default function PreviewNewUI() {
             </div>
           </div>
 
-          {/* Sugestões rápidas (thumbnails menores) */}
-          <div className="mb-7">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[16px] font-bold text-gray-900">Sugestões para você</h2>
-              <button className="text-[12px] text-green-600 hover:text-green-700 font-semibold flex items-center gap-1">Ver catálogo <ChevronRight size={13} /></button>
+          {/* Webinar banner */}
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-5 mb-7 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center"><Calendar size={20} className="text-white" /></div>
+              <div>
+                <p className="text-[10px] text-white/60 uppercase font-semibold tracking-wider">Próximo Webinar</p>
+                <h3 className="text-[15px] font-bold text-white mt-0.5">Liderança em Tempos de Crise</h3>
+                <p className="text-[12px] text-white/60 mt-0.5">Pr. João Dinis · 6 de junho, 19:00</p>
+              </div>
             </div>
-            <div className="grid grid-cols-4 gap-4">
-              {VIDEOS.slice(1, 5).map(v => (
-                <div key={v.id} className="group cursor-pointer">
-                  <div className="relative rounded-xl overflow-hidden shadow-sm">
-                    <img src={yt(v.id)} alt="" className="w-full aspect-video object-cover group-hover:scale-[1.03] transition-transform duration-400" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition" />
-                    <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-md bg-black/60 text-white font-medium">{v.duration}</span>
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                      <div className="w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center">
-                        <Play size={14} className="text-green-600 ml-0.5" fill="currentColor" />
-                      </div>
-                    </div>
-                  </div>
-                  <h3 className="text-[13px] font-semibold text-gray-800 mt-2.5 line-clamp-2 leading-snug">{v.title}</h3>
-                  <p className="text-[11px] text-gray-400 mt-1">{v.author} · {v.views} views</p>
+            <button className="bg-white text-indigo-700 px-5 py-2.5 rounded-xl text-[12px] font-semibold hover:bg-indigo-50 transition">Inscrever-se</button>
+          </div>
+
+          {/* Main grid: content + sidebar */}
+          <div className="grid grid-cols-12 gap-6">
+            {/* Left: main content */}
+            <div className="col-span-8 space-y-7">
+
+              {/* Sugestões para você */}
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2"><Lightbulb size={17} className="text-amber-500" /> Sugestões para você</h2>
+                  <button className="text-[12px] text-green-600 hover:text-green-700 font-semibold flex items-center gap-1">Ver catálogo <ChevronRight size={13} /></button>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Grid: Trilhas + Materiais + Eventos */}
-          <div className="grid grid-cols-3 gap-5 mb-7">
-            {/* Trilhas */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[14px] font-bold text-gray-900 flex items-center gap-2">
-                  <Route size={16} className="text-green-600" /> Suas Trilhas
-                </h3>
-              </div>
-              <div className="space-y-3">
-                {[
-                  { title: "Liderança Eficaz", modules: "8/12 módulos", progress: 65, color: "bg-green-500" },
-                  { title: "Gestão Financeira", modules: "3/10 módulos", progress: 30, color: "bg-amber-500" },
-                  { title: "Comunicação Visual", modules: "6/7 módulos", progress: 85, color: "bg-indigo-500" },
-                ].map((t, i) => (
-                  <div key={i} className="p-3 rounded-xl hover:bg-gray-50 transition cursor-pointer">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[12px] font-semibold text-gray-800">{t.title}</p>
-                      <span className="text-[11px] font-bold text-gray-500">{t.progress}%</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-gray-100 overflow-hidden">
-                      <div className={`h-full rounded-full ${t.color}`} style={{ width: `${t.progress}%` }} />
-                    </div>
-                    <p className="text-[10px] text-gray-400 mt-1.5">{t.modules}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Top Materiais */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[14px] font-bold text-gray-900 flex items-center gap-2">
-                  <Star size={16} className="text-amber-500" /> Top Materiais
-                </h3>
-              </div>
-              <div className="space-y-1">
-                {["Planejamento Estratégico 2026", "Manual do Líder de Célula", "Guia de Escola Bíblica", "Kit Comunicação Visual", "Roteiro de Culto Criativo", "Modelo Relatório Ministerial"].map((m, i) => (
-                  <div key={i} className="flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-gray-50 transition cursor-pointer">
-                    <span className={`text-[11px] font-bold w-5 h-5 rounded-full flex items-center justify-center ${i < 3 ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-400'}`}>{i + 1}</span>
-                    <span className="text-[12px] text-gray-700 flex-1 truncate">{m}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Eventos */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[14px] font-bold text-gray-900 flex items-center gap-2">
-                  <CalendarDays size={16} className="text-blue-500" /> Próximos Eventos
-                </h3>
-              </div>
-              <div className="space-y-3">
-                {[
-                  { title: "Liderança em Tempos de Crise", date: "6 Jun · 19:00", type: "Webinar" },
-                  { title: "Capacitação de Líderes", date: "15 Jun · 09:00", type: "Presencial" },
-                  { title: "Congresso Anual Rede Inspire", date: "20 Jul · 08:00", type: "Evento" },
-                ].map((ev, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition cursor-pointer">
-                    <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
-                      <CalendarDays size={16} className="text-green-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-semibold text-gray-800">{ev.title}</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">{ev.date}</p>
-                    </div>
-                    <span className="text-[9px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full uppercase">{ev.type}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Em alta + Mentorias */}
-          <div className="grid grid-cols-12 gap-5 mb-7">
-            {/* Em alta */}
-            <div className="col-span-8 bg-white rounded-2xl border border-gray-100 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[14px] font-bold text-gray-900 flex items-center gap-2">
-                  <Flame size={16} className="text-orange-500" /> Em Alta na Plataforma
-                </h3>
-                <button className="text-[11px] text-green-600 font-semibold">Ver todos →</button>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                {VIDEOS.slice(4, 7).map(v => (
-                  <div key={v.id} className="group cursor-pointer">
-                    <div className="relative rounded-xl overflow-hidden">
-                      <img src={yt(v.id)} alt="" className="w-full aspect-video object-cover group-hover:scale-[1.03] transition-transform duration-400" />
-                      <span className="absolute bottom-1.5 right-1.5 text-[9px] px-1.5 py-0.5 rounded bg-black/60 text-white font-medium">{v.duration}</span>
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                        <div className="w-9 h-9 rounded-full bg-white/90 shadow flex items-center justify-center">
-                          <Play size={12} className="text-green-600 ml-0.5" fill="currentColor" />
+                <div className="grid grid-cols-3 gap-4">
+                  {VIDEOS.slice(1, 4).map(v => (
+                    <div key={v.id} className="group cursor-pointer">
+                      <div className="relative rounded-xl overflow-hidden shadow-sm">
+                        <img src={yt(v.id)} alt="" className="w-full aspect-video object-cover group-hover:scale-[1.03] transition-transform duration-400" />
+                        <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-md bg-black/60 text-white font-medium">{v.duration}</span>
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                          <div className="w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center"><Play size={14} className="text-green-600 ml-0.5" fill="currentColor" /></div>
                         </div>
                       </div>
+                      <h3 className="text-[13px] font-semibold text-gray-800 mt-2.5 line-clamp-2 leading-snug">{v.title}</h3>
+                      <p className="text-[11px] text-gray-400 mt-1">{v.author}</p>
                     </div>
-                    <p className="text-[12px] font-medium text-gray-800 mt-2 line-clamp-2 leading-snug">{v.title}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">{v.author}</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Trilhas em andamento */}
+              <section>
+                <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2 mb-4"><Route size={17} className="text-blue-500" /> Trilhas em andamento</h2>
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    { title: "Liderança Eficaz", modules: "8/12 módulos", progress: 65, color: "bg-green-500" },
+                    { title: "Gestão Financeira", modules: "3/10 módulos", progress: 30, color: "bg-amber-500" },
+                    { title: "Comunicação Visual", modules: "6/7 módulos", progress: 85, color: "bg-indigo-500" },
+                  ].map((t, i) => (
+                    <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md transition cursor-pointer">
+                      <p className="text-[13px] font-semibold text-gray-800">{t.title}</p>
+                      <div className="flex items-center gap-2 mt-3">
+                        <div className="flex-1 bg-gray-100 rounded-full h-2"><div className={`h-2 rounded-full ${t.color}`} style={{ width: `${t.progress}%` }} /></div>
+                        <span className="text-[11px] font-bold text-gray-500">{t.progress}%</span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1.5">{t.modules}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Top 10 Materiais */}
+              <section>
+                <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2 mb-4"><Star size={17} className="text-orange-500" /> Top 10 Materiais</h2>
+                <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
+                  {["Planejamento Estratégico 2026", "Manual do Líder de Célula", "Guia de Escola Bíblica", "Kit Comunicação Visual", "Roteiro de Culto Criativo", "Modelo Relatório Ministerial", "Guia de Acolhimento", "Template Planejamento Anual", "Manual Mídia e Redes", "Apostila Escola de Líderes"].map((m, i) => (
+                    <div key={i} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition cursor-pointer">
+                      <span className={`text-[12px] font-bold w-5 text-center ${i < 3 ? 'text-green-600' : 'text-gray-300'}`}>{i + 1}</span>
+                      <span className="text-[13px] text-gray-800 flex-1">{m}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Top Conteúdos (Em Alta) */}
+              <section>
+                <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2 mb-4"><Flame size={17} className="text-red-500" /> Top Conteúdos</h2>
+                <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
+                  {VIDEOS.slice(0, 5).map((v, i) => (
+                    <div key={v.id} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition cursor-pointer">
+                      <span className={`text-[12px] font-bold w-5 text-center ${i < 3 ? 'text-red-500' : 'text-gray-300'}`}>{i + 1}</span>
+                      <img src={yt(v.id)} alt="" className="w-14 h-9 rounded-lg object-cover shrink-0" />
+                      <span className="text-[13px] text-gray-800 flex-1 line-clamp-1">{v.title}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Conteúdos recentes */}
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2"><TrendingUp size={17} className="text-green-500" /> Conteúdos recentes</h2>
+                  <button className="text-[12px] text-green-600 font-semibold">Ver todos →</button>
+                </div>
+                <div className="grid grid-cols-4 gap-3">
+                  {VIDEOS.slice(4, 8).map(v => (
+                    <div key={v.id} className="group cursor-pointer">
+                      <div className="relative rounded-xl overflow-hidden shadow-sm">
+                        <img src={yt(v.id)} alt="" className="w-full aspect-video object-cover group-hover:scale-[1.03] transition-transform duration-300" />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                          <div className="w-8 h-8 rounded-full bg-white/90 shadow flex items-center justify-center"><Play size={11} className="text-green-600 ml-0.5" fill="currentColor" /></div>
+                        </div>
+                      </div>
+                      <p className="text-[11px] font-medium text-gray-800 mt-2 line-clamp-2 leading-snug">{v.title}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Próximos eventos */}
+              <section>
+                <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2 mb-4"><Calendar size={17} className="text-purple-500" /> Próximos eventos</h2>
+                <div className="space-y-2.5">
+                  {[
+                    { title: "Liderança em Tempos de Crise", host: "Pr. João Dinis", date: "6 Jun · 19:00", type: "Webinar", color: "bg-purple-50", iconColor: "text-purple-600" },
+                    { title: "Capacitação de Líderes de Célula", host: "Marcos Madaleno", date: "15 Jun · 09:00", type: "Presencial", color: "bg-blue-50", iconColor: "text-blue-600" },
+                    { title: "Mentoria de Liderança", host: "Pr. Carlos Silva", date: "30 Mai · 10:00", type: "Mentoria", color: "bg-green-50", iconColor: "text-green-600" },
+                  ].map((ev, i) => (
+                    <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between hover:shadow-sm transition cursor-pointer">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl ${ev.color} flex items-center justify-center`}><Calendar size={16} className={ev.iconColor} /></div>
+                        <div>
+                          <p className="text-[13px] font-semibold text-gray-800">{ev.title}</p>
+                          <p className="text-[11px] text-gray-400">{ev.host} · {ev.date}</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full uppercase">{ev.type}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
             </div>
 
-            {/* Mentorias */}
-            <div className="col-span-4 bg-white rounded-2xl border border-gray-100 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[14px] font-bold text-gray-900 flex items-center gap-2">
-                  <Users size={16} className="text-violet-500" /> Mentorias
-                </h3>
-              </div>
-              <div className="space-y-3">
-                {[
-                  { title: "Mentoria de Liderança", mentor: "Pr. Carlos Silva", date: "30 Mai · 10:00", status: "Agendada" },
-                  { title: "Gestão de Equipes", mentor: "Matheus Moraes", date: "5 Jun · 14:00", status: "Disponível" },
-                ].map((m, i) => (
-                  <div key={i} className="p-3 rounded-xl border border-gray-100 hover:border-green-200 hover:bg-green-50/30 transition cursor-pointer">
-                    <p className="text-[12px] font-semibold text-gray-800">{m.title}</p>
-                    <p className="text-[10px] text-gray-400 mt-1">{m.mentor}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-[10px] text-gray-400 flex items-center gap-1"><Clock size={10} />{m.date}</span>
-                      <span className="text-[9px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">{m.status}</span>
-                    </div>
+            {/* Right sidebar */}
+            <div className="col-span-4 space-y-5">
+              {/* Pontos + Ranking */}
+              <div className="bg-white rounded-xl border border-gray-100 p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center"><Star size={18} className="text-amber-500" /></div>
+                  <div><p className="text-[20px] font-bold text-gray-900">1.250</p><p className="text-[11px] text-gray-400">Seus pontos</p></div>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase mb-2">Top Usuários</p>
+                  <div className="space-y-2">
+                    {[{ name: "Marcos Madaleno", pts: 2100 }, { name: "Danilo Santos", pts: 1250 }, { name: "Matheus", pts: 980 }, { name: "Renato Okamoto", pts: 870 }, { name: "Ana Oliveira", pts: 650 }].map((u, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-gray-400 w-4">{i + 1}º</span>
+                        <span className="flex-1 text-[12px] text-gray-700 truncate">{u.name}</span>
+                        <span className="text-[11px] font-semibold text-amber-600">{u.pts}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-                <button className="w-full py-2.5 rounded-xl border border-gray-200 text-[12px] font-medium text-gray-500 hover:bg-gray-50 transition">
-                  Ver todas as mentorias
-                </button>
+                </div>
+              </div>
+
+              {/* Links rápidos */}
+              <div className="bg-white rounded-xl border border-gray-100 p-5">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase mb-3">Acesso rápido</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: "Materiais", icon: <FolderDown size={14} /> },
+                    { label: "Mensagens", icon: <Sparkles size={14} /> },
+                    { label: "Mapa", icon: <MapPin size={14} /> },
+                    { label: "Planejamento", icon: <CalendarDays size={14} /> },
+                    { label: "Dashboard", icon: <BarChart3 size={14} /> },
+                    { label: "Mentorias", icon: <Users size={14} /> },
+                  ].map((item, i) => (
+                    <button key={i} className="flex items-center gap-2 text-[11px] text-gray-600 bg-gray-50 rounded-lg px-3 py-2.5 hover:bg-green-50 hover:text-green-700 transition">
+                      {item.icon} {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Próximo webinar card */}
+              <div className="bg-white rounded-xl border border-gray-100 p-5">
+                <p className="text-[10px] text-purple-600 font-semibold uppercase mb-2">Próximo Webinar</p>
+                <h3 className="text-[13px] font-bold text-gray-900">Liderança em Tempos de Crise</h3>
+                <p className="text-[11px] text-gray-500 mt-1">Pr. João Dinis</p>
+                <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1"><Calendar size={11} /> 6 Jun · 19:00</p>
+                <button className="mt-3 w-full bg-purple-600 text-white py-2 rounded-lg text-[12px] font-medium hover:bg-purple-700 transition">Ver detalhes</button>
+              </div>
+
+              {/* Próxima mentoria */}
+              <div className="bg-white rounded-xl border border-gray-100 p-5">
+                <p className="text-[10px] text-blue-600 font-semibold uppercase mb-2">Próxima Mentoria</p>
+                <h3 className="text-[13px] font-bold text-gray-900">Mentoria de Liderança</h3>
+                <p className="text-[11px] text-gray-500 mt-1">Pr. Carlos Silva</p>
+                <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1"><Calendar size={11} /> 30 Mai · 10:00</p>
+                <button className="mt-3 w-full bg-blue-600 text-white py-2 rounded-lg text-[12px] font-medium hover:bg-blue-700 transition">Ver detalhes</button>
+              </div>
+
+              {/* Igrejas mais ativas */}
+              <div className="bg-white rounded-xl border border-gray-100 p-5">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase mb-3 flex items-center gap-1"><Award size={12} /> Igrejas mais ativas</p>
+                <div className="space-y-2">
+                  {["Igreja Inspire SP", "Igreja Rio da Vida", "Comunidade Ágape", "PIB Alto Caparaó", "AD Fé para as Nações"].map((c, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-gray-400 w-4">{i + 1}º</span>
+                      <span className="text-[12px] text-gray-700 flex-1 truncate">{c}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
