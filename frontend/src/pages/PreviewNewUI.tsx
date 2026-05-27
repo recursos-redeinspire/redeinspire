@@ -17,7 +17,7 @@ const VIDEOS = [
   { id: 'TOa4-r120Fk', title: 'Assistência executiva e secretariado ministerial', author: 'Sandra Traldi', duration: '35 min', views: '756' },
 ];
 
-function yt(id: string) { return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`; }
+function yt(id: string) { return `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`; }
 
 const nav = [
   { icon: Home, label: "Início", active: true },
