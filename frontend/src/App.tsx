@@ -23,9 +23,6 @@ import ContentPlayerPage from './pages/ContentPlayerPage'
 import ManagementPage from './pages/ManagementPage'
 import MaterialsPage from './pages/MaterialsPage'
 import AdminPage from './pages/AdminPage'
-import PreviewGlassPage from './pages/PreviewGlassPage'
-import PreviewPremiumDark from './pages/PreviewPremiumDark'
-import PreviewSoftLight from './pages/PreviewSoftLight'
 
 function Protected({ children }: { children: React.ReactNode }) {
   return (
@@ -61,9 +58,6 @@ export default function App() {
             <Route path="/gestao" element={<Protected><ManagementPage /></Protected>} />
             <Route path="/materiais" element={<Protected><MaterialsPage /></Protected>} />
             <Route path="/admin" element={<Protected><AdminPage /></Protected>} />
-            <Route path="/preview-glass" element={<PreviewGlassPage />} />
-            <Route path="/preview-premium" element={<PreviewPremiumDark />} />
-            <Route path="/preview-soft" element={<PreviewSoftLight />} />
           </Routes>
         </div>
       </DataProvider>
