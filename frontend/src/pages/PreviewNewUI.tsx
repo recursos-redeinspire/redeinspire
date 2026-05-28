@@ -9,17 +9,17 @@ import {
 } from "lucide-react";
 
 const VIDEOS = [
-  { id: '4CJQVNhVPv4', title: 'Como consolidar as bases ministeriais em sua igreja', author: 'Marcos Sanches', duration: '45 min', views: '2.4k' },
-  { id: 'CHy2xDu-FFs', title: 'Saúde emocional da equipe ministerial', author: 'Carmen Rangel', duration: '38 min', views: '1.8k' },
-  { id: 'PoyaOKZ4VPY', title: 'Gestão de equipes de alta performance', author: 'Matheus Moraes', duration: '52 min', views: '3.1k' },
-  { id: 'cc4AyP6l6jA', title: 'Planejamento estratégico para igrejas e ministérios', author: 'Marcelo Santos', duration: '41 min', views: '1.5k' },
-  { id: 'g21WdMNY1pw', title: 'Cultura de Inovação na Igreja', author: 'Marcos Madaleno', duration: '47 min', views: '2.9k' },
-  { id: 'zUc7YWPHgGM', title: 'Como a tecnologia pode otimizar seu trabalho', author: 'Talk Gestores', duration: '33 min', views: '1.2k' },
-  { id: 'RgJ3p91AR4A', title: 'Como tirar o peso operacional do seu pastor', author: 'Sandra Traudi', duration: '29 min', views: '980' },
-  { id: 'TOa4-r120Fk', title: 'Assistência executiva e secretariado ministerial', author: 'Sandra Traldi', duration: '35 min', views: '756' },
+  { id: '4CJQVNhVPv4', title: 'Como consolidar as bases ministeriais em sua igreja', author: 'Marcos Sanches', duration: '45 min', views: '2.4k', img: 'https://images.unsplash.com/photo-1543060829-a0029874b174?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080' },
+  { id: 'CHy2xDu-FFs', title: 'Saúde emocional da equipe ministerial', author: 'Carmen Rangel', duration: '38 min', views: '1.8k', img: 'https://images.unsplash.com/photo-1515603403036-f3d35f75ca52?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080' },
+  { id: 'PoyaOKZ4VPY', title: 'Gestão de equipes de alta performance', author: 'Matheus Moraes', duration: '52 min', views: '3.1k', img: 'https://images.unsplash.com/flagged/photo-1557896279-080cb03b9ca6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080' },
+  { id: 'cc4AyP6l6jA', title: 'Planejamento estratégico para igrejas e ministérios', author: 'Marcelo Santos', duration: '41 min', views: '1.5k', img: 'https://images.unsplash.com/photo-1555696958-c5049b866f6f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080' },
+  { id: 'g21WdMNY1pw', title: 'Cultura de Inovação na Igreja', author: 'Marcos Madaleno', duration: '47 min', views: '2.9k', img: 'https://images.unsplash.com/photo-1517048676732-d65bc937f952?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080' },
+  { id: 'zUc7YWPHgGM', title: 'Como a tecnologia pode otimizar seu trabalho', author: 'Talk Gestores', duration: '33 min', views: '1.2k', img: 'https://images.unsplash.com/photo-1505236858219-8359eb29e329?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080' },
+  { id: 'RgJ3p91AR4A', title: 'Como tirar o peso operacional do seu pastor', author: 'Sandra Traudi', duration: '29 min', views: '980', img: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080' },
+  { id: 'TOa4-r120Fk', title: 'Assistência executiva e secretariado ministerial', author: 'Sandra Traldi', duration: '35 min', views: '756', img: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080' },
 ];
 
-function yt(id: string) { return `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`; }
+function img(v: typeof VIDEOS[0]) { return v.img; }
 
 const nav = [
   { icon: Home, label: "Início", active: true },
@@ -107,7 +107,7 @@ export default function PreviewNewUI() {
 
           {/* HERO — Video destaque */}
           <div className="relative rounded-3xl overflow-hidden mb-7 group cursor-pointer shadow-lg shadow-green-900/5">
-            <img src={yt(VIDEOS[0].id)} alt="" className="w-full aspect-[2.6/1] object-cover" />
+            <img src={img(VIDEOS[0])} alt="" className="w-full aspect-[2.6/1] object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-green-600/15 to-transparent" />
             <div className="absolute top-5 left-6">
@@ -152,7 +152,7 @@ export default function PreviewNewUI() {
                   {VIDEOS.slice(1, 4).map(v => (
                     <div key={v.id} className="group cursor-pointer">
                       <div className="relative rounded-xl overflow-hidden shadow-sm">
-                        <img src={yt(v.id)} alt="" className="w-full aspect-video object-cover group-hover:scale-[1.03] transition-transform duration-400" />
+                        <img src={img(v)} alt="" className="w-full aspect-video object-cover group-hover:scale-[1.03] transition-transform duration-400" />
                         <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-md bg-black/60 text-white font-medium">{v.duration}</span>
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                           <div className="w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center"><Play size={14} className="text-green-600 ml-0.5" fill="currentColor" /></div>
@@ -206,7 +206,7 @@ export default function PreviewNewUI() {
                   {VIDEOS.slice(0, 5).map((v, i) => (
                     <div key={v.id} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition cursor-pointer">
                       <span className={`text-[12px] font-bold w-5 text-center ${i < 3 ? 'text-red-500' : 'text-gray-300'}`}>{i + 1}</span>
-                      <img src={yt(v.id)} alt="" className="w-14 h-9 rounded-lg object-cover shrink-0" />
+                      <img src={img(v)} alt="" className="w-14 h-9 rounded-lg object-cover shrink-0" />
                       <span className="text-[13px] text-gray-800 flex-1 line-clamp-1">{v.title}</span>
                     </div>
                   ))}
@@ -223,7 +223,7 @@ export default function PreviewNewUI() {
                   {VIDEOS.slice(4, 8).map(v => (
                     <div key={v.id} className="group cursor-pointer">
                       <div className="relative rounded-xl overflow-hidden shadow-sm">
-                        <img src={yt(v.id)} alt="" className="w-full aspect-video object-cover group-hover:scale-[1.03] transition-transform duration-300" />
+                        <img src={img(v)} alt="" className="w-full aspect-video object-cover group-hover:scale-[1.03] transition-transform duration-300" />
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                           <div className="w-8 h-8 rounded-full bg-white/90 shadow flex items-center justify-center"><Play size={11} className="text-green-600 ml-0.5" fill="currentColor" /></div>
                         </div>

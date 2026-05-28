@@ -6,14 +6,14 @@ import {
 } from "lucide-react";
 
 const VIDEOS = [
-  { id: '4CJQVNhVPv4', title: 'Como consolidar as bases ministeriais em sua igreja', author: 'Marcos Sanches' },
-  { id: 'CHy2xDu-FFs', title: 'Saúde emocional da equipe ministerial', author: 'Carmen Rangel' },
-  { id: 'PoyaOKZ4VPY', title: 'Gestão de equipes de alta performance', author: 'Matheus Moraes' },
-  { id: 'cc4AyP6l6jA', title: 'Planejamento estratégico para igrejas', author: 'Marcelo Santos' },
-  { id: 'g21WdMNY1pw', title: 'Cultura de Inovação na Igreja', author: 'Marcos Madaleno' },
-  { id: 'zUc7YWPHgGM', title: 'Como a tecnologia pode otimizar seu trabalho', author: 'Talk Gestores' },
+  { id: '4CJQVNhVPv4', title: 'Como consolidar as bases ministeriais em sua igreja', author: 'Marcos Sanches', img: 'https://images.unsplash.com/photo-1543060829-a0029874b174?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080' },
+  { id: 'CHy2xDu-FFs', title: 'Saúde emocional da equipe ministerial', author: 'Carmen Rangel', img: 'https://images.unsplash.com/photo-1515603403036-f3d35f75ca52?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080' },
+  { id: 'PoyaOKZ4VPY', title: 'Gestão de equipes de alta performance', author: 'Matheus Moraes', img: 'https://images.unsplash.com/flagged/photo-1557896279-080cb03b9ca6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080' },
+  { id: 'cc4AyP6l6jA', title: 'Planejamento estratégico para igrejas', author: 'Marcelo Santos', img: 'https://images.unsplash.com/photo-1555696958-c5049b866f6f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080' },
+  { id: 'g21WdMNY1pw', title: 'Cultura de Inovação na Igreja', author: 'Marcos Madaleno', img: 'https://images.unsplash.com/photo-1517048676732-d65bc937f952?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080' },
+  { id: 'zUc7YWPHgGM', title: 'Como a tecnologia pode otimizar seu trabalho', author: 'Talk Gestores', img: 'https://images.unsplash.com/photo-1505236858219-8359eb29e329?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080' },
 ];
-function yt(id: string) { return `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`; }
+function img(v: typeof VIDEOS[0]) { return v.img; }
 
 const nav = [
   { label: "Início", icon: Home, active: true },
@@ -82,7 +82,7 @@ export default function PreviewDark() {
             {/* Bento Hero */}
             <div className="grid grid-cols-4 gap-4 mb-8">
               <div className="col-span-3 relative rounded-3xl overflow-hidden group h-[360px] border border-zinc-800/50">
-                <img src={yt(VIDEOS[0].id)} alt="" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
+                <img src={img(VIDEOS[0])} alt="" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
                 <div className="absolute bottom-8 left-8 right-8">
                   <span className="bg-fuchsia-500 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full mb-4 inline-block shadow-[0_0_15px_rgba(217,70,239,0.5)]">Novo Lançamento</span>
@@ -96,7 +96,7 @@ export default function PreviewDark() {
               <div className="col-span-1 flex flex-col gap-4 h-[360px]">
                 {VIDEOS.slice(1, 3).map(v => (
                   <div key={v.id} className="flex-1 relative rounded-3xl overflow-hidden group border border-zinc-800/50">
-                    <img src={yt(v.id)} alt="" className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" />
+                    <img src={img(v)} alt="" className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-black/20" />
                     <div className="absolute bottom-4 left-4 right-4">
                       <h3 className="text-sm font-bold text-white">{v.author}</h3>
@@ -159,7 +159,7 @@ export default function PreviewDark() {
                 {VIDEOS.slice(2, 6).map(v => (
                   <div key={v.id} className="group cursor-pointer">
                     <div className="relative aspect-video rounded-2xl overflow-hidden border border-zinc-800/50">
-                      <img src={yt(v.id)} alt="" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500" />
+                      <img src={img(v)} alt="" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500" />
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                         <div className="w-10 h-10 rounded-full bg-fuchsia-500/30 backdrop-blur-md border border-fuchsia-400/30 flex items-center justify-center"><Play size={14} className="text-white ml-0.5" fill="white" /></div>
                       </div>
