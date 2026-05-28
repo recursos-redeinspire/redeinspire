@@ -107,7 +107,7 @@ export default function PreviewNewUI() {
 
           {/* HERO — Video destaque */}
           <div className="relative rounded-3xl overflow-hidden mb-7 group cursor-pointer shadow-lg shadow-green-900/5">
-            <img src={img(VIDEOS[0])} alt="" className="w-full aspect-[2.6/1] object-cover" />
+            <img src={img(VIDEOS[0])} alt="" className="w-full aspect-[2.6/1] object-cover object-[center_30%]" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-green-600/15 to-transparent" />
             <div className="absolute top-5 left-6">

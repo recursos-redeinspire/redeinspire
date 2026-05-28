@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import {
   Home, BookOpen, Route, GraduationCap, CalendarDays,
-  FolderDown, MapPin, BarChart3, Play,
+  FolderDown, MapPin, BarChart3, Play, Zap,
   Star, Search, Bell, Award
 } from "lucide-react";
 
@@ -34,6 +34,11 @@ export default function PreviewEditorial() {
       <aside className="w-60 bg-[#EBE7DF] border-r border-[#2C2C2C]/10 flex flex-col h-full">
         <div className="p-8 flex items-center justify-center border-b border-[#2C2C2C]/10">
           <div className="text-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <div className="w-7 h-7 rounded-lg bg-[#2C2C2C] flex items-center justify-center">
+                <Zap size={12} className="text-[#F5F2EC]" />
+              </div>
+            </div>
             <h1 className="text-xl tracking-wide font-normal">INSPIRE</h1>
             <p className="text-[9px] tracking-widest uppercase mt-1 opacity-60" style={{ fontFamily: "'Inter', sans-serif" }}>São Paulo</p>
           </div>
@@ -68,7 +73,7 @@ export default function PreviewEditorial() {
         </header>
 
         <div className="flex-1 overflow-auto px-10 py-8" style={{ scrollbarWidth: "none" }}>
-          <div className="max-w-5xl mx-auto">
+          <div className="max-w-full">
             {/* Welcome */}
             <div className="mb-10">
               <h1 className="text-4xl font-normal tracking-tight leading-tight">Bem-vindo de volta,<br/><em className="italic">Danilo.</em></h1>
@@ -78,7 +83,7 @@ export default function PreviewEditorial() {
             {/* Hero */}
             <div className="grid grid-cols-3 gap-5 mb-10">
               <div className="col-span-2 relative rounded-2xl overflow-hidden group cursor-pointer h-[380px]">
-                <img src={img(VIDEOS[0])} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
+                <img src={img(VIDEOS[0])} alt="" className="w-full h-full object-cover object-[center_30%] group-hover:scale-105 transition-transform duration-1000" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#2C2C2C] via-[#2C2C2C]/30 to-transparent" />
                 <div className="absolute bottom-8 left-8 right-8">
                   <span className="text-[10px] uppercase tracking-[0.2em] text-[#F5F2EC]/60 mb-3 block" style={{ fontFamily: "'Inter', sans-serif" }}>Destaque da Semana</span>
@@ -92,7 +97,7 @@ export default function PreviewEditorial() {
               <div className="flex flex-col gap-5 h-[380px]">
                 {VIDEOS.slice(1, 3).map(v => (
                   <div key={v.id} className="flex-1 relative rounded-2xl overflow-hidden group cursor-pointer">
-                    <img src={img(v)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                    <img src={img(v)} alt="" className="w-full h-full object-cover object-[center_30%] group-hover:scale-105 transition-transform duration-700" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#2C2C2C]/90 to-transparent" />
                     <div className="absolute bottom-4 left-4 right-4">
                       <h3 className="text-sm text-[#F5F2EC] italic leading-snug">{v.title}</h3>
@@ -161,7 +166,7 @@ export default function PreviewEditorial() {
                 {VIDEOS.slice(3, 6).map(v => (
                   <div key={v.id} className="group cursor-pointer">
                     <div className="relative rounded-xl overflow-hidden aspect-video">
-                      <img src={img(v)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                      <img src={img(v)} alt="" className="w-full h-full object-cover object-[center_30%] group-hover:scale-105 transition-transform duration-700" />
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/20">
                         <div className="w-10 h-10 rounded-full bg-[#F5F2EC] flex items-center justify-center"><Play size={14} className="text-[#2C2C2C] ml-0.5" fill="currentColor" /></div>
                       </div>

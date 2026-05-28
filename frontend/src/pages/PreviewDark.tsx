@@ -73,7 +73,7 @@ export default function PreviewDark() {
 
         {/* Content */}
         <div className="flex-1 overflow-auto px-8 py-6 z-10" style={{ scrollbarWidth: "none" }}>
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-full">
             <div className="flex justify-between items-end mb-8">
               <h1 className="text-3xl font-black tracking-tight">Bem-vindo, <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-indigo-400">Danilo!</span></h1>
               <button className="text-sm font-bold text-zinc-400 flex items-center gap-1 hover:text-white transition group">Ver catálogo <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" /></button>
@@ -82,7 +82,7 @@ export default function PreviewDark() {
             {/* Bento Hero */}
             <div className="grid grid-cols-4 gap-4 mb-8">
               <div className="col-span-3 relative rounded-3xl overflow-hidden group h-[360px] border border-zinc-800/50">
-                <img src={img(VIDEOS[0])} alt="" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
+                <img src={img(VIDEOS[0])} alt="" className="w-full h-full object-cover object-[center_30%] opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
                 <div className="absolute bottom-8 left-8 right-8">
                   <span className="bg-fuchsia-500 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full mb-4 inline-block shadow-[0_0_15px_rgba(217,70,239,0.5)]">Novo Lançamento</span>
@@ -96,7 +96,7 @@ export default function PreviewDark() {
               <div className="col-span-1 flex flex-col gap-4 h-[360px]">
                 {VIDEOS.slice(1, 3).map(v => (
                   <div key={v.id} className="flex-1 relative rounded-3xl overflow-hidden group border border-zinc-800/50">
-                    <img src={img(v)} alt="" className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" />
+                    <img src={img(v)} alt="" className="w-full h-full object-cover object-[center_30%] opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-black/20" />
                     <div className="absolute bottom-4 left-4 right-4">
                       <h3 className="text-sm font-bold text-white">{v.author}</h3>
@@ -129,7 +129,7 @@ export default function PreviewDark() {
             {/* Lists */}
             <div className="grid grid-cols-2 gap-6 mb-8">
               <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-3xl p-6">
-                <h3 className="font-black text-lg mb-5 flex items-center gap-3"><Award size={18} className="text-fuchsia-500" /> Top 10 Materiais</h3>
+                <h3 className="font-black text-lg mb-5 flex items-center gap-3 text-white"><Award size={18} className="text-fuchsia-500" /> Top 10 Materiais</h3>
                 <div className="space-y-3.5">
                   {["Planejamento Estratégico 2026", "Manual do Líder de Célula", "Guia de Escola Bíblica", "Kit Comunicação Visual", "Roteiro de Culto Criativo"].map((m, i) => (
                     <div key={i} className="flex items-center gap-4 group cursor-pointer">
@@ -140,7 +140,7 @@ export default function PreviewDark() {
                 </div>
               </div>
               <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-3xl p-6">
-                <h3 className="font-black text-lg mb-5 flex items-center gap-3"><Star size={18} className="text-indigo-500" /> Top Conteúdos</h3>
+                <h3 className="font-black text-lg mb-5 flex items-center gap-3 text-white"><Star size={18} className="text-indigo-500" /> Top Conteúdos</h3>
                 <div className="space-y-3.5">
                   {VIDEOS.slice(0, 5).map((v, i) => (
                     <div key={v.id} className="flex items-center gap-4 group cursor-pointer">
@@ -154,12 +154,12 @@ export default function PreviewDark() {
 
             {/* Recent */}
             <div className="mb-8">
-              <h3 className="font-black text-lg mb-5">Conteúdos recentes</h3>
+              <h3 className="font-black text-lg mb-5 text-white">Conteúdos recentes</h3>
               <div className="grid grid-cols-4 gap-4">
                 {VIDEOS.slice(2, 6).map(v => (
                   <div key={v.id} className="group cursor-pointer">
                     <div className="relative aspect-video rounded-2xl overflow-hidden border border-zinc-800/50">
-                      <img src={img(v)} alt="" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500" />
+                      <img src={img(v)} alt="" className="w-full h-full object-cover object-[center_30%] opacity-70 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500" />
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                         <div className="w-10 h-10 rounded-full bg-fuchsia-500/30 backdrop-blur-md border border-fuchsia-400/30 flex items-center justify-center"><Play size={14} className="text-white ml-0.5" fill="white" /></div>
                       </div>
