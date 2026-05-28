@@ -24,6 +24,8 @@ import ManagementPage from './pages/ManagementPage'
 import MaterialsPage from './pages/MaterialsPage'
 import AdminPage from './pages/AdminPage'
 import PreviewNewUI from './pages/PreviewNewUI'
+import PreviewDark from './pages/PreviewDark'
+import PreviewEditorial from './pages/PreviewEditorial'
 
 function Protected({ children }: { children: React.ReactNode }) {
   return (
@@ -60,6 +62,8 @@ export default function App() {
             <Route path="/materiais" element={<Protected><MaterialsPage /></Protected>} />
             <Route path="/admin" element={<Protected><AdminPage /></Protected>} />
             <Route path="/preview-new" element={<PreviewNewUI />} />
+            <Route path="/preview-dark" element={<PreviewDark />} />
+            <Route path="/preview-editorial" element={<PreviewEditorial />} />
           </Routes>
         </div>
       </DataProvider>
