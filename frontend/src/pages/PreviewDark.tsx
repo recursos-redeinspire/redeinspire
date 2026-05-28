@@ -129,23 +129,23 @@ export default function PreviewDark() {
             {/* Lists */}
             <div className="grid grid-cols-2 gap-6 mb-8">
               <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-3xl p-6">
-                <h3 className="font-black text-lg mb-5 flex items-center gap-3 text-white"><Award size={18} className="text-fuchsia-500" /> Top 10 Materiais</h3>
+                <h3 className="font-black text-lg mb-5 flex items-center gap-3 text-white"><Award size={18} className="text-fuchsia-500" /> <span className="text-fuchsia-400">Top 10 Materiais</span></h3>
                 <div className="space-y-3.5">
                   {["Planejamento Estratégico 2026", "Manual do Líder de Célula", "Guia de Escola Bíblica", "Kit Comunicação Visual", "Roteiro de Culto Criativo"].map((m, i) => (
                     <div key={i} className="flex items-center gap-4 group cursor-pointer">
                       <span className="text-zinc-600 font-black text-lg w-5">{i + 1}</span>
-                      <span className="text-sm text-zinc-300 font-medium group-hover:text-fuchsia-400 transition">{m}</span>
+                      <span className="text-sm text-zinc-200 font-medium group-hover:text-fuchsia-400 transition">{m}</span>
                     </div>
                   ))}
                 </div>
               </div>
               <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-3xl p-6">
-                <h3 className="font-black text-lg mb-5 flex items-center gap-3 text-white"><Star size={18} className="text-indigo-500" /> Top Conteúdos</h3>
+                <h3 className="font-black text-lg mb-5 flex items-center gap-3 text-white"><Star size={18} className="text-indigo-500" /> <span className="text-indigo-400">Top Conteúdos</span></h3>
                 <div className="space-y-3.5">
                   {VIDEOS.slice(0, 5).map((v, i) => (
                     <div key={v.id} className="flex items-center gap-4 group cursor-pointer">
                       <span className="text-zinc-600 font-black text-lg w-5">{i + 1}</span>
-                      <span className="text-sm text-zinc-300 font-medium group-hover:text-indigo-400 transition line-clamp-1">{v.title}</span>
+                      <span className="text-sm text-zinc-200 font-medium group-hover:text-indigo-400 transition line-clamp-1">{v.title}</span>
                     </div>
                   ))}
                 </div>
@@ -154,7 +154,7 @@ export default function PreviewDark() {
 
             {/* Recent */}
             <div className="mb-8">
-              <h3 className="font-black text-lg mb-5 text-white">Conteúdos recentes</h3>
+              <h3 className="font-black text-lg mb-5 text-white"><span className="text-zinc-200">Conteúdos recentes</span></h3>
               <div className="grid grid-cols-4 gap-4">
                 {VIDEOS.slice(2, 6).map(v => (
                   <div key={v.id} className="group cursor-pointer">
