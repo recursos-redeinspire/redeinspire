@@ -80,6 +80,18 @@ export default function PreviewEditorial() {
               <p className="text-sm opacity-50 mt-3" style={{ fontFamily: "'Inter', sans-serif" }}>Explore os conteúdos mais recentes da plataforma.</p>
             </div>
 
+            {/* Onboarding */}
+            <div className="bg-[#EBE7DF] rounded-xl p-6 flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <GraduationCap size={22} className="opacity-60" />
+                <div style={{ fontFamily: "'Inter', sans-serif" }}>
+                  <h4 className="font-semibold text-sm">Novo na plataforma?</h4>
+                  <p className="text-xs opacity-60">Assista os vídeos de treinamento e aproveite ao máximo</p>
+                </div>
+              </div>
+              <button className="bg-[#2C2C2C] text-[#F5F2EC] text-sm px-5 py-2.5 rounded-lg hover:bg-[#1a1a1a] transition" style={{ fontFamily: "'Inter', sans-serif" }}>Ver treinamentos</button>
+            </div>
+
             {/* Hero */}
             <div className="grid grid-cols-3 gap-5 mb-10">
               <div className="col-span-2 relative rounded-2xl overflow-hidden group cursor-pointer h-[380px]">
@@ -106,21 +118,6 @@ export default function PreviewEditorial() {
                   </div>
                 ))}
               </div>
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-[#2C2C2C]/10 my-10" />
-
-            {/* Onboarding */}
-            <div className="bg-[#EBE7DF] rounded-xl p-6 flex items-center justify-between mb-10">
-              <div className="flex items-center gap-4">
-                <GraduationCap size={22} className="opacity-60" />
-                <div style={{ fontFamily: "'Inter', sans-serif" }}>
-                  <h4 className="font-semibold text-sm">Novo na plataforma?</h4>
-                  <p className="text-xs opacity-60">Assista os vídeos de treinamento e aproveite ao máximo</p>
-                </div>
-              </div>
-              <button className="bg-[#2C2C2C] text-[#F5F2EC] text-sm px-5 py-2.5 rounded-lg hover:bg-[#1a1a1a] transition" style={{ fontFamily: "'Inter', sans-serif" }}>Ver treinamentos</button>
             </div>
 
             {/* Webinar */}

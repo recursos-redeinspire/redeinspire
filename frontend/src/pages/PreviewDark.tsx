@@ -79,6 +79,15 @@ export default function PreviewDark() {
               <button className="text-sm font-bold text-zinc-400 flex items-center gap-1 hover:text-white transition group">Ver catálogo <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" /></button>
             </div>
 
+            {/* Onboarding */}
+            <div className="bg-gradient-to-r from-zinc-900 to-black border border-zinc-800 rounded-2xl p-6 flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700"><GraduationCap size={20} className="text-fuchsia-400" /></div>
+                <div><h4 className="font-bold text-white text-lg">Novo na plataforma?</h4><p className="text-sm text-zinc-400">Assista os vídeos de treinamento e aproveite ao máximo</p></div>
+              </div>
+              <button className="bg-white text-black text-sm font-bold px-6 py-3 rounded-full hover:bg-zinc-200 transition">Ver treinamentos</button>
+            </div>
+
             {/* Bento Hero */}
             <div className="grid grid-cols-4 gap-4 mb-8">
               <div className="col-span-3 relative rounded-3xl overflow-hidden group h-[360px] border border-zinc-800/50">
@@ -105,15 +114,6 @@ export default function PreviewDark() {
                   </div>
                 ))}
               </div>
-            </div>
-
-            {/* Onboarding */}
-            <div className="bg-gradient-to-r from-zinc-900 to-black border border-zinc-800 rounded-2xl p-6 flex items-center justify-between mb-8">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700"><GraduationCap size={20} className="text-fuchsia-400" /></div>
-                <div><h4 className="font-bold text-white text-lg">Novo na plataforma?</h4><p className="text-sm text-zinc-400">Assista os vídeos de treinamento e aproveite ao máximo</p></div>
-              </div>
-              <button className="bg-white text-black text-sm font-bold px-6 py-3 rounded-full hover:bg-zinc-200 transition">Ver treinamentos</button>
             </div>
 
             {/* Webinar banner */}
