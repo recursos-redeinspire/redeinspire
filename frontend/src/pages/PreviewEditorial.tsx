@@ -30,8 +30,8 @@ export default function PreviewEditorial() {
   const navigate = useNavigate();
   return (
     <div className="flex h-screen bg-[#F5F2EC] text-[#2C2C2C] overflow-hidden" style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}>
-      {/* Sidebar */}
-      <aside className="w-60 bg-[#EBE7DF] border-r border-[#2C2C2C]/10 flex flex-col h-full">
+      {/* Sidebar - hidden on mobile */}
+      <aside className="w-60 bg-[#EBE7DF] border-r border-[#2C2C2C]/10 flex-col h-full hidden lg:flex">
         <div className="p-8 flex items-center justify-center border-b border-[#2C2C2C]/10">
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
@@ -72,7 +72,7 @@ export default function PreviewEditorial() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-auto px-10 py-8" style={{ scrollbarWidth: "none" }}>
+        <div className="flex-1 overflow-auto px-5 md:px-10 py-8" style={{ scrollbarWidth: "none" }}>
           <div className="max-w-full">
             {/* Welcome */}
             <div className="mb-10">
@@ -93,8 +93,8 @@ export default function PreviewEditorial() {
             </div>
 
             {/* Hero */}
-            <div className="grid grid-cols-3 gap-5 mb-10">
-              <div className="col-span-2 relative rounded-2xl overflow-hidden group cursor-pointer h-[380px]">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
+              <div className="col-span-1 md:col-span-2 relative rounded-2xl overflow-hidden group cursor-pointer h-[380px]">
                 <img src={img(VIDEOS[0])} alt="" className="w-full h-full object-cover object-[center_30%] group-hover:scale-105 transition-transform duration-1000" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#2C2C2C] via-[#2C2C2C]/30 to-transparent" />
                 <div className="absolute bottom-8 left-8 right-8">
@@ -106,7 +106,7 @@ export default function PreviewEditorial() {
                   <div className="w-14 h-14 rounded-full bg-[#F5F2EC] flex items-center justify-center shadow-xl"><Play size={20} className="text-[#2C2C2C] ml-0.5" fill="currentColor" /></div>
                 </div>
               </div>
-              <div className="flex flex-col gap-5 h-[380px]">
+              <div className="flex flex-col gap-5 h-[200px] md:h-[380px]">
                 {VIDEOS.slice(1, 3).map(v => (
                   <div key={v.id} className="flex-1 relative rounded-2xl overflow-hidden group cursor-pointer">
                     <img src={img(v)} alt="" className="w-full h-full object-cover object-[center_30%] group-hover:scale-105 transition-transform duration-700" />
@@ -131,7 +131,7 @@ export default function PreviewEditorial() {
             </div>
 
             {/* Lists */}
-            <div className="grid grid-cols-2 gap-8 mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
               <div>
                 <h3 className="text-lg mb-5 flex items-center gap-2"><Award size={16} className="opacity-50" /> <span className="italic">Top Materiais</span></h3>
                 <div className="space-y-4 border-l-2 border-[#2C2C2C]/10 pl-5" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -159,7 +159,7 @@ export default function PreviewEditorial() {
             {/* Recent */}
             <div className="mb-10">
               <h3 className="text-lg italic mb-5">Conteúdos recentes</h3>
-              <div className="grid grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
                 {VIDEOS.slice(3, 6).map(v => (
                   <div key={v.id} className="group cursor-pointer">
                     <div className="relative rounded-xl overflow-hidden aspect-video">

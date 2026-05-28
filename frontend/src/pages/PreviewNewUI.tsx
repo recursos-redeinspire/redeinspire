@@ -39,8 +39,8 @@ export default function PreviewNewUI() {
   return (
     <div className="min-h-screen bg-[#f5f5f0] flex" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-      {/* Sidebar */}
-      <aside className="w-[230px] shrink-0 h-screen sticky top-0 flex flex-col bg-white rounded-r-3xl shadow-[4px_0_24px_rgba(0,0,0,0.03)] z-10">
+      {/* Sidebar - hidden on mobile */}
+      <aside className="w-[230px] shrink-0 h-screen sticky top-0 flex-col bg-white rounded-r-3xl shadow-[4px_0_24px_rgba(0,0,0,0.03)] z-10 hidden lg:flex">
         <div className="px-5 pt-6 pb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-sm">
@@ -81,13 +81,13 @@ export default function PreviewNewUI() {
 
       {/* Main */}
       <div className="flex-1 min-w-0 h-screen overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-        <div className="px-8 py-7">
+        <div className="px-4 md:px-8 py-7">
 
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-[26px] font-bold text-gray-900 tracking-tight">Olá, Danilo! 👋</h1>
-              <p className="text-[14px] text-gray-400 mt-1">Escolha o que assistir ou explore novos conteúdos.</p>
+              <h1 className="text-[22px] md:text-[26px] font-bold text-gray-900 tracking-tight">Olá, Danilo! 👋</h1>
+              <p className="text-[13px] md:text-[14px] text-gray-400 mt-1">Escolha o que assistir ou explore novos conteúdos.</p>
             </div>
             <div className="relative">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
@@ -107,7 +107,7 @@ export default function PreviewNewUI() {
 
           {/* HERO — Video destaque */}
           <div className="relative rounded-3xl overflow-hidden mb-7 group cursor-pointer shadow-lg shadow-green-900/5">
-            <img src={img(VIDEOS[0])} alt="" className="w-full aspect-[2.6/1] object-cover object-[center_30%]" />
+            <img src={img(VIDEOS[0])} alt="" className="w-full aspect-[16/9] md:aspect-[2.6/1] object-cover object-[center_30%]" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-green-600/15 to-transparent" />
             <div className="absolute top-5 left-6">
@@ -138,9 +138,9 @@ export default function PreviewNewUI() {
           </div>
 
           {/* Main grid: content + sidebar */}
-          <div className="grid grid-cols-12 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left: main content */}
-            <div className="col-span-8 space-y-7">
+            <div className="col-span-1 lg:col-span-8 space-y-7">
 
               {/* Sugestões para você */}
               <section>
@@ -148,7 +148,7 @@ export default function PreviewNewUI() {
                   <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2"><Lightbulb size={17} className="text-amber-500" /> Sugestões para você</h2>
                   <button className="text-[12px] text-green-600 hover:text-green-700 font-semibold flex items-center gap-1">Ver catálogo <ChevronRight size={13} /></button>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {VIDEOS.slice(1, 4).map(v => (
                     <div key={v.id} className="group cursor-pointer">
                       <div className="relative rounded-xl overflow-hidden shadow-sm">
@@ -168,7 +168,7 @@ export default function PreviewNewUI() {
               {/* Trilhas em andamento */}
               <section>
                 <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2 mb-4"><Route size={17} className="text-blue-500" /> Trilhas em andamento</h2>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[
                     { title: "Liderança Eficaz", modules: "8/12 módulos", progress: 65, color: "bg-green-500" },
                     { title: "Gestão Financeira", modules: "3/10 módulos", progress: 30, color: "bg-amber-500" },
@@ -219,7 +219,7 @@ export default function PreviewNewUI() {
                   <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2"><TrendingUp size={17} className="text-green-500" /> Conteúdos recentes</h2>
                   <button className="text-[12px] text-green-600 font-semibold">Ver todos →</button>
                 </div>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {VIDEOS.slice(4, 8).map(v => (
                     <div key={v.id} className="group cursor-pointer">
                       <div className="relative rounded-xl overflow-hidden shadow-sm">
@@ -259,7 +259,7 @@ export default function PreviewNewUI() {
             </div>
 
             {/* Right sidebar */}
-            <div className="col-span-4 space-y-5">
+            <div className="col-span-1 lg:col-span-4 space-y-5">
               {/* Pontos + Ranking */}
               <div className="bg-white rounded-xl border border-gray-100 p-5">
                 <div className="flex items-center gap-3 mb-4">

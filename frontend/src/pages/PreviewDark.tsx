@@ -30,8 +30,8 @@ export default function PreviewDark() {
   const navigate = useNavigate();
   return (
     <div className="flex h-screen bg-[#0a0a0a] text-zinc-100 overflow-hidden" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
-      {/* Sidebar */}
-      <aside className="w-60 bg-[#0a0a0a] border-r border-zinc-800/50 flex flex-col h-full">
+      {/* Sidebar - hidden on mobile */}
+      <aside className="w-60 bg-[#0a0a0a] border-r border-zinc-800/50 flex-col h-full hidden lg:flex">
         <div className="p-6 flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-fuchsia-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-fuchsia-500/20">
             <Zap size={14} className="text-white" />
@@ -72,7 +72,7 @@ export default function PreviewDark() {
         </header>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto px-8 py-6 z-10" style={{ scrollbarWidth: "none" }}>
+        <div className="flex-1 overflow-auto px-4 md:px-8 py-6 z-10" style={{ scrollbarWidth: "none" }}>
           <div className="max-w-full">
             <div className="flex justify-between items-end mb-8">
               <h1 className="text-3xl font-black tracking-tight">Bem-vindo, <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-indigo-400">Danilo!</span></h1>
@@ -89,8 +89,8 @@ export default function PreviewDark() {
             </div>
 
             {/* Bento Hero */}
-            <div className="grid grid-cols-4 gap-4 mb-8">
-              <div className="col-span-3 relative rounded-3xl overflow-hidden group h-[360px] border border-zinc-800/50">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+              <div className="col-span-1 md:col-span-3 relative rounded-3xl overflow-hidden group h-[360px] border border-zinc-800/50">
                 <img src={img(VIDEOS[0])} alt="" className="w-full h-full object-cover object-[center_30%] opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
                 <div className="absolute bottom-8 left-8 right-8">
@@ -102,7 +102,7 @@ export default function PreviewDark() {
                   <div className="w-16 h-16 rounded-full bg-fuchsia-500/20 backdrop-blur-md border border-fuchsia-400/30 flex items-center justify-center"><Play size={24} className="text-white ml-1" fill="white" /></div>
                 </div>
               </div>
-              <div className="col-span-1 flex flex-col gap-4 h-[360px]">
+              <div className="col-span-1 md:col-span-1 flex flex-col gap-4 h-[200px] md:h-[360px]">
                 {VIDEOS.slice(1, 3).map(v => (
                   <div key={v.id} className="flex-1 relative rounded-3xl overflow-hidden group border border-zinc-800/50">
                     <img src={img(v)} alt="" className="w-full h-full object-cover object-[center_30%] opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700" />
@@ -127,7 +127,7 @@ export default function PreviewDark() {
             </div>
 
             {/* Lists */}
-            <div className="grid grid-cols-2 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-3xl p-6">
                 <h3 className="font-black text-lg mb-5 flex items-center gap-3 text-white"><Award size={18} className="text-fuchsia-500" /> <span className="text-fuchsia-400">Top 10 Materiais</span></h3>
                 <div className="space-y-3.5">
@@ -155,7 +155,7 @@ export default function PreviewDark() {
             {/* Recent */}
             <div className="mb-8">
               <h3 className="font-black text-lg mb-5 text-white"><span className="text-zinc-200">Conteúdos recentes</span></h3>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {VIDEOS.slice(2, 6).map(v => (
                   <div key={v.id} className="group cursor-pointer">
                     <div className="relative aspect-video rounded-2xl overflow-hidden border border-zinc-800/50">
