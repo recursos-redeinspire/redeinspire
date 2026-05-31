@@ -226,6 +226,10 @@ export async function handler(event) {
     if (path === '/video-thumbnail' && method === 'DELETE') return await videoThumbnailDelete(body(event), getUserFromToken(event));
     if (path === '/video-thumbnails' && method === 'GET') return await videoThumbnailsAll(getUserFromToken(event));
 
+    // ---- Video Categories (catalog rows) ----
+    if (path === '/video-categories' && method === 'GET') return await videoCategoriesGetAll(getUserFromToken(event));
+    if (path === '/video-categories' && method === 'POST') return await videoCategoriesSave(body(event), getUserFromToken(event));
+
     // ---- Video Recommendations ----
     if (path === '/video-recs' && method === 'GET') return await videoRecsGet(qs(event), getUserFromToken(event));
     if (path === '/video-recs' && method === 'POST') return await videoRecsSave(body(event), getUserFromToken(event));
@@ -2100,6 +2104,45 @@ async function videoTagsAll(user) {
     (item.tags || []).forEach(t => allTags.add(t));
   }
   return res(200, { tagMap, allTags: [...allTags].sort() });
+}
+
+// =============================================================================
+// VIDEO CATEGORIES (catalog rows — admin-managed)
+// =============================================================================
+// Uses a single item in VIDEO_TAGS table with videoId = '__CATALOG_CATEGORIES__'
+// Structure: { videoId: '__CATALOG_CATEGORIES__', assignments: { videoId: [cat1, cat2, ...] } }
+
+const CATALOG_CATEGORIES_KEY = '__CATALOG_CATEGORIES__';
+
+async function videoCategoriesGetAll(user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  const data = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: CATALOG_CATEGORIES_KEY } }));
+  const assignments = (data.Item && data.Item.assignments) || {};
+  return res(200, { assignments });
+}
+
+async function videoCategoriesSave(data, user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem gerenciar categorias do catalogo.' });
+  if (!data.videoId || !data.categories) return res(400, { message: 'videoId e categories obrigatorios.' });
+  const videoId = data.videoId;
+  const categories = Array.isArray(data.categories) ? data.categories : [];
+
+  // Get current assignments
+  const current = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: CATALOG_CATEGORIES_KEY } }));
+  const assignments = (current.Item && current.Item.assignments) || {};
+
+  if (categories.length === 0) {
+    delete assignments[videoId];
+  } else {
+    assignments[videoId] = categories;
+  }
+
+  await ddb.send(new PutCommand({
+    TableName: T.VIDEO_TAGS,
+    Item: { videoId: CATALOG_CATEGORIES_KEY, assignments, updatedAt: new Date().toISOString(), updatedBy: user.id }
+  }));
+
+  return res(200, { videoId, categories, assignments });
 }
 
 // ---- Custom Video Thumbnails ----

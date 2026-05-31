@@ -488,8 +488,8 @@ function ThumbnailManager({ videoId, currentThumbnail }: { videoId: string; curr
 }
 
 // ─── Category Row (Prime Video style) ───
-function CategoryRow({ label, videos, thumb, onPlay }: {
-  label: string; videos: any[]; thumb: (v: any) => string; onPlay: (v: any) => void
+function CategoryRow({ label, videos, thumb, onPlay, isAdmin, onCategorize }: {
+  label: string; videos: any[]; thumb: (v: any) => string; onPlay: (v: any) => void; isAdmin?: boolean; onCategorize?: (v: any) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const isWatching = label === 'Continue assistindo'
@@ -592,6 +592,12 @@ function CategoryRow({ label, videos, thumb, onPlay }: {
                 className="mt-3 w-full flex items-center justify-center gap-2 bg-white text-black font-bold py-2.5 rounded-md hover:bg-white/90 transition text-[12px]">
                 <Play size={14} fill="currentColor" /> Reproduzir
               </button>
+              {isAdmin && onCategorize && (
+                <button onClick={() => onCategorize(hoveredVideo)}
+                  className="mt-1.5 w-full flex items-center justify-center gap-2 bg-white/10 text-white/70 font-medium py-2 rounded-md hover:bg-white/20 transition text-[11px] border border-white/10">
+                  <Tag size={12} /> Categorizar
+                </button>
+              )}
               <div className="flex items-center gap-2 mt-2 text-[9px] text-white/30">
                 <span>{hoveredVideo.channelTitle || 'Rede Inspire'}</span>
                 {hoveredVideo.publishedAt && <span>· {new Date(hoveredVideo.publishedAt).getFullYear()}</span>}
@@ -607,75 +613,102 @@ function CategoryRow({ label, videos, thumb, onPlay }: {
   )
 }
 
-// ─── Smart categories ───
-function buildCategories(videos: any[], _tagMap: Record<string, string[]>) {
-  const rules: { label: string; keywords: string[] }[] = [
-    { label: 'Liderança & Gestão', keywords: ['liderança', 'líder', 'gestão', 'gestor', 'equipe', 'equipes', 'operacional', 'secretari'] },
-    { label: 'Finanças & Estratégia', keywords: ['financ', 'planejamento', 'estratég', 'recurso', 'prioridade'] },
-    { label: 'Inovação & Tecnologia', keywords: ['inovação', 'tecnologia', 'digital', 'inteligência', 'otimizar'] },
-    { label: 'Saúde Emocional', keywords: ['saúde', 'emocional', 'bem-estar', 'burnout', 'cuidado'] },
-    { label: 'Comunicação & Mídia', keywords: ['comunicação', 'mídia', 'multimídia', 'projeção', 'visual', 'redes sociais'] },
-    { label: 'Vida Ministerial', keywords: ['ministério', 'ministerial', 'célula', 'pequenos grupos', 'consolidar', 'bases', 'igreja'] },
-    { label: 'Família & Relacionamentos', keywords: ['família', 'casamento', 'relacionamento', 'filhos', 'mulher', 'homem', 'homens'] },
-    { label: 'Crescimento Espiritual', keywords: ['crescimento', 'discipulado', 'caminho', 'dons', 'propósito', 'chamado', 'fé'] },
-    { label: 'Impacto Social', keywords: ['social', 'comunidade', 'ação social', 'voluntário', 'impacto'] },
-    { label: 'Webinars & Talks', keywords: ['webinar', 'talk', 'podcast', 'inspire leaders', 'encontro', 'mentores'] },
-  ]
+// ─── Catalog categories ───
+const CATALOG_CATEGORY_LABELS = [
+  'Continue assistindo',
+  'Adicionados Recentemente',
+  'Mais assistidos',
+  'Treinamento de Boas-Vindas',
+  'Materiais Semanais',
+  'Materiais de Ministérios',
+  'Materiais para Liderança',
+  'Materiais para Igreja',
+  'Propósitos para Igreja',
+  'Fique por Dentro!',
+]
 
-  const categorized: Record<string, Set<string>> = {}
-  const videoMap: Record<string, any> = {}
-
-  for (const v of videos) {
-    videoMap[v.id] = v
-    const text = (v.title || '').toLowerCase() + ' ' + (v.description || '').toLowerCase()
-    for (const rule of rules) {
-      if (rule.keywords.some(kw => text.includes(kw))) {
-        if (!categorized[rule.label]) categorized[rule.label] = new Set()
-        categorized[rule.label].add(v.id)
-        break
-      }
-    }
-  }
-
+function buildCategories(
+  videos: any[],
+  _tagMap: Record<string, string[]>,
+  assignments: Record<string, string[]>
+) {
   const result: { label: string; videos: any[] }[] = []
-  const usedIds = new Set<string>()
+  const videoMap: Record<string, any> = {}
+  for (const v of videos) videoMap[v.id] = v
 
+  // 1. Continue assistindo — placeholder (primeiros 7 vídeos como simulação)
   const watching = videos.slice(2, 9)
-  watching.forEach(v => usedIds.add(v.id))
   result.push({ label: 'Continue assistindo', videos: watching })
 
+  // 2. Adicionados Recentemente — últimos 10 por data
   const recent = [...videos]
     .sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''))
-    .filter(v => !usedIds.has(v.id))
-    .slice(0, 15)
-  recent.forEach(v => usedIds.add(v.id))
-  result.push({ label: 'Adicionados recentemente', videos: recent })
+    .slice(0, 10)
+  result.push({ label: 'Adicionados Recentemente', videos: recent })
 
-  for (const rule of rules) {
-    const ids = categorized[rule.label]
-    if (ids && ids.size >= 3) {
-      const catVideos = [...ids].map(id => videoMap[id]).filter(v => !usedIds.has(v.id))
-      catVideos.forEach(v => usedIds.add(v.id))
-      if (catVideos.length >= 2) {
-        result.push({ label: rule.label, videos: catVideos })
+  // 3. Mais assistidos — primeiros 10 (simulação por ordem da playlist)
+  const popular = videos.slice(0, 10)
+  result.push({ label: 'Mais assistidos', videos: popular })
+
+  // 4-10. Categorias admin-managed
+  const adminCategories = CATALOG_CATEGORY_LABELS.slice(3) // skip first 3 (auto)
+  for (const catLabel of adminCategories) {
+    const catVideos: any[] = []
+    for (const [videoId, cats] of Object.entries(assignments)) {
+      if (cats.includes(catLabel) && videoMap[videoId]) {
+        catVideos.push(videoMap[videoId])
       }
+    }
+    // Only show category if it has videos
+    if (catVideos.length > 0) {
+      result.push({ label: catLabel, videos: catVideos })
     }
   }
 
-  const popular = videos.filter(v => !usedIds.has(v.id)).slice(0, 15)
-  popular.forEach(v => usedIds.add(v.id))
-  if (popular.length > 2) result.push({ label: 'Mais assistidos', videos: popular })
+  // Fallback: videos not in any admin category go to auto-categorization by keywords
+  const assignedIds = new Set<string>()
+  for (const cat of result) cat.videos.forEach(v => assignedIds.add(v.id))
 
-  const remaining = videos.filter(v => !usedIds.has(v.id)).slice(0, 15)
-  if (remaining.length > 2) result.push({ label: 'Descubra mais', videos: remaining })
+  const unassigned = videos.filter(v => !assignedIds.has(v.id))
+  if (unassigned.length > 0) {
+    // Auto-categorize remaining by keywords
+    const rules: { label: string; keywords: string[] }[] = [
+      { label: 'Treinamento de Boas-Vindas', keywords: ['boas-vindas', 'bem-vindo', 'onboarding', 'primeiro', 'introdução', 'início'] },
+      { label: 'Materiais Semanais', keywords: ['semanal', 'semana', 'weekly', 'domingo', 'culto'] },
+      { label: 'Materiais de Ministérios', keywords: ['ministério', 'ministerial', 'célula', 'pequenos grupos', 'departamento'] },
+      { label: 'Materiais para Liderança', keywords: ['liderança', 'líder', 'gestão', 'gestor', 'equipe', 'treinamento'] },
+      { label: 'Materiais para Igreja', keywords: ['igreja', 'comunidade', 'congregação', 'membro', 'família'] },
+      { label: 'Propósitos para Igreja', keywords: ['propósito', 'propósitos', 'missão', 'visão', 'valores', 'crescimento'] },
+      { label: 'Fique por Dentro!', keywords: ['webinar', 'talk', 'novidade', 'atualização', 'evento', 'encontro', 'mentores'] },
+    ]
+
+    for (const v of unassigned) {
+      const text = (v.title || '').toLowerCase() + ' ' + (v.description || '').toLowerCase()
+      for (const rule of rules) {
+        if (rule.keywords.some(kw => text.includes(kw))) {
+          const existing = result.find(r => r.label === rule.label)
+          if (existing) {
+            // Only add if not already in first 6 of this category
+            const first6Ids = existing.videos.slice(0, 6).map(ev => ev.id)
+            if (!first6Ids.includes(v.id)) {
+              existing.videos.push(v)
+            }
+          } else {
+            result.push({ label: rule.label, videos: [v] })
+          }
+          break
+        }
+      }
+    }
+  }
 
   return result
 }
 
 // ── Main Catalog Page (Prime Video style) ──
 export default function CatalogPage() {
-  const { getYoutubeVideos, smartSearchYoutube, getAllVideoTags, getAllVideoThumbnails } = useData()
-  const { user: _user } = useAuth()
+  const { getYoutubeVideos, smartSearchYoutube, getAllVideoTags, getAllVideoThumbnails, getVideoCategories, saveVideoCategories } = useData()
+  const { user } = useAuth()
   const { t } = useI18n()
 
   const [allVideos, setAllVideos] = useState<any[]>([])
@@ -698,6 +731,9 @@ export default function CatalogPage() {
 
   const [heroIdx, setHeroIdx] = useState(0)
   const [expandedVideo, setExpandedVideo] = useState<any | null>(null)
+  const [categoryAssignments, setCategoryAssignments] = useState<Record<string, string[]>>({})
+  const [showCatEditor, setShowCatEditor] = useState<string | null>(null)
+  const isAdmin = user?.role === 'admin'
 
   // Load all data
   useEffect(() => {
@@ -705,14 +741,16 @@ export default function CatalogPage() {
       getYoutubeVideos(undefined, 100).then(d => d.videos),
       getAllVideoTags().then(d => ({ tagMap: d.tagMap, allTags: d.allTags })),
       getAllVideoThumbnails().then(d => d.thumbnails || {}),
-    ]).then(([vids, tags, thumbs]) => {
+      getVideoCategories().then(d => d.assignments || {}).catch(() => ({})),
+    ]).then(([vids, tags, thumbs, catAssign]) => {
       setAllVideos(vids)
       setTagMap(tags.tagMap)
       setAllTags(tags.allTags)
       setCustomThumbnails(thumbs)
+      setCategoryAssignments(catAssign)
       setLoading(false)
     }).catch(e => { setError(e.message || 'Erro ao carregar'); setLoading(false) })
-  }, [getYoutubeVideos, getAllVideoTags, getAllVideoThumbnails])
+  }, [getYoutubeVideos, getAllVideoTags, getAllVideoThumbnails, getVideoCategories])
 
   // Auto-select video from URL param
   useEffect(() => {
@@ -759,7 +797,7 @@ export default function CatalogPage() {
     ? videosWithThumbs.filter(v => (tagMap[v.id] || []).includes(filterTag))
     : videosWithThumbs
 
-  const categories = buildCategories(filteredByTag, tagMap)
+  const categories = buildCategories(filteredByTag, tagMap, categoryAssignments)
 
   // ── Player view ──
   if (selectedVideo) {
@@ -944,6 +982,8 @@ export default function CatalogPage() {
                 videos={cat.videos}
                 thumb={thumb}
                 onPlay={(v) => setSelectedVideo(v)}
+                isAdmin={isAdmin}
+                onCategorize={(v) => setShowCatEditor(v.id)}
               />
             ))}
           </div>
@@ -973,6 +1013,73 @@ export default function CatalogPage() {
           </div>
         </div>
       )}
+
+      {/* Admin category editor modal */}
+      {showCatEditor && isAdmin && (
+        <CategoryEditorModal
+          videoId={showCatEditor}
+          videoTitle={allVideos.find(v => v.id === showCatEditor)?.title || ''}
+          currentCategories={categoryAssignments[showCatEditor] || []}
+          onClose={() => setShowCatEditor(null)}
+          onSave={async (cats) => {
+            await saveVideoCategories(showCatEditor, cats)
+            setCategoryAssignments(prev => ({ ...prev, [showCatEditor!]: cats }))
+            setShowCatEditor(null)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── Category Editor Modal (Admin) ───
+function CategoryEditorModal({ videoId: _videoId, videoTitle, currentCategories, onClose, onSave }: {
+  videoId: string; videoTitle: string; currentCategories: string[]; onClose: () => void; onSave: (cats: string[]) => void
+}) {
+  const [selected, setSelected] = useState<string[]>(currentCategories)
+  const [saving, setSaving] = useState(false)
+
+  const adminCategories = CATALOG_CATEGORY_LABELS.slice(3) // Only the admin-managed ones
+
+  const toggle = (cat: string) => {
+    setSelected(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    await onSave(selected)
+    setSaving(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-[#1c2028] rounded-2xl w-full max-w-md border border-white/10 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="p-5 border-b border-white/10">
+          <h2 className="text-white font-bold text-lg">Categorizar vídeo</h2>
+          <p className="text-white/40 text-sm mt-1 line-clamp-2">{videoTitle}</p>
+        </div>
+        <div className="p-5 space-y-2 max-h-[50vh] overflow-y-auto">
+          <p className="text-white/50 text-xs mb-3">Selecione uma ou mais categorias:</p>
+          {adminCategories.map(cat => (
+            <button key={cat} onClick={() => toggle(cat)}
+              className={`w-full text-left px-4 py-3 rounded-lg text-sm transition flex items-center justify-between ${
+                selected.includes(cat)
+                  ? 'bg-green-600/20 text-green-400 border border-green-500/30'
+                  : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+              }`}>
+              <span>{cat}</span>
+              {selected.includes(cat) && <span className="text-green-400 text-xs font-bold">✓</span>}
+            </button>
+          ))}
+        </div>
+        <div className="p-5 border-t border-white/10 flex gap-3">
+          <button onClick={onClose} className="flex-1 border border-white/20 rounded-lg py-2.5 text-sm text-white/70 hover:bg-white/10 transition">Cancelar</button>
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700 transition disabled:opacity-50">
+            {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
