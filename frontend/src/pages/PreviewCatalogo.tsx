@@ -182,7 +182,12 @@ function CategoryRow({ label, videos, thumb, onExpand: _onExpand, onPlay: _onPla
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     const rect = el.getBoundingClientRect()
     setCardRect({ top: rect.top, left: rect.left, width: rect.width })
-    timeoutRef.current = setTimeout(() => setHoveredId(v.id), 250)
+    // If already showing a different card, switch instantly
+    if (hoveredId && hoveredId !== v.id) {
+      setHoveredId(v.id)
+    } else {
+      timeoutRef.current = setTimeout(() => setHoveredId(v.id), 250)
+    }
   }
 
   const closeCard = () => {
@@ -190,7 +195,7 @@ function CategoryRow({ label, videos, thumb, onExpand: _onExpand, onPlay: _onPla
     timeoutRef.current = setTimeout(() => {
       setHoveredId(null)
       setCardRect(null)
-    }, 100)
+    }, 150)
   }
 
   const keepCard = () => {
