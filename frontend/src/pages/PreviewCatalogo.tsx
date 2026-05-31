@@ -117,25 +117,54 @@ export default function PreviewCatalogo() {
         ))}
       </div>
 
-      {/* ═══ EXPANDED CARD (overlay) ═══ */}
+      {/* ═══ EXPANDED CARD (Prime Video style) ═══ */}
       {expandedVideo && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setExpandedVideo(null)}>
-          <div className="bg-[#1a1f2e] rounded-xl overflow-hidden max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 md:p-8" onClick={() => setExpandedVideo(null)}>
+          <div className="bg-[#0d1117] rounded-2xl overflow-hidden max-w-sm w-full shadow-2xl border border-white/10" onClick={e => e.stopPropagation()}>
+            {/* Thumbnail */}
             <div className="relative aspect-video">
               <img src={thumb(expandedVideo)} alt="" className="w-full h-full object-cover" />
-              <button onClick={() => setExpandedVideo(null)} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center hover:bg-black/80 transition">
+              <button onClick={() => setExpandedVideo(null)} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 border border-white/20 flex items-center justify-center hover:bg-black/80 transition">
                 <X size={16} className="text-white" />
               </button>
             </div>
+
+            {/* Content */}
             <div className="p-5">
-              <h3 className="text-white font-bold text-lg leading-snug">{expandedVideo.title}</h3>
-              <p className="text-white/40 text-sm mt-1">{expandedVideo.channelTitle || 'Rede Inspire'}</p>
+              {/* Title */}
+              <h3 className="text-white font-bold text-xl leading-snug">{expandedVideo.title}</h3>
+
+              {/* Category badge */}
+              <p className="text-green-400 text-xs font-medium mt-1.5 flex items-center gap-1.5">
+                <span className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center text-[8px] text-white font-bold">✓</span>
+                Incluído na plataforma
+              </p>
+
+              {/* Play button (big, white, like Prime) */}
               <button onClick={() => { navigate(`/catalogo?video=${expandedVideo.id}`); setExpandedVideo(null) }}
-                className="mt-4 w-full flex items-center justify-center gap-2 bg-white text-black font-bold py-3 rounded-md hover:bg-white/90 transition text-sm">
-                <Play size={18} fill="currentColor" /> Assistir
+                className="mt-4 w-full flex items-center justify-center gap-3 bg-white text-black font-bold py-3.5 rounded-lg hover:bg-white/90 transition text-[15px]">
+                <Play size={20} fill="currentColor" /> Reproduzir
               </button>
+
+              {/* Action buttons row */}
+              <div className="flex items-center gap-3 mt-4">
+                <button className="w-11 h-11 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition" title="Adicionar aos favoritos">
+                  <span className="text-white text-lg">+</span>
+                </button>
+                <button onClick={() => setExpandedVideo(null)} className="w-11 h-11 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition" title="Fechar">
+                  <X size={18} className="text-white" />
+                </button>
+              </div>
+
+              {/* Info line */}
+              <div className="flex items-center gap-2 mt-4 text-xs text-white/40">
+                <span>{expandedVideo.channelTitle || 'Rede Inspire'}</span>
+                {expandedVideo.publishedAt && <span>· {new Date(expandedVideo.publishedAt).getFullYear()}</span>}
+              </div>
+
+              {/* Description */}
               {expandedVideo.description && (
-                <p className="text-white/30 text-xs mt-4 line-clamp-4 leading-relaxed">{expandedVideo.description}</p>
+                <p className="text-white/40 text-[12px] mt-3 line-clamp-4 leading-relaxed">{expandedVideo.description}</p>
               )}
             </div>
           </div>
@@ -153,7 +182,7 @@ export default function PreviewCatalogo() {
 }
 
 // ─── Category Row ───
-function CategoryRow({ label, videos, thumb, onExpand, onPlay }: {
+function CategoryRow({ label, videos, thumb, onExpand, onPlay: _onPlay }: {
   label: string; videos: any[]; thumb: (v: any) => string; onExpand: (v: any) => void; onPlay: (v: any) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -184,15 +213,8 @@ function CategoryRow({ label, videos, thumb, onExpand, onPlay }: {
         <div ref={scrollRef} className="flex gap-3 px-8 md:px-14 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           {videos.map(v => (
             <div key={v.id} className="shrink-0 w-[220px] md:w-[280px] group/card cursor-pointer"
-              onClick={() => {
-                if (window.innerWidth < 768) onExpand(v)
-                else onPlay(v)
-              }}
-              onMouseEnter={() => {
-                if (window.innerWidth >= 768) {
-                  // Desktop: show expanded on hover after delay
-                }
-              }}>
+              onClick={() => onExpand(v)}
+              onMouseEnter={() => {}}>
               <div className="relative rounded-lg overflow-hidden aspect-video bg-[#1c2028] group-hover/card:ring-2 group-hover/card:ring-white/20 transition-all duration-200">
                 <img src={thumb(v)} alt="" loading="lazy"
                   className="w-full h-full object-cover transition-transform duration-300 group-hover/card:scale-105" />
@@ -261,30 +283,44 @@ function buildCategories(videos: any[], _tagMap: Record<string, string[]>) {
   // Build result
   const result: { label: string; videos: any[] }[] = []
 
-  // "Continue assistindo" — simulate with random subset
+  // Ensure each video only appears in ONE category
+  const usedIds = new Set<string>()
+
+  // "Continue assistindo" — first 7 unique
   const watching = videos.slice(2, 9)
+  watching.forEach(v => usedIds.add(v.id))
   result.push({ label: 'Continue assistindo', videos: watching })
 
-  // "Adicionados recentemente"
-  const recent = [...videos].sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || '')).slice(0, 15)
+  // "Adicionados recentemente" — next unique ones sorted by date
+  const recent = [...videos]
+    .sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''))
+    .filter(v => !usedIds.has(v.id))
+    .slice(0, 15)
+  recent.forEach(v => usedIds.add(v.id))
   result.push({ label: 'Adicionados recentemente', videos: recent })
 
-  // Category rows
+  // Category rows — only unused videos
   for (const rule of rules) {
     const ids = categorized[rule.label]
     if (ids && ids.size >= 3) {
-      result.push({ label: rule.label, videos: [...ids].map(id => videoMap[id]) })
+      const catVideos = [...ids].map(id => videoMap[id]).filter(v => !usedIds.has(v.id))
+      catVideos.forEach(v => usedIds.add(v.id))
+      if (catVideos.length >= 2) {
+        result.push({ label: rule.label, videos: catVideos })
+      }
     }
   }
 
-  // "Mais assistidos"
-  result.push({ label: 'Mais assistidos', videos: videos.slice(0, 15) })
+  // "Mais assistidos" — remaining unused
+  const popular = videos.filter(v => !usedIds.has(v.id)).slice(0, 15)
+  popular.forEach(v => usedIds.add(v.id))
+  if (popular.length > 2) {
+    result.push({ label: 'Mais assistidos', videos: popular })
+  }
 
-  // Remaining uncategorized
-  const allUsed = new Set<string>()
-  for (const cat of Object.values(categorized)) cat.forEach(id => allUsed.add(id))
-  const remaining = videos.filter(v => !allUsed.has(v.id)).slice(0, 15)
-  if (remaining.length > 3) {
+  // "Descubra mais" — anything left
+  const remaining = videos.filter(v => !usedIds.has(v.id)).slice(0, 15)
+  if (remaining.length > 2) {
     result.push({ label: 'Descubra mais', videos: remaining })
   }
 
