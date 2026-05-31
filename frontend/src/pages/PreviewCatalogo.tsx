@@ -18,7 +18,7 @@ export default function PreviewCatalogo() {
   // Load all data
   useEffect(() => {
     Promise.all([
-      getYoutubeVideos(undefined, 50).then(d => d.videos),
+      getYoutubeVideos(undefined, 100).then(d => d.videos),
       getAllVideoTags().then(d => d.tagMap),
       getAllVideoThumbnails().then(d => d.thumbnails || {}),
     ]).then(([vids, tags, thumbs]) => {
@@ -195,35 +195,77 @@ function CategoryRow({ label, videos, thumb, onPlay }: {
   )
 }
 
-// ─── Build categories ───
+// ─── Build categories from video titles (smart categorization) ───
 function buildCategories(videos: any[], tagMap: Record<string, string[]>) {
-  const groups: Record<string, any[]> = {}
+  // Keywords to detect categories from titles
+  const categoryRules: { label: string; keywords: string[] }[] = [
+    { label: 'Liderança & Gestão', keywords: ['liderança', 'líder', 'gestão', 'gestor', 'equipe', 'equipes', 'operacional', 'secretari'] },
+    { label: 'Finanças & Planejamento', keywords: ['financ', 'planejamento', 'estratég', 'recurso', 'prioridade'] },
+    { label: 'Inovação & Tecnologia', keywords: ['inovação', 'tecnologia', 'digital', 'inteligência', 'otimizar'] },
+    { label: 'Saúde & Bem-estar', keywords: ['saúde', 'emocional', 'bem-estar', 'burnout', 'cuidado'] },
+    { label: 'Comunicação & Mídia', keywords: ['comunicação', 'mídia', 'multimídia', 'projeção', 'visual', 'redes sociais'] },
+    { label: 'Ministérios & Células', keywords: ['ministério', 'ministerial', 'célula', 'pequenos grupos', 'consolidar', 'bases'] },
+    { label: 'Família & Relacionamentos', keywords: ['família', 'casamento', 'relacionamento', 'filhos', 'mulher', 'homem', 'homens'] },
+    { label: 'Crescimento & Discipulado', keywords: ['crescimento', 'discipulado', 'caminho', 'dons', 'propósito', 'chamado'] },
+    { label: 'Ação Social & Comunidade', keywords: ['social', 'comunidade', 'ação social', 'voluntário', 'impacto'] },
+    { label: 'Webinars & Talks', keywords: ['webinar', 'talk', 'podcast', 'inspire leaders', 'encontro'] },
+  ]
+
+  const categorized: Record<string, any[]> = {}
   const used = new Set<string>()
 
+  // First pass: categorize by title keywords
   for (const v of videos) {
+    const titleLower = (v.title || '').toLowerCase()
+    const descLower = (v.description || '').toLowerCase()
+    const text = titleLower + ' ' + descLower
+
+    for (const rule of categoryRules) {
+      if (rule.keywords.some(kw => text.includes(kw))) {
+        if (!categorized[rule.label]) categorized[rule.label] = []
+        if (!used.has(v.id)) {
+          categorized[rule.label].push(v)
+          used.add(v.id)
+        }
+        break
+      }
+    }
+  }
+
+  // Second pass: use tags for uncategorized videos
+  for (const v of videos) {
+    if (used.has(v.id)) continue
     const tags = tagMap[v.id] || []
     if (tags.length > 0) {
-      const mainTag = tags[0]
-      if (!groups[mainTag]) groups[mainTag] = []
-      groups[mainTag].push(v)
+      const tagLabel = tags[0].charAt(0).toUpperCase() + tags[0].slice(1)
+      if (!categorized[tagLabel]) categorized[tagLabel] = []
+      categorized[tagLabel].push(v)
       used.add(v.id)
     }
   }
 
-  const result = Object.entries(groups)
+  // Build result — only categories with 2+ videos
+  const result = Object.entries(categorized)
     .filter(([_, vids]) => vids.length >= 2)
     .sort((a, b) => b[1].length - a[1].length)
-    .map(([tag, vids]) => ({ label: tag.charAt(0).toUpperCase() + tag.slice(1), videos: vids }))
+    .map(([label, vids]) => ({ label, videos: vids }))
 
-  // Add remaining videos
+  // Add "Mais para você" with remaining
   const remaining = videos.filter(v => !used.has(v.id))
   if (remaining.length > 0) {
-    result.push({ label: 'Todos os conteúdos', videos: remaining })
+    result.push({ label: 'Mais para você', videos: remaining })
   }
 
-  // If no categories at all, show everything
-  if (result.length === 0) {
-    result.push({ label: 'Todos os conteúdos', videos })
+  // Also add "Adicionados recentemente" (last 10 by date)
+  const recent = [...videos].sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || '')).slice(0, 12)
+  if (recent.length > 0) {
+    result.unshift({ label: 'Adicionados recentemente', videos: recent })
+  }
+
+  // Add "Mais assistidos" (first 12 as proxy for popular)
+  const popular = videos.slice(0, 12)
+  if (popular.length > 0) {
+    result.unshift({ label: 'Mais assistidos', videos: popular })
   }
 
   return result
