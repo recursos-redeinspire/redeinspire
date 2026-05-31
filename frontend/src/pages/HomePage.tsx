@@ -9,7 +9,7 @@ export default function HomePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { t } = useI18n()
-  const { getYoutubeVideos, getTrails, getWebinars, getPointsRanking, getMyPoints, getMentoringSessions, getTopDownloads, getBanner } = useData()
+  const { getYoutubeVideos, getTrails, getWebinars, getPointsRanking, getMyPoints, getMentoringSessions, getTopDownloads, getBanner, getAllVideoThumbnails } = useData()
 
   const [videos, setVideos] = useState<any[]>([])
   const [trails, setTrails] = useState<any[]>([])
@@ -23,9 +23,11 @@ export default function HomePage() {
   const [banner, setBanner] = useState<{ active: boolean; message: string; type: string }>({ active: false, message: '', type: 'info' })
   const [bannerDismissed, setBannerDismissed] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(true)
+  const [customThumbnails, setCustomThumbnails] = useState<Record<string, string>>({})
 
   useEffect(() => {
     getYoutubeVideos(undefined, 12).then(d => setVideos(d.videos))
+    getAllVideoThumbnails().then(data => setCustomThumbnails(data.thumbnails || {})).catch(() => {})
     getTrails().then(setTrails)
     getPointsRanking().then(setPointsRanking)
     getMyPoints().then(setMyPoints)
@@ -51,6 +53,7 @@ export default function HomePage() {
   }, [])
 
   const inProgressTrails = trails.filter(tr => tr.progress && !tr.progress.completedAt)
+  const thumb = (v: any) => customThumbnails[v.id] || v.thumbnail
   const featured = videos[0]
   const secondary = videos.slice(1, 3)
   const moreVideos = videos.slice(3, 7)
@@ -87,7 +90,7 @@ export default function HomePage() {
       {/* HERO — Video destaque */}
       {featured && (
         <div className="relative rounded-3xl overflow-hidden group cursor-pointer shadow-lg shadow-green-900/5" onClick={() => navigate(`/catalogo?video=${featured.id}`)}>
-          <img src={featured.thumbnail} alt="" className="w-full aspect-[16/9] md:aspect-[2.6/1] object-cover object-[center_30%]" />
+          <img src={thumb(featured)} alt="" className="w-full aspect-[16/9] md:aspect-[2.6/1] object-cover object-[center_30%]" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-green-600/15 to-transparent" />
           <div className="absolute top-4 left-5 md:top-5 md:left-6">
@@ -135,7 +138,7 @@ export default function HomePage() {
                 {videos.slice(1, 4).map(v => (
                   <div key={v.id} className="group cursor-pointer" onClick={() => navigate(`/catalogo?video=${v.id}`)}>
                     <div className="relative rounded-xl overflow-hidden shadow-sm">
-                      <img src={v.thumbnail} alt="" className="w-full aspect-video object-cover group-hover:scale-[1.03] transition-transform duration-400" />
+                      <img src={thumb(v)} alt="" className="w-full aspect-video object-cover group-hover:scale-[1.03] transition-transform duration-400" />
                       <span className="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-md bg-black/60 text-white font-medium">{v.duration || ''}</span>
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                         <div className="w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center"><Play size={14} className="text-green-600 ml-0.5" fill="currentColor" /></div>
@@ -195,7 +198,7 @@ export default function HomePage() {
                 {videos.slice(0, 5).map((video, i) => (
                   <div key={video.id} onClick={() => navigate(`/catalogo?video=${video.id}`)} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition">
                     <span className={`text-[12px] font-bold w-5 text-center ${i < 3 ? 'text-red-500' : 'text-gray-300'}`}>{i + 1}</span>
-                    <img src={video.thumbnail} alt="" className="w-14 h-9 rounded-lg object-cover shrink-0" />
+                    <img src={thumb(video)} alt="" className="w-14 h-9 rounded-lg object-cover shrink-0" />
                     <span className="text-[13px] text-gray-800 flex-1 line-clamp-1">{video.title}</span>
                   </div>
                 ))}
@@ -214,7 +217,7 @@ export default function HomePage() {
                 {moreVideos.map(video => (
                   <div key={video.id} onClick={() => navigate(`/catalogo?video=${video.id}`)} className="group cursor-pointer">
                     <div className="relative rounded-xl overflow-hidden shadow-sm">
-                      <img src={video.thumbnail} alt="" className="w-full aspect-video object-cover group-hover:scale-[1.03] transition-transform duration-300" />
+                      <img src={thumb(video)} alt="" className="w-full aspect-video object-cover group-hover:scale-[1.03] transition-transform duration-300" />
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                         <div className="w-8 h-8 rounded-full bg-white/90 shadow flex items-center justify-center"><Play size={11} className="text-green-600 ml-0.5" fill="currentColor" /></div>
                       </div>

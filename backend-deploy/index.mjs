@@ -222,6 +222,9 @@ export async function handler(event) {
     if (path === '/video-tags' && method === 'GET') return await videoTagsGet(qs(event), getUserFromToken(event));
     if (path === '/video-tags' && method === 'POST') return await videoTagsSave(body(event), getUserFromToken(event));
     if (path === '/video-tags/all' && method === 'GET') return await videoTagsAll(getUserFromToken(event));
+    if (path === '/video-thumbnail' && method === 'POST') return await videoThumbnailSave(body(event), getUserFromToken(event));
+    if (path === '/video-thumbnail' && method === 'DELETE') return await videoThumbnailDelete(body(event), getUserFromToken(event));
+    if (path === '/video-thumbnails' && method === 'GET') return await videoThumbnailsAll(getUserFromToken(event));
 
     // ---- Video Recommendations ----
     if (path === '/video-recs' && method === 'GET') return await videoRecsGet(qs(event), getUserFromToken(event));
@@ -2097,6 +2100,41 @@ async function videoTagsAll(user) {
     (item.tags || []).forEach(t => allTags.add(t));
   }
   return res(200, { tagMap, allTags: [...allTags].sort() });
+}
+
+// ---- Custom Video Thumbnails ----
+async function videoThumbnailSave(data, user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem alterar thumbnails.' });
+  if (!data.videoId || !data.thumbnailUrl) return res(400, { message: 'videoId e thumbnailUrl obrigatorios.' });
+  // Save custom thumbnail in the VideoTags table (adds/updates customThumbnail field)
+  await ddb.send(new UpdateCommand({
+    TableName: T.VIDEO_TAGS,
+    Key: { videoId: data.videoId },
+    UpdateExpression: 'SET customThumbnail = :url, thumbnailUpdatedAt = :ts, thumbnailUpdatedBy = :by',
+    ExpressionAttributeValues: { ':url': data.thumbnailUrl, ':ts': new Date().toISOString(), ':by': user.id },
+  }));
+  return res(200, { ok: true, videoId: data.videoId, customThumbnail: data.thumbnailUrl });
+}
+
+async function videoThumbnailDelete(data, user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem alterar thumbnails.' });
+  if (!data.videoId) return res(400, { message: 'videoId obrigatorio.' });
+  await ddb.send(new UpdateCommand({
+    TableName: T.VIDEO_TAGS,
+    Key: { videoId: data.videoId },
+    UpdateExpression: 'REMOVE customThumbnail, thumbnailUpdatedAt, thumbnailUpdatedBy',
+  }));
+  return res(200, { ok: true, videoId: data.videoId });
+}
+
+async function videoThumbnailsAll(user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  const data = await ddb.send(new ScanCommand({ TableName: T.VIDEO_TAGS, FilterExpression: 'attribute_exists(customThumbnail)' }));
+  const map = {};
+  for (const item of (data.Items || [])) {
+    if (item.customThumbnail) map[item.videoId] = item.customThumbnail;
+  }
+  return res(200, { thumbnails: map });
 }
 
 

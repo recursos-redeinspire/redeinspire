@@ -371,9 +371,12 @@ function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
                 )
               )}
             </div>
-          </div>
 
-          {/* Description */}
+            {/* Custom Thumbnail (admin only) */}
+            {isAdmin && (
+              <ThumbnailManager videoId={video.id} currentThumbnail={video.thumbnail} />
+            )}
+          </div>
           {video.description && (
             <div className="mt-4 bg-gray-50 rounded-xl p-4">
               <p className="text-sm text-gray-700 whitespace-pre-line">
@@ -538,6 +541,18 @@ export default function CatalogPage() {
   useEffect(() => { loadVideos() }, [loadVideos])
   useEffect(() => { getAllVideoTags().then(data => { setTagMap(data.tagMap); setAllTags(data.allTags) }).catch(() => {}) }, [getAllVideoTags])
 
+  // Load custom thumbnails
+  const [customThumbnails, setCustomThumbnails] = useState<Record<string, string>>({})
+  useEffect(() => {
+    const token = localStorage.getItem('ri_token')
+    fetch('https://h28wyjr7u7.execute-api.us-east-1.amazonaws.com/video-thumbnails', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }).then(r => r.json()).then(data => setCustomThumbnails(data.thumbnails || {})).catch(() => {})
+  }, [])
+
+  // Apply custom thumbnails to videos
+  const videosWithThumbs = videos.map(v => customThumbnails[v.id] ? { ...v, thumbnail: customThumbnails[v.id] } : v)
+
   // Auto-select video from URL param
   useEffect(() => {
     const videoId = searchParams.get('video')
@@ -560,7 +575,7 @@ export default function CatalogPage() {
     return (
       <VideoPlayerView
         video={selectedVideo}
-        videos={videos}
+        videos={videosWithThumbs}
         onBack={() => setSelectedVideo(null)}
         onSelectVideo={setSelectedVideo}
       />
@@ -644,10 +659,10 @@ export default function CatalogPage() {
         </div>
       )}
 
-      {!loading && videos.length > 0 && (() => {
+      {!loading && videosWithThumbs.length > 0 && (() => {
         const displayVideos = filterTag
-          ? videos.filter(v => (tagMap[v.id] || []).includes(filterTag))
-          : videos
+          ? videosWithThumbs.filter(v => (tagMap[v.id] || []).includes(filterTag))
+          : videosWithThumbs
         return displayVideos.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {displayVideos.map(video => {
@@ -715,6 +730,70 @@ export default function CatalogPage() {
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Thumbnail Manager (Admin) ───
+function ThumbnailManager({ videoId, currentThumbnail }: { videoId: string; currentThumbnail: string }) {
+  const { saveVideoThumbnail, deleteVideoThumbnail, getUploadPresignedUrl } = useData()
+  const [customThumb, setCustomThumb] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    // Check if this video has a custom thumbnail
+    const token = localStorage.getItem('ri_token')
+    fetch(`https://h28wyjr7u7.execute-api.us-east-1.amazonaws.com/video-tags?videoId=${encodeURIComponent(videoId)}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }).then(r => r.json()).then(data => {
+      if (data.customThumbnail) setCustomThumb(data.customThumbnail)
+      setLoaded(true)
+    }).catch(() => setLoaded(true))
+  }, [videoId])
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const { uploadUrl, fileUrl } = await getUploadPresignedUrl(file.name, file.type)
+      await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
+      await saveVideoThumbnail(videoId, fileUrl)
+      setCustomThumb(fileUrl)
+    } catch (err) {
+      console.error('Upload error:', err)
+    }
+    setUploading(false)
+  }
+
+  const handleRemove = async () => {
+    await deleteVideoThumbnail(videoId)
+    setCustomThumb(null)
+  }
+
+  if (!loaded) return null
+
+  return (
+    <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
+      <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Thumbnail personalizada</p>
+      <div className="flex items-center gap-3">
+        <img src={customThumb || currentThumbnail} alt="" className="w-24 h-14 rounded-lg object-cover border" />
+        <div className="flex-1">
+          {customThumb ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-green-600 font-medium">✓ Thumbnail customizada ativa</span>
+              <button onClick={handleRemove} className="text-xs text-red-500 hover:text-red-700 underline">Remover</button>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400">Usando thumbnail original do YouTube</p>
+          )}
+          <label className="mt-2 inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 cursor-pointer font-medium">
+            <input type="file" accept="image/*" onChange={handleUpload} className="hidden" />
+            {uploading ? 'Enviando...' : customThumb ? 'Trocar imagem' : 'Subir thumbnail HD'}
+          </label>
+        </div>
+      </div>
     </div>
   )
 }
