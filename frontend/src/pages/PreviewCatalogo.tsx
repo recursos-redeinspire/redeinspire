@@ -195,33 +195,30 @@ function CategoryRow({ label, videos, thumb, onExpand: _onExpand, onPlay: _onPla
             const isExpanded = expandedId === v.id
             return (
               <div key={v.id}
-                className={`shrink-0 transition-all duration-300 ease-out ${isExpanded ? 'w-[280px] md:w-[380px]' : 'w-[220px] md:w-[280px]'}`}
+                className="shrink-0 w-[220px] md:w-[280px] relative"
                 onMouseEnter={() => setExpandedId(v.id)}
                 onMouseLeave={() => setExpandedId(null)}>
-                <div className={`relative rounded-lg overflow-hidden bg-[#1c2028] transition-all duration-300 ${isExpanded ? 'rounded-xl shadow-2xl shadow-black/80 ring-1 ring-white/10' : ''}`}>
-                  {/* Thumbnail */}
-                  <div className="relative aspect-video">
-                    <img src={thumb(v)} alt="" loading="lazy"
-                      className={`w-full h-full object-cover transition-transform duration-300 ${isExpanded ? 'scale-100' : 'group-hover/card:scale-105'}`} />
-                    {/* Play icon on hover (only when NOT expanded) */}
-                    {!isExpanded && (
-                      <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition flex items-center justify-center opacity-0 hover:opacity-100">
-                        <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-xl">
-                          <Play size={20} className="text-black ml-0.5" fill="currentColor" />
-                        </div>
-                      </div>
-                    )}
-                    {/* Progress bar */}
-                    {isWatching && (
-                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
-                        <div className="h-full bg-green-500 rounded-r-full" style={{ width: `${20 + Math.floor(v.id.charCodeAt(0) % 60)}%` }} />
-                      </div>
-                    )}
-                  </div>
+                {/* Base thumbnail (always same size) */}
+                <div className="relative rounded-lg overflow-hidden aspect-video bg-[#1c2028]">
+                  <img src={thumb(v)} alt="" loading="lazy"
+                    className="w-full h-full object-cover" />
+                  {/* Progress bar */}
+                  {isWatching && (
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+                      <div className="h-full bg-green-500 rounded-r-full" style={{ width: `${20 + Math.floor(v.id.charCodeAt(0) % 60)}%` }} />
+                    </div>
+                  )}
+                </div>
 
-                  {/* Expanded info (inline, below thumbnail) */}
-                  {isExpanded && (
-                    <div className="bg-[#0d1117] p-4 border-t border-white/5">
+                {/* Expanded overlay (floats above everything) */}
+                {isExpanded && (
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 z-30 w-[320px] md:w-[380px] rounded-xl overflow-hidden shadow-2xl shadow-black/90 ring-1 ring-white/10 bg-[#0d1117] transition-all duration-200 animate-in fade-in zoom-in-95">
+                    {/* Larger thumbnail */}
+                    <div className="relative aspect-video">
+                      <img src={thumb(v)} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    {/* Info panel */}
+                    <div className="p-4">
                       <h3 className="text-white font-bold text-[13px] leading-snug line-clamp-2">{v.title}</h3>
                       <p className="text-green-400 text-[10px] font-medium mt-1 flex items-center gap-1">
                         <span className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center text-[7px] text-white">✓</span>
@@ -237,12 +234,16 @@ function CategoryRow({ label, videos, thumb, onExpand: _onExpand, onPlay: _onPla
                           <X size={12} className="text-white" />
                         </button>
                       </div>
+                      <div className="flex items-center gap-2 mt-2 text-[9px] text-white/30">
+                        <span>{v.channelTitle || 'Rede Inspire'}</span>
+                        {v.publishedAt && <span>· {new Date(v.publishedAt).getFullYear()}</span>}
+                      </div>
                       {v.description && (
-                        <p className="text-white/30 text-[10px] mt-2.5 line-clamp-3 leading-relaxed">{v.description}</p>
+                        <p className="text-white/30 text-[10px] mt-2 line-clamp-3 leading-relaxed">{v.description}</p>
                       )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )
           })}
