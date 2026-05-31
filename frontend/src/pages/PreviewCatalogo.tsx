@@ -168,6 +168,7 @@ function CategoryRow({ label, videos, thumb, onExpand: _onExpand, onPlay: _onPla
   const scrollRef = useRef<HTMLDivElement>(null)
   const isWatching = label === 'Continue assistindo'
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [cardRect, setCardRect] = useState<DOMRect | null>(null)
   const navigate = useNavigate()
 
   const scroll = (dir: 'left' | 'right') => {
@@ -195,11 +196,16 @@ function CategoryRow({ label, videos, thumb, onExpand: _onExpand, onPlay: _onPla
             const isExpanded = expandedId === v.id
             return (
               <div key={v.id}
+                data-vid={v.id}
                 className="shrink-0 w-[220px] md:w-[280px]"
-                onMouseEnter={() => setExpandedId(v.id)}
+                onMouseEnter={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setExpandedId(v.id)
+                  setCardRect(rect)
+                }}
                 onMouseLeave={() => setExpandedId(null)}>
                 {/* Base thumbnail */}
-                <div className={`relative rounded-lg overflow-hidden aspect-video bg-[#1c2028] transition-all duration-200 ${isExpanded ? 'ring-2 ring-white/30 scale-105' : ''}`}>
+                <div className={`relative rounded-lg overflow-hidden aspect-video bg-[#1c2028] transition-all duration-200 ${isExpanded ? 'opacity-0' : ''}`}>
                   <img src={thumb(v)} alt="" loading="lazy" className="w-full h-full object-cover" />
                   {isWatching && (
                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
@@ -212,20 +218,30 @@ function CategoryRow({ label, videos, thumb, onExpand: _onExpand, onPlay: _onPla
           })}
         </div>
 
-        {/* Floating expanded card — rendered outside scroll container */}
-        {expandedId && (() => {
+        {/* Floating expanded card — positioned over the hovered thumbnail */}
+        {expandedId && cardRect && (() => {
           const v = videos.find(vid => vid.id === expandedId)
           if (!v) return null
-          // Use a fixed popover approach
+          const cardW = 380
+          let left = cardRect.left + cardRect.width / 2 - cardW / 2
+          // Keep within viewport
+          if (left < 10) left = 10
+          if (left + cardW > window.innerWidth - 10) left = window.innerWidth - cardW - 10
           return (
-            <div className="fixed inset-0 z-[100] pointer-events-none hidden md:block">
-              <div className="absolute pointer-events-auto"
-                style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
+            <div className="fixed inset-0 pointer-events-none hidden md:block" style={{ zIndex: 100 }}>
+              <div
+                className="absolute pointer-events-auto transition-all duration-300 ease-out"
+                style={{ top: cardRect.top - 10, left, width: cardW, opacity: 1, transform: 'scale(1)' }}
                 onMouseEnter={() => setExpandedId(v.id)}
                 onMouseLeave={() => setExpandedId(null)}>
-                <div className="w-[380px] rounded-xl overflow-hidden shadow-2xl shadow-black/90 ring-1 ring-white/10 bg-[#0d1117]">
+                <div className="rounded-xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.9)] ring-1 ring-white/10 bg-[#0d1117]">
                   <div className="relative aspect-video">
                     <img src={thumb(v)} alt="" className="w-full h-full object-cover" />
+                    {isWatching && (
+                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+                        <div className="h-full bg-green-500 rounded-r-full" style={{ width: `${20 + Math.floor(v.id.charCodeAt(0) % 60)}%` }} />
+                      </div>
+                    )}
                   </div>
                   <div className="p-4">
                     <h3 className="text-white font-bold text-[13px] leading-snug line-clamp-2">{v.title}</h3>
