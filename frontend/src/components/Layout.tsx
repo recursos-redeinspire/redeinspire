@@ -85,7 +85,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="border-b dark:border-gray-700 sticky top-0 z-50" style={themeColor ? { backgroundColor: themeColor } : undefined}>
+      <header className="border-b dark:border-gray-700 sticky top-0 z-[70]" style={themeColor ? { backgroundColor: themeColor } : undefined}>
         <div className={`px-4 flex items-center justify-between h-16 ${!themeColor ? 'bg-white dark:bg-gray-800' : ''}`}>
           <div className="flex items-center gap-4">
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className={`${themeColor ? 'text-white/80 hover:text-white' : 'text-gray-600 hover:text-gray-800'}`}>
@@ -185,7 +185,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <div className="flex items-start">
         {/* Sidebar */}
-        <aside className={`fixed top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-white dark:bg-gray-800 border-r dark:border-gray-700 z-40 overflow-y-auto transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <aside className={`fixed top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-white dark:bg-gray-800 border-r dark:border-gray-700 z-[60] overflow-y-auto transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <nav className="p-4 space-y-1">
             {filteredNavItems.map((item) => {
               const isActive = location.pathname === item.path
@@ -229,7 +229,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </nav>
         </aside>
 
-        {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-30" onClick={() => setSidebarOpen(false)} />}
+        {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-[55]" onClick={() => setSidebarOpen(false)} />}
         <main className="flex-1 min-w-0 p-4 md:p-6 lg:p-8">{children}</main>
       </div>
 
