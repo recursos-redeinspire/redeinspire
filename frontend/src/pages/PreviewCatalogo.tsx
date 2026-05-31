@@ -195,59 +195,67 @@ function CategoryRow({ label, videos, thumb, onExpand: _onExpand, onPlay: _onPla
             const isExpanded = expandedId === v.id
             return (
               <div key={v.id}
-                className="shrink-0 w-[220px] md:w-[280px] relative"
+                className="shrink-0 w-[220px] md:w-[280px]"
                 onMouseEnter={() => setExpandedId(v.id)}
                 onMouseLeave={() => setExpandedId(null)}>
-                {/* Base thumbnail (always same size) */}
-                <div className="relative rounded-lg overflow-hidden aspect-video bg-[#1c2028]">
-                  <img src={thumb(v)} alt="" loading="lazy"
-                    className="w-full h-full object-cover" />
-                  {/* Progress bar */}
+                {/* Base thumbnail */}
+                <div className={`relative rounded-lg overflow-hidden aspect-video bg-[#1c2028] transition-all duration-200 ${isExpanded ? 'ring-2 ring-white/30 scale-105' : ''}`}>
+                  <img src={thumb(v)} alt="" loading="lazy" className="w-full h-full object-cover" />
                   {isWatching && (
                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
                       <div className="h-full bg-green-500 rounded-r-full" style={{ width: `${20 + Math.floor(v.id.charCodeAt(0) % 60)}%` }} />
                     </div>
                   )}
                 </div>
-
-                {/* Expanded overlay (floats above everything) */}
-                {isExpanded && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 z-30 w-[320px] md:w-[380px] rounded-xl overflow-hidden shadow-2xl shadow-black/90 ring-1 ring-white/10 bg-[#0d1117] transition-all duration-200 animate-in fade-in zoom-in-95">
-                    {/* Larger thumbnail */}
-                    <div className="relative aspect-video">
-                      <img src={thumb(v)} alt="" className="w-full h-full object-cover" />
-                    </div>
-                    {/* Info panel */}
-                    <div className="p-4">
-                      <h3 className="text-white font-bold text-[13px] leading-snug line-clamp-2">{v.title}</h3>
-                      <p className="text-green-400 text-[10px] font-medium mt-1 flex items-center gap-1">
-                        <span className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center text-[7px] text-white">✓</span>
-                        Incluído na plataforma
-                      </p>
-                      <button onClick={() => navigate(`/catalogo?video=${v.id}`)}
-                        className="mt-3 w-full flex items-center justify-center gap-2 bg-white text-black font-bold py-2.5 rounded-md hover:bg-white/90 transition text-[12px]">
-                        <Play size={14} fill="currentColor" /> Reproduzir
-                      </button>
-                      <div className="flex items-center gap-2 mt-2.5">
-                        <button className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition text-white text-sm">+</button>
-                        <button onClick={() => setExpandedId(null)} className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition">
-                          <X size={12} className="text-white" />
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-2 mt-2 text-[9px] text-white/30">
-                        <span>{v.channelTitle || 'Rede Inspire'}</span>
-                        {v.publishedAt && <span>· {new Date(v.publishedAt).getFullYear()}</span>}
-                      </div>
-                      {v.description && (
-                        <p className="text-white/30 text-[10px] mt-2 line-clamp-3 leading-relaxed">{v.description}</p>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
             )
           })}
         </div>
+
+        {/* Floating expanded card — rendered outside scroll container */}
+        {expandedId && (() => {
+          const v = videos.find(vid => vid.id === expandedId)
+          if (!v) return null
+          // Use a fixed popover approach
+          return (
+            <div className="fixed inset-0 z-[100] pointer-events-none hidden md:block">
+              <div className="absolute pointer-events-auto"
+                style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
+                onMouseEnter={() => setExpandedId(v.id)}
+                onMouseLeave={() => setExpandedId(null)}>
+                <div className="w-[380px] rounded-xl overflow-hidden shadow-2xl shadow-black/90 ring-1 ring-white/10 bg-[#0d1117]">
+                  <div className="relative aspect-video">
+                    <img src={thumb(v)} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-white font-bold text-[13px] leading-snug line-clamp-2">{v.title}</h3>
+                    <p className="text-green-400 text-[10px] font-medium mt-1 flex items-center gap-1">
+                      <span className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center text-[7px] text-white">✓</span>
+                      Incluído na plataforma
+                    </p>
+                    <button onClick={() => navigate(`/catalogo?video=${v.id}`)}
+                      className="mt-3 w-full flex items-center justify-center gap-2 bg-white text-black font-bold py-2.5 rounded-md hover:bg-white/90 transition text-[12px]">
+                      <Play size={14} fill="currentColor" /> Reproduzir
+                    </button>
+                    <div className="flex items-center gap-2 mt-2.5">
+                      <button className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition text-white text-sm">+</button>
+                      <button onClick={() => setExpandedId(null)} className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition">
+                        <X size={12} className="text-white" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2 text-[9px] text-white/30">
+                      <span>{v.channelTitle || 'Rede Inspire'}</span>
+                      {v.publishedAt && <span>· {new Date(v.publishedAt).getFullYear()}</span>}
+                    </div>
+                    {v.description && (
+                      <p className="text-white/30 text-[10px] mt-2 line-clamp-3 leading-relaxed">{v.description}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
 
         <button onClick={() => scroll('right')}
           className="absolute right-0 top-0 bottom-0 w-14 bg-gradient-to-l from-[#0d1117] to-transparent z-10 flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity cursor-pointer">
