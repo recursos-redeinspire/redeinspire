@@ -49,6 +49,12 @@ export default function PreviewCatalogo() {
 
   return (
     <div className="min-h-screen bg-[#0d1117]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <style>{`
+        @keyframes cardGrow {
+          0% { opacity: 0; transform: scale(0.85); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
 
       {/* Top bar */}
       <div className="fixed top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/80 to-transparent px-6 py-4 flex items-center justify-between">
@@ -167,9 +173,28 @@ function CategoryRow({ label, videos, thumb, onExpand: _onExpand, onPlay: _onPla
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const isWatching = label === 'Continue assistindo'
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [_expandedId, setExpandedId] = useState<string | null>(null)
+  const [visibleId, setVisibleId] = useState<string | null>(null)
   const [cardRect, setCardRect] = useState<DOMRect | null>(null)
+  const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const navigate = useNavigate()
+
+  const handleMouseEnter = (v: any, e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    setCardRect(rect)
+    setExpandedId(v.id)
+    // Small delay before showing the expanded card (prevents flicker when moving fast)
+    if (hoverTimeout.current) clearTimeout(hoverTimeout.current)
+    hoverTimeout.current = setTimeout(() => {
+      setVisibleId(v.id)
+    }, 200)
+  }
+
+  const handleMouseLeave = () => {
+    if (hoverTimeout.current) clearTimeout(hoverTimeout.current)
+    setExpandedId(null)
+    setVisibleId(null)
+  }
 
   const scroll = (dir: 'left' | 'right') => {
     const el = scrollRef.current
@@ -193,19 +218,14 @@ function CategoryRow({ label, videos, thumb, onExpand: _onExpand, onPlay: _onPla
 
         <div ref={scrollRef} className="flex gap-3 px-8 md:px-14 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           {videos.map(v => {
-            const isExpanded = expandedId === v.id
             return (
               <div key={v.id}
                 data-vid={v.id}
                 className="shrink-0 w-[220px] md:w-[280px]"
-                onMouseEnter={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  setExpandedId(v.id)
-                  setCardRect(rect)
-                }}
-                onMouseLeave={() => setExpandedId(null)}>
+                onMouseEnter={(e) => handleMouseEnter(v, e)}
+                onMouseLeave={handleMouseLeave}>
                 {/* Base thumbnail */}
-                <div className={`relative rounded-lg overflow-hidden aspect-video bg-[#1c2028] transition-all duration-200 ${isExpanded ? 'opacity-0' : ''}`}>
+                <div className={`relative rounded-lg overflow-hidden aspect-video bg-[#1c2028] transition-opacity duration-300 ${visibleId === v.id ? 'opacity-0' : 'opacity-100'}`}>
                   <img src={thumb(v)} alt="" loading="lazy" className="w-full h-full object-cover" />
                   {isWatching && (
                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
@@ -219,21 +239,20 @@ function CategoryRow({ label, videos, thumb, onExpand: _onExpand, onPlay: _onPla
         </div>
 
         {/* Floating expanded card — positioned over the hovered thumbnail */}
-        {expandedId && cardRect && (() => {
-          const v = videos.find(vid => vid.id === expandedId)
+        {visibleId && cardRect && (() => {
+          const v = videos.find(vid => vid.id === visibleId)
           if (!v) return null
           const cardW = 380
           let left = cardRect.left + cardRect.width / 2 - cardW / 2
-          // Keep within viewport
           if (left < 10) left = 10
           if (left + cardW > window.innerWidth - 10) left = window.innerWidth - cardW - 10
           return (
             <div className="fixed inset-0 pointer-events-none hidden md:block" style={{ zIndex: 100 }}>
               <div
-                className="absolute pointer-events-auto transition-all duration-300 ease-out"
-                style={{ top: cardRect.top - 10, left, width: cardW, opacity: 1, transform: 'scale(1)' }}
-                onMouseEnter={() => setExpandedId(v.id)}
-                onMouseLeave={() => setExpandedId(null)}>
+                className="absolute pointer-events-auto animate-[cardGrow_0.25s_ease-out_forwards]"
+                style={{ top: cardRect.top - 10, left, width: cardW }}
+                onMouseEnter={() => { if (hoverTimeout.current) clearTimeout(hoverTimeout.current) }}
+                onMouseLeave={handleMouseLeave}>
                 <div className="rounded-xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.9)] ring-1 ring-white/10 bg-[#0d1117]">
                   <div className="relative aspect-video">
                     <img src={thumb(v)} alt="" className="w-full h-full object-cover" />
