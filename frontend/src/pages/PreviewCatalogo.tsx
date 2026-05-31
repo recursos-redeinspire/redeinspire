@@ -173,27 +173,28 @@ function CategoryRow({ label, videos, thumb, onExpand: _onExpand, onPlay: _onPla
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const isWatching = label === 'Continue assistindo'
-  const [_expandedId, setExpandedId] = useState<string | null>(null)
-  const [visibleId, setVisibleId] = useState<string | null>(null)
-  const [cardRect, setCardRect] = useState<DOMRect | null>(null)
-  const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [cardRect, setCardRect] = useState<{ top: number; left: number; width: number } | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const navigate = useNavigate()
 
-  const handleMouseEnter = (v: any, e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    setCardRect(rect)
-    setExpandedId(v.id)
-    // Small delay before showing the expanded card (prevents flicker when moving fast)
-    if (hoverTimeout.current) clearTimeout(hoverTimeout.current)
-    hoverTimeout.current = setTimeout(() => {
-      setVisibleId(v.id)
-    }, 200)
+  const openCard = (v: any, el: HTMLDivElement) => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    const rect = el.getBoundingClientRect()
+    setCardRect({ top: rect.top, left: rect.left, width: rect.width })
+    timeoutRef.current = setTimeout(() => setHoveredId(v.id), 250)
   }
 
-  const handleMouseLeave = () => {
-    if (hoverTimeout.current) clearTimeout(hoverTimeout.current)
-    setExpandedId(null)
-    setVisibleId(null)
+  const closeCard = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = setTimeout(() => {
+      setHoveredId(null)
+      setCardRect(null)
+    }, 100)
+  }
+
+  const keepCard = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
   }
 
   const scroll = (dir: 'left' | 'right') => {
@@ -203,6 +204,8 @@ function CategoryRow({ label, videos, thumb, onExpand: _onExpand, onPlay: _onPla
   }
 
   if (videos.length === 0) return null
+
+  const hoveredVideo = hoveredId ? videos.find(v => v.id === hoveredId) : null
 
   return (
     <div className="mb-10 group/row">
@@ -217,86 +220,78 @@ function CategoryRow({ label, videos, thumb, onExpand: _onExpand, onPlay: _onPla
         </button>
 
         <div ref={scrollRef} className="flex gap-3 px-8 md:px-14 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-          {videos.map(v => {
-            return (
-              <div key={v.id}
-                data-vid={v.id}
-                className="shrink-0 w-[220px] md:w-[280px]"
-                onMouseEnter={(e) => handleMouseEnter(v, e)}
-                onMouseLeave={handleMouseLeave}>
-                {/* Base thumbnail */}
-                <div className={`relative rounded-lg overflow-hidden aspect-video bg-[#1c2028] transition-opacity duration-300 ${visibleId === v.id ? 'opacity-0' : 'opacity-100'}`}>
-                  <img src={thumb(v)} alt="" loading="lazy" className="w-full h-full object-cover" />
-                  {isWatching && (
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
-                      <div className="h-full bg-green-500 rounded-r-full" style={{ width: `${20 + Math.floor(v.id.charCodeAt(0) % 60)}%` }} />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Floating expanded card — positioned over the hovered thumbnail */}
-        {visibleId && cardRect && (() => {
-          const v = videos.find(vid => vid.id === visibleId)
-          if (!v) return null
-          const cardW = 380
-          let left = cardRect.left + cardRect.width / 2 - cardW / 2
-          if (left < 10) left = 10
-          if (left + cardW > window.innerWidth - 10) left = window.innerWidth - cardW - 10
-          return (
-            <div className="fixed inset-0 pointer-events-none hidden md:block" style={{ zIndex: 100 }}>
-              <div
-                className="absolute pointer-events-auto animate-[cardGrow_0.25s_ease-out_forwards]"
-                style={{ top: cardRect.top - 10, left, width: cardW }}
-                onMouseEnter={() => { if (hoverTimeout.current) clearTimeout(hoverTimeout.current) }}
-                onMouseLeave={handleMouseLeave}>
-                <div className="rounded-xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.9)] ring-1 ring-white/10 bg-[#0d1117]">
-                  <div className="relative aspect-video">
-                    <img src={thumb(v)} alt="" className="w-full h-full object-cover" />
-                    {isWatching && (
-                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
-                        <div className="h-full bg-green-500 rounded-r-full" style={{ width: `${20 + Math.floor(v.id.charCodeAt(0) % 60)}%` }} />
-                      </div>
-                    )}
+          {videos.map(v => (
+            <div key={v.id}
+              className="shrink-0 w-[220px] md:w-[280px]"
+              onMouseEnter={(e) => openCard(v, e.currentTarget)}
+              onMouseLeave={closeCard}>
+              <div className={`relative rounded-lg overflow-hidden aspect-video bg-[#1c2028] transition-opacity duration-200 ${hoveredId === v.id ? 'opacity-30' : ''}`}>
+                <img src={thumb(v)} alt="" loading="lazy" className="w-full h-full object-cover" />
+                {isWatching && (
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+                    <div className="h-full bg-green-500 rounded-r-full" style={{ width: `${20 + Math.floor(v.id.charCodeAt(0) % 60)}%` }} />
                   </div>
-                  <div className="p-4">
-                    <h3 className="text-white font-bold text-[13px] leading-snug line-clamp-2">{v.title}</h3>
-                    <p className="text-green-400 text-[10px] font-medium mt-1 flex items-center gap-1">
-                      <span className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center text-[7px] text-white">✓</span>
-                      Incluído na plataforma
-                    </p>
-                    <button onClick={() => navigate(`/catalogo?video=${v.id}`)}
-                      className="mt-3 w-full flex items-center justify-center gap-2 bg-white text-black font-bold py-2.5 rounded-md hover:bg-white/90 transition text-[12px]">
-                      <Play size={14} fill="currentColor" /> Reproduzir
-                    </button>
-                    <div className="flex items-center gap-2 mt-2.5">
-                      <button className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition text-white text-sm">+</button>
-                      <button onClick={() => setExpandedId(null)} className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition">
-                        <X size={12} className="text-white" />
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2 text-[9px] text-white/30">
-                      <span>{v.channelTitle || 'Rede Inspire'}</span>
-                      {v.publishedAt && <span>· {new Date(v.publishedAt).getFullYear()}</span>}
-                    </div>
-                    {v.description && (
-                      <p className="text-white/30 text-[10px] mt-2 line-clamp-3 leading-relaxed">{v.description}</p>
-                    )}
-                  </div>
-                </div>
+                )}
               </div>
             </div>
-          )
-        })()}
+          ))}
+        </div>
 
         <button onClick={() => scroll('right')}
           className="absolute right-0 top-0 bottom-0 w-14 bg-gradient-to-l from-[#0d1117] to-transparent z-10 flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity cursor-pointer">
           <ChevronRight size={36} className="text-white" />
         </button>
       </div>
+
+      {/* Floating expanded card */}
+      {hoveredVideo && cardRect && (
+        <div
+          className="fixed pointer-events-auto"
+          style={{
+            zIndex: 9999,
+            top: cardRect.top - 10,
+            left: Math.max(10, Math.min(cardRect.left + cardRect.width / 2 - 190, window.innerWidth - 390)),
+            width: 380,
+            animation: 'cardGrow 0.25s ease-out forwards',
+          }}
+          onMouseEnter={keepCard}
+          onMouseLeave={closeCard}>
+          <div className="rounded-xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.95)] ring-1 ring-white/10 bg-[#0d1117]">
+            <div className="relative aspect-video">
+              <img src={thumb(hoveredVideo)} alt="" className="w-full h-full object-cover" />
+              {isWatching && (
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+                  <div className="h-full bg-green-500 rounded-r-full" style={{ width: `${20 + Math.floor(hoveredVideo.id.charCodeAt(0) % 60)}%` }} />
+                </div>
+              )}
+            </div>
+            <div className="p-4">
+              <h3 className="text-white font-bold text-[13px] leading-snug line-clamp-2">{hoveredVideo.title}</h3>
+              <p className="text-green-400 text-[10px] font-medium mt-1 flex items-center gap-1">
+                <span className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center text-[7px] text-white">✓</span>
+                Incluído na plataforma
+              </p>
+              <button onClick={() => navigate(`/catalogo?video=${hoveredVideo.id}`)}
+                className="mt-3 w-full flex items-center justify-center gap-2 bg-white text-black font-bold py-2.5 rounded-md hover:bg-white/90 transition text-[12px]">
+                <Play size={14} fill="currentColor" /> Reproduzir
+              </button>
+              <div className="flex items-center gap-2 mt-2.5">
+                <button className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition text-white text-sm">+</button>
+                <button onClick={closeCard} className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition">
+                  <X size={12} className="text-white" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2 mt-2 text-[9px] text-white/30">
+                <span>{hoveredVideo.channelTitle || 'Rede Inspire'}</span>
+                {hoveredVideo.publishedAt && <span>· {new Date(hoveredVideo.publishedAt).getFullYear()}</span>}
+              </div>
+              {hoveredVideo.description && (
+                <p className="text-white/30 text-[10px] mt-2 line-clamp-3 leading-relaxed">{hoveredVideo.description}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
