@@ -636,22 +636,43 @@ function buildCategories(
   const videoMap: Record<string, any> = {}
   for (const v of videos) videoMap[v.id] = v
 
-  // 1. Continue assistindo — placeholder (primeiros 7 vídeos como simulação)
-  const watching = videos.slice(2, 9)
+  // Track IDs used in the first 6 of previous categories to avoid repetition
+  const usedInFirst6 = new Set<string>()
+
+  // Helper: reorder videos so the first 6 don't overlap with usedInFirst6
+  function reorderForVariety(vids: any[]): any[] {
+    const notUsed: any[] = []
+    const used: any[] = []
+    for (const v of vids) {
+      if (usedInFirst6.has(v.id)) {
+        used.push(v)
+      } else {
+        notUsed.push(v)
+      }
+    }
+    // Put non-repeated ones first, then the repeated ones after
+    const reordered = [...notUsed, ...used]
+    // Register the first 6 of this row as used
+    reordered.slice(0, 6).forEach(v => usedInFirst6.add(v.id))
+    return reordered
+  }
+
+  // 1. Continue assistindo — placeholder (vídeos do meio da lista)
+  const watching = reorderForVariety(videos.slice(2, 12))
   result.push({ label: 'Continue assistindo', videos: watching })
 
   // 2. Adicionados Recentemente — últimos 10 por data
-  const recent = [...videos]
-    .sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''))
-    .slice(0, 10)
+  const recentAll = [...videos].sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || ''))
+  const recent = reorderForVariety(recentAll.slice(0, 16))
   result.push({ label: 'Adicionados Recentemente', videos: recent })
 
-  // 3. Mais assistidos — primeiros 10 (simulação por ordem da playlist)
-  const popular = videos.slice(0, 10)
+  // 3. Mais assistidos — primeiros da playlist (simulação)
+  const popularAll = videos.slice(0, 16)
+  const popular = reorderForVariety(popularAll)
   result.push({ label: 'Mais assistidos', videos: popular })
 
   // 4-10. Categorias admin-managed
-  const adminCategories = CATALOG_CATEGORY_LABELS.slice(3) // skip first 3 (auto)
+  const adminCategories = CATALOG_CATEGORY_LABELS.slice(3)
   for (const catLabel of adminCategories) {
     const catVideos: any[] = []
     for (const [videoId, cats] of Object.entries(assignments)) {
@@ -659,19 +680,17 @@ function buildCategories(
         catVideos.push(videoMap[videoId])
       }
     }
-    // Only show category if it has videos
     if (catVideos.length > 0) {
-      result.push({ label: catLabel, videos: catVideos })
+      result.push({ label: catLabel, videos: reorderForVariety(catVideos) })
     }
   }
 
-  // Fallback: videos not in any admin category go to auto-categorization by keywords
+  // Fallback: auto-categorize unassigned videos by keywords
   const assignedIds = new Set<string>()
   for (const cat of result) cat.videos.forEach(v => assignedIds.add(v.id))
 
   const unassigned = videos.filter(v => !assignedIds.has(v.id))
   if (unassigned.length > 0) {
-    // Auto-categorize remaining by keywords
     const rules: { label: string; keywords: string[] }[] = [
       { label: 'Treinamento de Boas-Vindas', keywords: ['boas-vindas', 'bem-vindo', 'onboarding', 'primeiro', 'introdução', 'início'] },
       { label: 'Materiais Semanais', keywords: ['semanal', 'semana', 'weekly', 'domingo', 'culto'] },
@@ -682,22 +701,28 @@ function buildCategories(
       { label: 'Fique por Dentro!', keywords: ['webinar', 'talk', 'novidade', 'atualização', 'evento', 'encontro', 'mentores'] },
     ]
 
+    // Group unassigned by keyword match
+    const grouped: Record<string, any[]> = {}
     for (const v of unassigned) {
       const text = (v.title || '').toLowerCase() + ' ' + (v.description || '').toLowerCase()
       for (const rule of rules) {
         if (rule.keywords.some(kw => text.includes(kw))) {
-          const existing = result.find(r => r.label === rule.label)
-          if (existing) {
-            // Only add if not already in first 6 of this category
-            const first6Ids = existing.videos.slice(0, 6).map(ev => ev.id)
-            if (!first6Ids.includes(v.id)) {
-              existing.videos.push(v)
-            }
-          } else {
-            result.push({ label: rule.label, videos: [v] })
-          }
+          if (!grouped[rule.label]) grouped[rule.label] = []
+          grouped[rule.label].push(v)
           break
         }
+      }
+    }
+
+    for (const [label, vids] of Object.entries(grouped)) {
+      if (vids.length === 0) continue
+      const existing = result.find(r => r.label === label)
+      if (existing) {
+        // Append to existing category, reorder to avoid first-6 overlap
+        const combined = [...existing.videos, ...vids]
+        existing.videos = reorderForVariety(combined)
+      } else {
+        result.push({ label, videos: reorderForVariety(vids) })
       }
     }
   }
