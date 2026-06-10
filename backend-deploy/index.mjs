@@ -8,6 +8,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import jwt from 'jsonwebtoken';
 import { v4 as uuid } from 'uuid';
+import JSZip from 'jszip';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -233,6 +234,7 @@ export async function handler(event) {
     // ---- Folder Videos (admin links videos to material folders) ----
     if (path === '/folder-videos' && method === 'GET') return await folderVideosGet(qs(event), getUserFromToken(event));
     if (path === '/folder-videos' && method === 'POST') return await folderVideosSave(body(event), getUserFromToken(event));
+    if (path === '/dropbox/file-text' && method === 'POST') return await dropboxFileText(body(event), getUserFromToken(event));
 
     // ---- Video Recommendations ----
     if (path === '/video-recs' && method === 'GET') return await videoRecsGet(qs(event), getUserFromToken(event));
@@ -1631,6 +1633,63 @@ async function dropboxDownload(data, user) {
   } catch (err) {
     console.error('Dropbox download error:', err);
     return res(500, { message: 'Erro ao gerar link', error: err.message });
+  }
+}
+
+// --- Dropbox File Text (extract text from .doc/.docx) ---
+async function dropboxFileText(data, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!DROPBOX_REFRESH_TOKEN) return res(500, { message: 'Dropbox nao configurado.' });
+  if (!data.path) return res(400, { message: 'path obrigatorio.' });
+
+  try {
+    const token = await getDropboxToken();
+    // Download the file content from Dropbox
+    const r = await fetch('https://content.dropboxapi.com/2/files/download', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Dropbox-API-Arg': JSON.stringify({ path: data.path }),
+      },
+    });
+    if (!r.ok) return res(400, { message: 'Erro ao baixar arquivo do Dropbox' });
+
+    const buffer = await r.arrayBuffer();
+    const ext = (data.path.split('.').pop() || '').toLowerCase();
+    let text = '';
+
+    if (ext === 'docx') {
+      // Parse .docx (ZIP with XML inside)
+      try {
+        const zip = await JSZip.loadAsync(buffer);
+        const docXml = await zip.file('word/document.xml')?.async('text');
+        if (docXml) {
+          // Extract text from XML, removing tags
+          text = docXml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+      } catch (e) {
+        text = '';
+      }
+    } else if (ext === 'txt') {
+      text = new TextDecoder().decode(buffer);
+    } else if (ext === 'doc') {
+      // .doc is binary, try to extract ASCII text
+      const bytes = new Uint8Array(buffer);
+      const chars = [];
+      for (let i = 0; i < bytes.length && chars.length < 5000; i++) {
+        if (bytes[i] >= 32 && bytes[i] <= 126) chars.push(String.fromCharCode(bytes[i]));
+        else if (chars.length > 0 && chars[chars.length - 1] !== ' ') chars.push(' ');
+      }
+      text = chars.join('').replace(/\s+/g, ' ').trim();
+    }
+
+    // Limit to 3000 chars
+    if (text.length > 3000) text = text.substring(0, 3000);
+
+    return res(200, { path: data.path, text });
+  } catch (err) {
+    console.error('Dropbox file-text error:', err);
+    return res(500, { message: 'Erro ao ler arquivo', error: err.message });
   }
 }
 

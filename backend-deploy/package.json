@@ -9,6 +9,7 @@
     "@aws-sdk/lib-dynamodb": "^3.600.0",
     "@aws-sdk/s3-request-presigner": "^3.1004.0",
     "jsonwebtoken": "^9.0.2",
+    "jszip": "^3.10.1",
     "uuid": "^9.0.0"
   }
 }

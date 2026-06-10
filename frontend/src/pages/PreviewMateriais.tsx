@@ -108,7 +108,7 @@ function generateFolderDescription(folderTitle: string, allFiles: any[], docFile
 }
 
 export default function PreviewMateriais() {
-  const { browseDropbox, downloadDropbox, smartSearchDropbox, getTopDownloads, getFolderVideos, saveFolderVideos } = useData()
+  const { browseDropbox, downloadDropbox, smartSearchDropbox, getTopDownloads, getFolderVideos, saveFolderVideos, getFileText } = useData()
   const { user: _user } = useAuth()
   const { t } = useI18n()
   const [searchParams] = useSearchParams()
@@ -135,11 +135,13 @@ export default function PreviewMateriais() {
   const [showAddVideo, setShowAddVideo] = useState(false)
   const [newVideoUrl, setNewVideoUrl] = useState('')
   const [newVideoTitle, setNewVideoTitle] = useState('')
+  const [folderDescription, setFolderDescription] = useState('')
   const isAdmin = _user?.role === 'admin'
 
   const loadFolder = useCallback(async (p: string) => {
     setLoading(true); setError(''); setIsSearching(false); setSearchKeywords([])
     setSelectedFile(null); setPreviewUrl(''); setSelectedVideo(null); setFolderVideos([])
+    setFolderDescription('')
     try {
       const [result, vidsResult] = await Promise.all([
         browseDropbox(p),
@@ -148,11 +150,26 @@ export default function PreviewMateriais() {
       setEntries(result.entries); setPath(p)
       const vids = vidsResult.videos || []
       setFolderVideos(vids)
-      // Auto-select first video if available
       if (vids.length > 0) setSelectedVideo(vids[0])
+
+      // Try to extract description from first .doc/.docx in the folder
+      const fileEntries = (result.entries || []).filter((e: any) => e.tag === 'file')
+      const docFile = fileEntries.find((f: any) => {
+        const ext = (f.ext || f.name?.split('.').pop() || '').toLowerCase()
+        return ext === 'docx' || ext === 'doc' || ext === 'txt'
+      })
+      if (docFile && p) {
+        getFileText(docFile.pathLower).then(data => {
+          if (data.text && data.text.length > 20) {
+            // Use first 300 chars as summary
+            const summary = data.text.substring(0, 300).trim()
+            setFolderDescription(summary + (data.text.length > 300 ? '...' : ''))
+          }
+        }).catch(() => {})
+      }
     } catch (e: any) { setError(e.message || 'Erro') }
     finally { setLoading(false) }
-  }, [browseDropbox, getFolderVideos])
+  }, [browseDropbox, getFolderVideos, getFileText])
 
   useEffect(() => { loadFolder(initialPath) }, [loadFolder, initialPath])
   useEffect(() => { getTopDownloads().then(setTopDownloads).catch(() => {}) }, [getTopDownloads])
@@ -389,9 +406,9 @@ export default function PreviewMateriais() {
       {!loading && folders.length === 0 && files.length > 0 && (() => {
         // Folder title from last breadcrumb
         const folderTitle = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : 'Materiais'
-        // Generate description from doc files in the folder
+        // Use doc-based description if available, otherwise auto-generate
         const docFiles = files.filter(f => f.fileType === 'document' || f.fileType === 'pdf' || f.ext === 'doc' || f.ext === 'docx' || f.ext === 'txt')
-        const folderDescription = generateFolderDescription(folderTitle, files, docFiles)
+        const displayDescription = folderDescription || generateFolderDescription(folderTitle, files, docFiles)
 
         return (
         <div>
@@ -491,9 +508,9 @@ export default function PreviewMateriais() {
             {/* Right: Description + Videos + File list */}
             <div className="lg:w-80 xl:w-96 flex-shrink-0 space-y-4">
               {/* Folder description */}
-              {folderDescription && (
+              {displayDescription && (
                 <div className="bg-green-50 border border-green-100 rounded-xl p-4">
-                  <p className="text-[12px] text-gray-700 leading-relaxed">{folderDescription}</p>
+                  <p className="text-[12px] text-gray-700 leading-relaxed">{displayDescription}</p>
                 </div>
               )}
 
