@@ -1652,7 +1652,10 @@ async function dropboxFileText(data, user) {
         'Dropbox-API-Arg': JSON.stringify({ path: data.path }),
       },
     });
-    if (!r.ok) return res(400, { message: 'Erro ao baixar arquivo do Dropbox' });
+    if (!r.ok) {
+      const errText = await r.text().catch(() => '');
+      return res(400, { message: 'Erro ao baixar arquivo do Dropbox', detail: errText });
+    }
 
     const buffer = await r.arrayBuffer();
     const ext = (data.path.split('.').pop() || '').toLowerCase();
@@ -1662,31 +1665,57 @@ async function dropboxFileText(data, user) {
       // Parse .docx (ZIP with XML inside)
       try {
         const zip = await JSZip.loadAsync(buffer);
-        const docXml = await zip.file('word/document.xml')?.async('text');
-        if (docXml) {
-          // Extract text from XML, removing tags
-          text = docXml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        // Try word/document.xml first, then other possible locations
+        let docXml = null;
+        const possiblePaths = ['word/document.xml', 'word/document2.xml', 'content.xml'];
+        for (const p of possiblePaths) {
+          const file = zip.file(p);
+          if (file) { docXml = await file.async('text'); break; }
         }
-      } catch (e) {
+        if (!docXml) {
+          // Try to find any xml file in word/ folder
+          const wordFiles = Object.keys(zip.files).filter(f => f.startsWith('word/') && f.endsWith('.xml'));
+          if (wordFiles.length > 0) {
+            docXml = await zip.file(wordFiles[0])?.async('text');
+          }
+        }
+        if (docXml) {
+          // Extract text content from <w:t> tags specifically for better accuracy
+          const wtMatches = docXml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
+          if (wtMatches && wtMatches.length > 0) {
+            text = wtMatches.map(m => m.replace(/<[^>]+>/g, '')).join(' ').replace(/\s+/g, ' ').trim();
+          } else {
+            // Fallback: strip all XML tags
+            text = docXml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+          }
+        }
+      } catch (zipErr) {
+        console.error('JSZip error:', zipErr.message);
         text = '';
       }
     } else if (ext === 'txt') {
       text = new TextDecoder().decode(buffer);
     } else if (ext === 'doc') {
-      // .doc is binary, try to extract ASCII text
+      // .doc is binary, extract readable ASCII sequences
       const bytes = new Uint8Array(buffer);
       const chars = [];
+      let seq = '';
       for (let i = 0; i < bytes.length && chars.length < 5000; i++) {
-        if (bytes[i] >= 32 && bytes[i] <= 126) chars.push(String.fromCharCode(bytes[i]));
-        else if (chars.length > 0 && chars[chars.length - 1] !== ' ') chars.push(' ');
+        if (bytes[i] >= 32 && bytes[i] <= 126) {
+          seq += String.fromCharCode(bytes[i]);
+        } else {
+          if (seq.length > 3) chars.push(seq);
+          seq = '';
+        }
       }
-      text = chars.join('').replace(/\s+/g, ' ').trim();
+      if (seq.length > 3) chars.push(seq);
+      text = chars.join(' ').replace(/\s+/g, ' ').trim();
     }
 
     // Limit to 3000 chars
     if (text.length > 3000) text = text.substring(0, 3000);
 
-    return res(200, { path: data.path, text });
+    return res(200, { path: data.path, text, ext, textLength: text.length });
   } catch (err) {
     console.error('Dropbox file-text error:', err);
     return res(500, { message: 'Erro ao ler arquivo', error: err.message });

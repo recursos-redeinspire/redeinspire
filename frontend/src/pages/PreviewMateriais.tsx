@@ -160,13 +160,16 @@ export default function PreviewMateriais() {
       })
       if (docFile && p) {
         try {
-          const data = await getFileText(docFile.pathLower || docFile.path)
+          const filePath = docFile.pathLower || docFile.path
+          console.log('[PreviewMateriais] Reading doc for description:', filePath)
+          const data = await getFileText(filePath)
+          console.log('[PreviewMateriais] Got text, length:', data.text?.length)
           if (data.text && data.text.length > 20) {
             const summary = data.text.substring(0, 400).trim()
             setFolderDescription(summary + (data.text.length > 400 ? '...' : ''))
           }
         } catch (e) {
-          console.log('Could not read doc:', e)
+          console.log('[PreviewMateriais] Could not read doc:', e)
         }
       }
     } catch (e: any) { setError(e.message || 'Erro') }
