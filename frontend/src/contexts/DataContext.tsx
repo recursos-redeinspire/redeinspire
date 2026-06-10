@@ -99,7 +99,7 @@ interface DataContextType {
   saveVideoCategories: (videoId: string, categories: string[]) => Promise<any>
   getFolderVideos: (folder: string) => Promise<{ folder: string; videos: any[] }>
   saveFolderVideos: (folder: string, videos: any[]) => Promise<any>
-  getFileText: (path: string) => Promise<{ path: string; text: string }>
+  getFileText: (path: string, regenerate?: boolean) => Promise<{ path: string; text: string }>
   saveVideoThumbnail: (videoId: string, thumbnailUrl: string) => Promise<any>
   deleteVideoThumbnail: (videoId: string) => Promise<any>
   getAllVideoThumbnails: () => Promise<{ thumbnails: Record<string, string> }>
@@ -587,8 +587,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return apiFetch('/folder-videos', { method: 'POST', body: JSON.stringify({ folder, videos }) })
   }, [])
 
-  const getFileText = useCallback(async (path: string): Promise<{ path: string; text: string }> => {
-    return apiFetch('/dropbox/file-text', { method: 'POST', body: JSON.stringify({ path }) })
+  const getFileText = useCallback(async (path: string, regenerate?: boolean): Promise<{ path: string; text: string }> => {
+    return apiFetch('/dropbox/file-text', { method: 'POST', body: JSON.stringify({ path, regenerate }) })
   }, [])
 
   const saveVideoThumbnail = useCallback(async (videoId: string, thumbnailUrl: string): Promise<any> => {

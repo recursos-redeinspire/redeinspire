@@ -136,12 +136,14 @@ export default function PreviewMateriais() {
   const [newVideoUrl, setNewVideoUrl] = useState('')
   const [newVideoTitle, setNewVideoTitle] = useState('')
   const [folderDescription, setFolderDescription] = useState('')
+  const [docFilePath, setDocFilePath] = useState('')
+  const [regenerating, setRegenerating] = useState(false)
   const isAdmin = _user?.role === 'admin'
 
   const loadFolder = useCallback(async (p: string) => {
     setLoading(true); setError(''); setIsSearching(false); setSearchKeywords([])
     setSelectedFile(null); setPreviewUrl(''); setSelectedVideo(null); setFolderVideos([])
-    setFolderDescription('')
+    setFolderDescription(''); setDocFilePath('')
     try {
       const [result, vidsResult] = await Promise.all([
         browseDropbox(p),
@@ -161,12 +163,12 @@ export default function PreviewMateriais() {
       if (docFile && p) {
         try {
           const filePath = docFile.pathLower || docFile.path
+          setDocFilePath(filePath)
           console.log('[PreviewMateriais] Reading doc for description:', filePath)
           const data = await getFileText(filePath)
           console.log('[PreviewMateriais] Got text, length:', data.text?.length)
           if (data.text && data.text.length > 20) {
-            const summary = data.text.substring(0, 400).trim()
-            setFolderDescription(summary + (data.text.length > 400 ? '...' : ''))
+            setFolderDescription(data.text)
           }
         } catch (e) {
           console.log('[PreviewMateriais] Could not read doc:', e)
@@ -387,6 +389,20 @@ export default function PreviewMateriais() {
                   <p className="text-[12px] text-gray-700 leading-relaxed">
                     {folderDescription || generateFolderDescription(breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : '', files, files.filter(f => f.fileType === 'document'))}
                   </p>
+                  {isAdmin && docFilePath && (
+                    <button onClick={async () => {
+                      setRegenerating(true)
+                      try {
+                        const data = await getFileText(docFilePath, true)
+                        if (data.text && data.text.length > 20) setFolderDescription(data.text)
+                      } catch { /* ignore */ }
+                      finally { setRegenerating(false) }
+                    }}
+                      disabled={regenerating}
+                      className="mt-2 text-[10px] text-green-700 hover:text-green-900 font-medium flex items-center gap-1 opacity-70 hover:opacity-100 transition">
+                      {regenerating ? <Loader2 size={10} className="animate-spin" /> : '🔄'} {regenerating ? 'Gerando...' : 'Atualizar descrição'}
+                    </button>
+                  )}
                 </div>
               )}
               <h3 className="text-[14px] font-semibold text-gray-700 mb-3">Arquivos nesta pasta</h3>
@@ -524,6 +540,20 @@ export default function PreviewMateriais() {
               {displayDescription && (
                 <div className="bg-green-50 border border-green-100 rounded-xl p-4">
                   <p className="text-[12px] text-gray-700 leading-relaxed">{displayDescription}</p>
+                  {isAdmin && docFilePath && (
+                    <button onClick={async () => {
+                      setRegenerating(true)
+                      try {
+                        const data = await getFileText(docFilePath, true)
+                        if (data.text && data.text.length > 20) setFolderDescription(data.text)
+                      } catch { /* ignore */ }
+                      finally { setRegenerating(false) }
+                    }}
+                      disabled={regenerating}
+                      className="mt-2 text-[10px] text-green-700 hover:text-green-900 font-medium flex items-center gap-1 opacity-70 hover:opacity-100 transition">
+                      {regenerating ? <Loader2 size={10} className="animate-spin" /> : '🔄'} {regenerating ? 'Gerando...' : 'Atualizar descrição'}
+                    </button>
+                  )}
                 </div>
               )}
 

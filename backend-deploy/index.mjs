@@ -1711,26 +1711,48 @@ async function dropboxFileText(data, user) {
     // Use Bedrock AI to summarize the text into a brief description
     let summary = '';
     if (text.length > 30) {
+      // Check if we already have a cached summary for this folder
+      const folderPath = data.path.substring(0, data.path.lastIndexOf('/'));
+      const cacheKey = '__FOLDER_SUMMARIES__';
+      let cached = null;
       try {
-        const summaryPrompt = `<|begin_of_text|><|start_header_id|>system<|end_header_id|>
-Voce e um assistente que cria resumos breves de materiais para igrejas. Responda APENAS com o resumo, sem prefixos como "Resumo:" ou "Este documento...". Escreva em portugues do Brasil, em 2-3 frases curtas e objetivas que descrevam o conteudo principal do texto.<|eot_id|><|start_header_id|>user<|end_header_id|>
-Resuma o conteudo abaixo em 2-3 frases curtas para ajudar alguem a entender do que se trata esta mensagem/material:
+        const cacheData = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: cacheKey } }));
+        cached = cacheData.Item?.summaries?.[folderPath];
+      } catch { /* ignore */ }
+
+      if (cached && !data.regenerate) {
+        summary = cached;
+      } else {
+        try {
+          const summaryPrompt = `<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+Voce e um assistente que cria resumos breves de materiais para igrejas. Responda APENAS com o resumo, sem prefixos como "Resumo:" ou "Esta mensagem...". Escreva em portugues do Brasil, em 2-3 frases curtas e objetivas que descrevam o conteudo principal da mensagem.<|eot_id|><|start_header_id|>user<|end_header_id|>
+Resuma a mensagem abaixo em 2-3 frases curtas para ajudar alguem a entender do que se trata esta mensagem:
 
 ${text.substring(0, 2000)}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 `;
-        const cmd = new InvokeModelCommand({
-          modelId: 'us.meta.llama3-1-8b-instruct-v1:0',
-          contentType: 'application/json',
-          accept: 'application/json',
-          body: JSON.stringify({ prompt: summaryPrompt, max_gen_len: 200, temperature: 0.2 }),
-        });
-        const aiResp = await bedrock.send(cmd);
-        const aiResult = JSON.parse(new TextDecoder().decode(aiResp.body));
-        summary = (aiResult.generation || '').trim();
-      } catch (aiErr) {
-        console.error('Bedrock summary error:', aiErr.message);
-        // Fallback: use first 300 chars
-        summary = text.substring(0, 300) + (text.length > 300 ? '...' : '');
+          const cmd = new InvokeModelCommand({
+            modelId: 'us.meta.llama3-1-8b-instruct-v1:0',
+            contentType: 'application/json',
+            accept: 'application/json',
+            body: JSON.stringify({ prompt: summaryPrompt, max_gen_len: 200, temperature: 0.2 }),
+          });
+          const aiResp = await bedrock.send(cmd);
+          const aiResult = JSON.parse(new TextDecoder().decode(aiResp.body));
+          summary = (aiResult.generation || '').trim();
+
+          // Cache the summary
+          if (summary) {
+            try {
+              const cacheData = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: cacheKey } }));
+              const summaries = (cacheData.Item?.summaries) || {};
+              summaries[folderPath] = summary;
+              await ddb.send(new PutCommand({ TableName: T.VIDEO_TAGS, Item: { videoId: cacheKey, summaries, updatedAt: new Date().toISOString() } }));
+            } catch { /* ignore cache write error */ }
+          }
+        } catch (aiErr) {
+          console.error('Bedrock summary error:', aiErr.message);
+          summary = text.substring(0, 300) + (text.length > 300 ? '...' : '');
+        }
       }
     }
 
