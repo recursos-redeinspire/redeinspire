@@ -237,6 +237,9 @@ export async function handler(event) {
     if (path === '/dropbox/file-text' && method === 'POST') return await dropboxFileText(body(event), getUserFromToken(event));
     if (path === '/folder-thumbnails' && method === 'GET') return await folderThumbnailsGet(getUserFromToken(event));
     if (path === '/folder-thumbnails' && method === 'POST') return await folderThumbnailSave(body(event), getUserFromToken(event));
+    if (path === '/folder-tags' && method === 'GET') return await folderTagsGet(qs(event), getUserFromToken(event));
+    if (path === '/folder-tags' && method === 'POST') return await folderTagsSave(body(event), getUserFromToken(event));
+    if (path === '/folder-tags/all' && method === 'GET') return await folderTagsAll(getUserFromToken(event));
 
     // ---- Video Recommendations ----
     if (path === '/video-recs' && method === 'GET') return await videoRecsGet(qs(event), getUserFromToken(event));
@@ -2355,6 +2358,52 @@ async function folderThumbnailSave(data, user) {
   return res(200, { folder: data.folder, thumbnailUrl: data.thumbnailUrl || null });
 }
 
+// =============================================================================
+// FOLDER TAGS (admin tags for material folders - improves search)
+// =============================================================================
+const FOLDER_TAGS_KEY = '__FOLDER_TAGS__';
+
+async function folderTagsGet(query, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  const data = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_TAGS_KEY } }));
+  const tagMap = (data.Item && data.Item.tagMap) || {};
+  if (query.folder) {
+    return res(200, { folder: query.folder, tags: tagMap[query.folder] || [] });
+  }
+  return res(200, { tagMap });
+}
+
+async function folderTagsSave(data, user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem gerenciar tags de pastas.' });
+  if (!data.folder) return res(400, { message: 'folder obrigatorio.' });
+  const tags = (data.tags || []).map(t => t.trim().toLowerCase()).filter(Boolean);
+
+  const current = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_TAGS_KEY } }));
+  const tagMap = (current.Item && current.Item.tagMap) || {};
+
+  if (tags.length === 0) {
+    delete tagMap[data.folder];
+  } else {
+    tagMap[data.folder] = tags;
+  }
+
+  await ddb.send(new PutCommand({
+    TableName: T.VIDEO_TAGS,
+    Item: { videoId: FOLDER_TAGS_KEY, tagMap, updatedAt: new Date().toISOString(), updatedBy: user.id }
+  }));
+
+  return res(200, { folder: data.folder, tags });
+}
+
+async function folderTagsAll(user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  const data = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_TAGS_KEY } }));
+  const tagMap = (data.Item && data.Item.tagMap) || {};
+  const allTags = new Set();
+  Object.values(tagMap).forEach(tags => (tags || []).forEach(t => allTags.add(t)));
+  return res(200, { tagMap, allTags: [...allTags].sort() });
+}
+
 // ---- Custom Video Thumbnails ----
 async function videoThumbnailSave(data, user) {
   if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem alterar thumbnails.' });
@@ -2462,15 +2511,30 @@ async function dropboxTrackDownload(data, user) {
 async function dropboxTopDownloads(user) {
   if (!user) return res(401, { message: 'Nao autenticado' });
   const data = await ddb.send(new ScanCommand({ TableName: T.DOWNLOADS }));
-  const items = (data.Items || [])
-    .sort((a, b) => (b.downloads || 0) - (a.downloads || 0))
+
+  // Aggregate downloads by parent folder
+  const folderDownloads = {};
+  for (const item of (data.Items || [])) {
+    const parts = (item.filePath || '').split('/');
+    if (parts.length < 2) continue;
+    const folderPath = parts.slice(0, -1).join('/');
+    const folderName = parts[parts.length - 2] || folderPath;
+    if (!folderDownloads[folderPath]) {
+      folderDownloads[folderPath] = { folderPath, folderName, downloads: 0 };
+    }
+    folderDownloads[folderPath].downloads += (item.downloads || 0);
+  }
+
+  const items = Object.values(folderDownloads)
+    .sort((a, b) => b.downloads - a.downloads)
     .slice(0, 10)
     .map((item, i) => ({
       rank: i + 1,
-      filePath: item.filePath,
-      fileName: item.fileName || item.filePath.split('/').pop(),
-      downloads: item.downloads || 0,
+      folderPath: item.folderPath,
+      folderName: item.folderName,
+      downloads: item.downloads,
     }));
+
   return res(200, items);
 }
 

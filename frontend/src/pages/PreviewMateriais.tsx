@@ -108,7 +108,7 @@ function generateFolderDescription(folderTitle: string, allFiles: any[], docFile
 }
 
 export default function PreviewMateriais() {
-  const { browseDropbox, downloadDropbox, smartSearchDropbox, getTopDownloads, getFolderVideos, saveFolderVideos, getFileText, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl } = useData()
+  const { browseDropbox, downloadDropbox, smartSearchDropbox, getTopDownloads, getFolderVideos, saveFolderVideos, getFileText, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderTags, saveFolderTags } = useData()
   const { user: _user } = useAuth()
   const { t } = useI18n()
   const [searchParams] = useSearchParams()
@@ -141,12 +141,15 @@ export default function PreviewMateriais() {
   const [relatedFolders, setRelatedFolders] = useState<any[]>([])
   const [folderThumbs, setFolderThumbs] = useState<Record<string, string>>({})
   const [folderVideoThumbs, setFolderVideoThumbs] = useState<Record<string, string>>({})
+  const [folderTags, setFolderTags] = useState<string[]>([])
+  const [showTagEditor, setShowTagEditor] = useState(false)
+  const [tagInput, setTagInput] = useState('')
   const isAdmin = _user?.role === 'admin'
 
   const loadFolder = useCallback(async (p: string) => {
     setLoading(true); setError(''); setIsSearching(false); setSearchKeywords([])
     setSelectedFile(null); setPreviewUrl(''); setSelectedVideo(null); setFolderVideos([])
-    setFolderDescription(''); setDocFilePath(''); setRelatedFolders([])
+    setFolderDescription(''); setDocFilePath(''); setRelatedFolders([]); setFolderTags([])
     try {
       const [result, vidsResult] = await Promise.all([
         browseDropbox(p),
@@ -180,6 +183,9 @@ export default function PreviewMateriais() {
 
       // Fetch sibling folders for "Related Content"
       if (p) {
+        // Load folder tags
+        getFolderTags(p).then(d => setFolderTags(d.tags || [])).catch(() => {})
+
         const parentPath = p.substring(0, p.lastIndexOf('/')) || ''
         browseDropbox(parentPath).then(async parentResult => {
           const siblings = (parentResult.entries || [])
@@ -311,28 +317,37 @@ export default function PreviewMateriais() {
         </div>
       )}
 
-      {/* ═══ TOP DOWNLOADS (root only) ═══ */}
+      {/* ═══ TOP DOWNLOADS (root only) — Now shows FOLDERS ═══ */}
       {isRoot && !isSearching && topDownloads.length > 0 && (
         <section className="mb-8">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp size={18} className="text-green-600" />
             <h2 className="text-[16px] font-bold text-gray-900">Mais baixados</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {topDownloads.slice(0, 5).map(item => {
-              const parts = (item.filePath || '').split('/')
-              const fileName = parts[parts.length - 1] || ''
-              const folderPath = parts.slice(0, -1).join('/')
+              const theme = getFolderTheme(item.folderName || '')
+              const ThemeIcon = theme.icon
+              const thumbUrl = folderThumbs[item.folderPath]
               return (
-                <button key={item.filePath} onClick={() => loadFolder(folderPath)}
-                  className="bg-white border border-gray-100 rounded-xl p-4 hover:shadow-md hover:border-green-200 transition text-left group">
-                  <div className="flex items-center gap-3">
-                    <span className="text-[14px] font-bold text-green-600 shrink-0">#{item.rank}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[12px] font-medium text-gray-800 truncate">{fileName}</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5 truncate">{folderPath}</p>
+                <button key={item.folderPath} onClick={() => loadFolder(item.folderPath)}
+                  className="text-left group">
+                  <div className={`relative rounded-xl overflow-hidden aspect-video ${!thumbUrl ? `bg-gradient-to-br ${theme.gradient}` : 'bg-gray-900'}`}>
+                    {thumbUrl ? (
+                      <img src={thumbUrl} alt={item.folderName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <ThemeIcon size={32} className="text-white/70" />
+                      </div>
+                    )}
+                    <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+                      #{item.rank}
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2.5">
+                      <p className="text-white font-medium text-[11px] line-clamp-2 leading-snug">{item.folderName}</p>
                     </div>
                   </div>
+                  <p className="text-[10px] text-gray-400 mt-1.5">{item.downloads} downloads</p>
                 </button>
               )
             })}
@@ -482,6 +497,48 @@ export default function PreviewMateriais() {
         <div>
           {/* Folder title */}
           <h2 className="text-xl font-bold text-gray-900 mb-1">{folderTitle}</h2>
+          {/* Folder tags */}
+          <div className="flex items-center gap-2 flex-wrap mb-4">
+            {folderTags.map(tag => (
+              <span key={tag} className="bg-gray-100 text-gray-600 text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1">
+                {tag}
+                {isAdmin && (
+                  <button onClick={async () => {
+                    const updated = folderTags.filter(t => t !== tag)
+                    setFolderTags(updated)
+                    await saveFolderTags(path, updated)
+                  }} className="text-gray-400 hover:text-red-500"><X size={10} /></button>
+                )}
+              </span>
+            ))}
+            {isAdmin && (
+              showTagEditor ? (
+                <div className="flex items-center gap-1">
+                  <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)}
+                    onKeyDown={async e => {
+                      if (e.key === 'Enter' && tagInput.trim()) {
+                        const newTag = tagInput.trim().toLowerCase()
+                        if (!folderTags.includes(newTag)) {
+                          const updated = [...folderTags, newTag]
+                          setFolderTags(updated)
+                          await saveFolderTags(path, updated)
+                        }
+                        setTagInput('')
+                      }
+                      if (e.key === 'Escape') setShowTagEditor(false)
+                    }}
+                    placeholder="Nova tag..."
+                    className="border rounded-full px-3 py-1 text-[11px] w-28 outline-none focus:ring-1 focus:ring-green-300" autoFocus />
+                  <button onClick={() => setShowTagEditor(false)} className="text-gray-400 hover:text-gray-600"><X size={12} /></button>
+                </div>
+              ) : (
+                <button onClick={() => setShowTagEditor(true)}
+                  className="text-[11px] text-gray-400 hover:text-gray-700 border border-dashed border-gray-300 rounded-full px-2.5 py-1 flex items-center gap-1 hover:border-gray-400 transition">
+                  + Tag
+                </button>
+              )
+            )}
+          </div>
 
           <div className="flex flex-col lg:flex-row gap-4 mt-4">
             {/* Left: Preview area */}
