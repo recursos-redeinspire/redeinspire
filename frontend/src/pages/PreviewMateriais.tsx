@@ -61,6 +61,52 @@ function FileIcon({ fileType, size = 22 }: { fileType: string; size?: number }) 
   return <Icon size={size} className={c.color} />
 }
 
+// Generate a brief description based on folder name and file contents
+function generateFolderDescription(folderTitle: string, allFiles: any[], docFiles: any[]): string {
+  const fileTypes = new Set(allFiles.map(f => f.fileType))
+  const extensions = new Set(allFiles.map(f => f.ext?.toLowerCase()).filter(Boolean))
+
+  const parts: string[] = []
+
+  // Describe content type based on what's in the folder
+  const typeDescriptions: string[] = []
+  if (fileTypes.has('presentation') || extensions.has('pptx') || extensions.has('ppt')) typeDescriptions.push('apresentações')
+  if (fileTypes.has('pdf') || extensions.has('pdf')) typeDescriptions.push('PDFs')
+  if (fileTypes.has('document') || extensions.has('docx') || extensions.has('doc')) typeDescriptions.push('documentos')
+  if (fileTypes.has('video') || extensions.has('mp4')) typeDescriptions.push('vídeos')
+  if (fileTypes.has('audio') || extensions.has('mp3')) typeDescriptions.push('áudios')
+  if (fileTypes.has('image') || extensions.has('jpg') || extensions.has('png')) typeDescriptions.push('imagens')
+
+  if (typeDescriptions.length > 0) {
+    parts.push(`Esta pasta contém ${typeDescriptions.join(', ')}`)
+  }
+
+  // Context based on folder name keywords
+  const titleLower = folderTitle.toLowerCase()
+  if (titleLower.includes('mensagen') || titleLower.includes('sermon') || titleLower.includes('pregaç')) {
+    parts.push('Material de apoio para mensagens e pregações. Use as apresentações e roteiros para enriquecer seu culto.')
+  } else if (titleLower.includes('lideranç') || titleLower.includes('líder') || titleLower.includes('treinament')) {
+    parts.push('Recursos de capacitação para líderes. Ideal para reuniões de equipe e desenvolvimento ministerial.')
+  } else if (titleLower.includes('crianç') || titleLower.includes('kids') || titleLower.includes('infantil')) {
+    parts.push('Materiais voltados para o ministério infantil. Histórias, atividades e recursos visuais.')
+  } else if (titleLower.includes('jovens') || titleLower.includes('adolescent')) {
+    parts.push('Conteúdo dinâmico para o ministério de jovens e adolescentes.')
+  } else if (titleLower.includes('worship') || titleLower.includes('louvor') || titleLower.includes('música')) {
+    parts.push('Recursos para o ministério de louvor e adoração.')
+  } else if (titleLower.includes('gestão') || titleLower.includes('operacion') || titleLower.includes('financ')) {
+    parts.push('Ferramentas e templates para a gestão e operação da igreja.')
+  } else if (docFiles.length > 0) {
+    parts.push('Explore os materiais disponíveis para uso no seu ministério.')
+  }
+
+  // Add file count info
+  if (allFiles.length > 0) {
+    parts.push(`${allFiles.length} arquivo${allFiles.length > 1 ? 's' : ''} disponíve${allFiles.length > 1 ? 'is' : 'l'} para download.`)
+  }
+
+  return parts.join(' ')
+}
+
 export default function PreviewMateriais() {
   const { browseDropbox, downloadDropbox, smartSearchDropbox, getTopDownloads, getFolderVideos, saveFolderVideos } = useData()
   const { user: _user } = useAuth()
@@ -340,161 +386,185 @@ export default function PreviewMateriais() {
       )}
 
       {/* ═══ FILES ONLY VIEW — Split: Preview left + list right ═══ */}
-      {!loading && folders.length === 0 && files.length > 0 && (
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* Left: Preview area */}
-          <div className="flex-1 min-w-0">
-            <div className="bg-white border border-gray-100 rounded-xl overflow-hidden min-h-[400px] lg:min-h-[500px] flex items-center justify-center">
-              {/* Video playing */}
-              {selectedVideo && (
-                <div className="w-full h-full flex flex-col">
-                  <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Video size={18} className="text-purple-600 shrink-0" />
-                      <span className="font-medium text-sm text-gray-900 truncate">{selectedVideo.title}</span>
-                    </div>
-                  </div>
-                  <div className="flex-1 flex items-center justify-center bg-black">
-                    <iframe
-                      src={`https://www.youtube.com/embed/${selectedVideo.id}?autoplay=0&rel=0`}
-                      className="w-full aspect-video max-h-[450px]"
-                      title={selectedVideo.title}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  </div>
-                </div>
-              )}
-              {/* File preview (when no video selected) */}
-              {!selectedVideo && !selectedFile && (
-                <div className="text-center text-gray-400 p-8">
-                  <File size={48} className="mx-auto mb-3 text-gray-300" />
-                  <p className="text-sm">Selecione um arquivo para visualizar</p>
-                </div>
-              )}
-              {!selectedVideo && selectedFile && previewLoading && (
-                <Loader2 size={32} className="animate-spin text-green-500" />
-              )}
-              {!selectedVideo && selectedFile && !previewLoading && !previewUrl && (
-                <div className="text-center text-gray-400 p-8">
-                  <FileIcon fileType={selectedFile.fileType} size={48} />
-                  <p className="text-sm mt-3">Preview não disponível</p>
-                  <button onClick={() => handleDownload(selectedFile)}
-                    className="mt-4 bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-green-700 inline-flex items-center gap-2">
-                    <Download size={16} /> Baixar arquivo
-                  </button>
-                </div>
-              )}
-              {!selectedVideo && selectedFile && !previewLoading && previewUrl && (
-                <div className="w-full h-full flex flex-col">
-                  <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <FileIcon fileType={selectedFile.fileType} size={18} />
-                      <span className="font-medium text-sm text-gray-900 truncate">{selectedFile.name}</span>
-                      <span className="text-xs text-gray-400">{formatSize(selectedFile.size)}</span>
-                    </div>
-                    <a href={previewUrl} download target="_blank" rel="noopener noreferrer"
-                      className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-700 flex items-center gap-1.5 flex-shrink-0">
-                      <Download size={14} /> Baixar
-                    </a>
-                  </div>
-                  <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
-                    {selectedFile.fileType === 'image' ? (
-                      <img src={previewUrl} alt={selectedFile.name} className="max-w-full max-h-[450px] object-contain rounded-lg shadow" />
-                    ) : selectedFile.fileType === 'video' ? (
-                      <video src={previewUrl} controls className="max-w-full max-h-[450px] rounded-lg shadow" />
-                    ) : selectedFile.fileType === 'audio' ? (
-                      <div className="flex flex-col items-center gap-4 w-full max-w-md">
-                        <div className="w-20 h-20 rounded-2xl bg-blue-50 flex items-center justify-center">
-                          <Headphones size={36} className="text-blue-400" />
-                        </div>
-                        <p className="font-medium text-gray-700 text-center">{selectedFile.name}</p>
-                        <audio src={previewUrl} controls className="w-full" />
-                      </div>
-                    ) : selectedFile.fileType === 'pdf' ? (
-                      <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(previewUrl)}&embedded=true`} className="w-full h-[450px] rounded-lg border" title={selectedFile.name} />
-                    ) : (selectedFile.ext === 'ppt' || selectedFile.ext === 'pptx' || selectedFile.ext === 'doc' || selectedFile.ext === 'docx') ? (
-                      <iframe src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`} className="w-full h-[450px] rounded-lg border" title={selectedFile.name} />
-                    ) : (
-                      <div className="text-center text-gray-500">
-                        <FileIcon fileType={selectedFile.fileType} size={48} />
-                        <p className="font-medium mt-3">{selectedFile.name}</p>
-                        <p className="text-sm text-gray-400 mt-1">Clique em "Baixar" para abrir este arquivo</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+      {!loading && folders.length === 0 && files.length > 0 && (() => {
+        // Folder title from last breadcrumb
+        const folderTitle = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : 'Materiais'
+        // Generate description from doc files in the folder
+        const docFiles = files.filter(f => f.fileType === 'document' || f.fileType === 'pdf' || f.ext === 'doc' || f.ext === 'docx' || f.ext === 'txt')
+        const folderDescription = generateFolderDescription(folderTitle, files, docFiles)
 
-          {/* Right: Videos + File list */}
-          <div className="lg:w-72 xl:w-80 flex-shrink-0">
-            <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
-                <p className="text-sm font-semibold text-gray-700">
-                  {folderVideos.length > 0 ? `${folderVideos.length} vídeos · ` : ''}{files.length} {t('materials.files')}
-                </p>
-                {isAdmin && (
-                  <button onClick={() => setShowAddVideo(true)} className="text-xs text-green-600 hover:text-green-800 font-medium">+ Vídeo</button>
+        return (
+        <div>
+          {/* Folder title */}
+          <h2 className="text-xl font-bold text-gray-900 mb-1">{folderTitle}</h2>
+
+          <div className="flex flex-col lg:flex-row gap-4 mt-4">
+            {/* Left: Preview area */}
+            <div className="flex-1 min-w-0">
+              <div className="bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col">
+                {/* Video playing — full 16:9 without cropping */}
+                {selectedVideo && (
+                  <div className="w-full">
+                    <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                      <iframe
+                        src={`https://www.youtube.com/embed/${selectedVideo.id}?autoplay=0&rel=0`}
+                        className="absolute inset-0 w-full h-full rounded-t-xl"
+                        title={selectedVideo.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                    <div className="px-4 py-3 border-t bg-gray-50">
+                      <p className="font-medium text-sm text-gray-900">{selectedVideo.title}</p>
+                    </div>
+                  </div>
                 )}
-              </div>
-              <div className="max-h-[500px] overflow-y-auto divide-y divide-gray-50">
-                {/* Folder videos */}
-                {folderVideos.map((vid, idx) => {
-                  const isActive = selectedVideo?.id === vid.id
-                  return (
-                    <div key={vid.id} className="relative group">
-                      <button onClick={() => { setSelectedVideo(vid); setSelectedFile(null); setPreviewUrl('') }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${isActive ? 'bg-purple-50 border-l-2 border-l-purple-500' : 'hover:bg-gray-50 border-l-2 border-l-transparent'}`}>
-                        <div className="flex-shrink-0 w-10 h-7 rounded bg-gray-900 overflow-hidden relative">
-                          <img src={vid.thumbnail || `https://img.youtube.com/vi/${vid.id}/default.jpg`} alt="" className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Play size={10} className="text-white" fill="white" />
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-medium truncate ${isActive ? 'text-purple-900' : 'text-gray-900'}`}>{vid.title}</p>
-                          <p className="text-[10px] text-gray-400">Vídeo</p>
-                        </div>
+                {/* File preview (when no video selected) */}
+                {!selectedVideo && !selectedFile && (
+                  <div className="flex items-center justify-center min-h-[400px] text-center text-gray-400 p-8">
+                    <div>
+                      <File size={48} className="mx-auto mb-3 text-gray-300" />
+                      <p className="text-sm">Selecione um arquivo para visualizar</p>
+                    </div>
+                  </div>
+                )}
+                {!selectedVideo && selectedFile && previewLoading && (
+                  <div className="flex items-center justify-center min-h-[400px]">
+                    <Loader2 size={32} className="animate-spin text-green-500" />
+                  </div>
+                )}
+                {!selectedVideo && selectedFile && !previewLoading && !previewUrl && (
+                  <div className="flex items-center justify-center min-h-[400px] text-center text-gray-400 p-8">
+                    <div>
+                      <FileIcon fileType={selectedFile.fileType} size={48} />
+                      <p className="text-sm mt-3">Preview não disponível</p>
+                      <button onClick={() => handleDownload(selectedFile)}
+                        className="mt-4 bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-green-700 inline-flex items-center gap-2">
+                        <Download size={16} /> Baixar arquivo
                       </button>
-                      {isAdmin && (
-                        <button onClick={() => {
-                          const updated = folderVideos.filter((_, i) => i !== idx)
-                          setFolderVideos(updated)
-                          saveFolderVideos(path, updated)
-                          if (selectedVideo?.id === vid.id) setSelectedVideo(updated[0] || null)
-                        }}
-                          className="absolute top-2 right-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition">
-                          <X size={12} />
-                        </button>
+                    </div>
+                  </div>
+                )}
+                {!selectedVideo && selectedFile && !previewLoading && previewUrl && (
+                  <div className="w-full flex flex-col">
+                    <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileIcon fileType={selectedFile.fileType} size={18} />
+                        <span className="font-medium text-sm text-gray-900 truncate">{selectedFile.name}</span>
+                        <span className="text-xs text-gray-400">{formatSize(selectedFile.size)}</span>
+                      </div>
+                      <a href={previewUrl} download target="_blank" rel="noopener noreferrer"
+                        className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-700 flex items-center gap-1.5 flex-shrink-0">
+                        <Download size={14} /> Baixar
+                      </a>
+                    </div>
+                    <div className="flex items-center justify-center p-4 overflow-auto min-h-[350px]">
+                      {selectedFile.fileType === 'image' ? (
+                        <img src={previewUrl} alt={selectedFile.name} className="max-w-full max-h-[450px] object-contain rounded-lg shadow" />
+                      ) : selectedFile.fileType === 'video' ? (
+                        <video src={previewUrl} controls className="max-w-full max-h-[450px] rounded-lg shadow" />
+                      ) : selectedFile.fileType === 'audio' ? (
+                        <div className="flex flex-col items-center gap-4 w-full max-w-md">
+                          <div className="w-20 h-20 rounded-2xl bg-blue-50 flex items-center justify-center">
+                            <Headphones size={36} className="text-blue-400" />
+                          </div>
+                          <p className="font-medium text-gray-700 text-center">{selectedFile.name}</p>
+                          <audio src={previewUrl} controls className="w-full" />
+                        </div>
+                      ) : selectedFile.fileType === 'pdf' ? (
+                        <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(previewUrl)}&embedded=true`} className="w-full h-[450px] rounded-lg border" title={selectedFile.name} />
+                      ) : (selectedFile.ext === 'ppt' || selectedFile.ext === 'pptx' || selectedFile.ext === 'doc' || selectedFile.ext === 'docx') ? (
+                        <iframe src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`} className="w-full h-[450px] rounded-lg border" title={selectedFile.name} />
+                      ) : (
+                        <div className="text-center text-gray-500">
+                          <FileIcon fileType={selectedFile.fileType} size={48} />
+                          <p className="font-medium mt-3">{selectedFile.name}</p>
+                          <p className="text-sm text-gray-400 mt-1">Clique em "Baixar" para abrir</p>
+                        </div>
                       )}
                     </div>
-                  )
-                })}
-                {/* Files */}
-                {files.map(file => {
-                  const isActive = selectedFile?.id === file.id && !selectedVideo
-                  return (
-                    <button key={file.id} onClick={() => { setSelectedVideo(null); handlePreview(file) }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${isActive ? 'bg-green-50 border-l-2 border-l-green-500' : 'hover:bg-gray-50 border-l-2 border-l-transparent'}`}>
-                      <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${(FILE_ICONS[file.fileType] || FILE_ICONS.other).bg}`}>
-                        <FileIcon fileType={file.fileType} size={16} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right: Description + Videos + File list */}
+            <div className="lg:w-80 xl:w-96 flex-shrink-0 space-y-4">
+              {/* Folder description */}
+              {folderDescription && (
+                <div className="bg-green-50 border border-green-100 rounded-xl p-4">
+                  <p className="text-[12px] text-gray-700 leading-relaxed">{folderDescription}</p>
+                </div>
+              )}
+
+              {/* List */}
+              <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-700">
+                    {folderVideos.length > 0 ? `${folderVideos.length} vídeos · ` : ''}{files.length} {t('materials.files')}
+                  </p>
+                  {isAdmin && (
+                    <button onClick={() => setShowAddVideo(true)} className="text-xs text-green-600 hover:text-green-800 font-medium">+ Vídeo</button>
+                  )}
+                </div>
+                <div className="max-h-[420px] overflow-y-auto divide-y divide-gray-50">
+                  {/* Folder videos */}
+                  {folderVideos.map((vid, idx) => {
+                    const isActive = selectedVideo?.id === vid.id
+                    return (
+                      <div key={vid.id} className="relative group">
+                        <button onClick={() => { setSelectedVideo(vid); setSelectedFile(null); setPreviewUrl('') }}
+                          className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${isActive ? 'bg-purple-50 border-l-2 border-l-purple-500' : 'hover:bg-gray-50 border-l-2 border-l-transparent'}`}>
+                          <div className="flex-shrink-0 w-10 h-7 rounded bg-gray-900 overflow-hidden relative">
+                            <img src={vid.thumbnail || `https://img.youtube.com/vi/${vid.id}/default.jpg`} alt="" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Play size={10} className="text-white" fill="white" />
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-medium truncate ${isActive ? 'text-purple-900' : 'text-gray-900'}`}>{vid.title}</p>
+                            <p className="text-[10px] text-gray-400">Vídeo</p>
+                          </div>
+                        </button>
+                        {isAdmin && (
+                          <button onClick={() => {
+                            const updated = folderVideos.filter((_, i) => i !== idx)
+                            setFolderVideos(updated)
+                            saveFolderVideos(path, updated)
+                            if (selectedVideo?.id === vid.id) setSelectedVideo(updated[0] || null)
+                          }}
+                            className="absolute top-2 right-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition">
+                            <X size={12} />
+                          </button>
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-medium truncate ${isActive ? 'text-green-900' : 'text-gray-900'}`}>{file.name.replace(/\.[^/.]+$/, '')}</p>
-                        <p className="text-[10px] text-gray-400">
-                          <span className="uppercase font-medium">{file.ext}</span> · {formatSize(file.size)}
-                        </p>
-                      </div>
-                    </button>
-                  )
-                })}
+                    )
+                  })}
+                  {/* Files */}
+                  {files.map(file => {
+                    const isActive = selectedFile?.id === file.id && !selectedVideo
+                    return (
+                      <button key={file.id} onClick={() => { setSelectedVideo(null); handlePreview(file) }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${isActive ? 'bg-green-50 border-l-2 border-l-green-500' : 'hover:bg-gray-50 border-l-2 border-l-transparent'}`}>
+                        <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${(FILE_ICONS[file.fileType] || FILE_ICONS.other).bg}`}>
+                          <FileIcon fileType={file.fileType} size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-medium truncate ${isActive ? 'text-green-900' : 'text-gray-900'}`}>{file.name.replace(/\.[^/.]+$/, '')}</p>
+                          <p className="text-[10px] text-gray-400">
+                            <span className="uppercase font-medium">{file.ext}</span> · {formatSize(file.size)}
+                          </p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* ═══ ADD VIDEO MODAL (admin) ═══ */}
       {showAddVideo && isAdmin && (
