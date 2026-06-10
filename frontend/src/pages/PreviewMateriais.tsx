@@ -156,16 +156,18 @@ export default function PreviewMateriais() {
       const fileEntries = (result.entries || []).filter((e: any) => e.tag === 'file')
       const docFile = fileEntries.find((f: any) => {
         const ext = (f.ext || f.name?.split('.').pop() || '').toLowerCase()
-        return ext === 'docx' || ext === 'doc' || ext === 'txt'
+        return ext === 'docx' || ext === 'doc'
       })
       if (docFile && p) {
-        getFileText(docFile.pathLower).then(data => {
+        try {
+          const data = await getFileText(docFile.pathLower || docFile.path)
           if (data.text && data.text.length > 20) {
-            // Use first 300 chars as summary
-            const summary = data.text.substring(0, 300).trim()
-            setFolderDescription(summary + (data.text.length > 300 ? '...' : ''))
+            const summary = data.text.substring(0, 400).trim()
+            setFolderDescription(summary + (data.text.length > 400 ? '...' : ''))
           }
-        }).catch(() => {})
+        } catch (e) {
+          console.log('Could not read doc:', e)
+        }
       }
     } catch (e: any) { setError(e.message || 'Erro') }
     finally { setLoading(false) }
@@ -376,6 +378,14 @@ export default function PreviewMateriais() {
           {files.length > 0 && (
             <>
               <div className="border-t my-6" />
+              {/* Description from doc */}
+              {(folderDescription || (!isRoot && files.length > 0)) && (
+                <div className="bg-green-50 border border-green-100 rounded-xl p-4 mb-4">
+                  <p className="text-[12px] text-gray-700 leading-relaxed">
+                    {folderDescription || generateFolderDescription(breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : '', files, files.filter(f => f.fileType === 'document'))}
+                  </p>
+                </div>
+              )}
               <h3 className="text-[14px] font-semibold text-gray-700 mb-3">Arquivos nesta pasta</h3>
               <div className="space-y-2">
                 {files.map(file => (
