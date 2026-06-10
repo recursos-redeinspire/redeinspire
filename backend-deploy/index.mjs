@@ -1707,7 +1707,34 @@ async function dropboxFileText(data, user) {
     }
 
     if (text.length > 3000) text = text.substring(0, 3000);
-    return res(200, { path: data.path, text, ext, textLength: text.length });
+
+    // Use Bedrock AI to summarize the text into a brief description
+    let summary = '';
+    if (text.length > 30) {
+      try {
+        const summaryPrompt = `<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+Voce e um assistente que cria resumos breves de materiais para igrejas. Responda APENAS com o resumo, sem prefixos como "Resumo:" ou "Este documento...". Escreva em portugues do Brasil, em 2-3 frases curtas e objetivas que descrevam o conteudo principal do texto.<|eot_id|><|start_header_id|>user<|end_header_id|>
+Resuma o conteudo abaixo em 2-3 frases curtas para ajudar alguem a entender do que se trata esta mensagem/material:
+
+${text.substring(0, 2000)}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+`;
+        const cmd = new InvokeModelCommand({
+          modelId: 'us.meta.llama3-1-8b-instruct-v1:0',
+          contentType: 'application/json',
+          accept: 'application/json',
+          body: JSON.stringify({ prompt: summaryPrompt, max_gen_len: 200, temperature: 0.2 }),
+        });
+        const aiResp = await bedrock.send(cmd);
+        const aiResult = JSON.parse(new TextDecoder().decode(aiResp.body));
+        summary = (aiResult.generation || '').trim();
+      } catch (aiErr) {
+        console.error('Bedrock summary error:', aiErr.message);
+        // Fallback: use first 300 chars
+        summary = text.substring(0, 300) + (text.length > 300 ? '...' : '');
+      }
+    }
+
+    return res(200, { path: data.path, text: summary || text.substring(0, 300), ext, textLength: text.length });
   } catch (err) {
     console.error('Dropbox file-text error:', err);
     return res(500, { message: 'Erro ao ler arquivo', error: err.message });
