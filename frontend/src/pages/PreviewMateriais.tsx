@@ -108,7 +108,7 @@ function generateFolderDescription(folderTitle: string, allFiles: any[], docFile
 }
 
 export default function PreviewMateriais() {
-  const { browseDropbox, downloadDropbox, smartSearchDropbox, getTopDownloads, getFolderVideos, saveFolderVideos, getFileText } = useData()
+  const { browseDropbox, downloadDropbox, smartSearchDropbox, getTopDownloads, getFolderVideos, saveFolderVideos, getFileText, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl } = useData()
   const { user: _user } = useAuth()
   const { t } = useI18n()
   const [searchParams] = useSearchParams()
@@ -139,6 +139,8 @@ export default function PreviewMateriais() {
   const [docFilePath, setDocFilePath] = useState('')
   const [regenerating, setRegenerating] = useState(false)
   const [relatedFolders, setRelatedFolders] = useState<any[]>([])
+  const [folderThumbs, setFolderThumbs] = useState<Record<string, string>>({})
+  const [folderVideoThumbs, setFolderVideoThumbs] = useState<Record<string, string>>({})
   const isAdmin = _user?.role === 'admin'
 
   const loadFolder = useCallback(async (p: string) => {
@@ -179,11 +181,34 @@ export default function PreviewMateriais() {
       // Fetch sibling folders for "Related Content"
       if (p) {
         const parentPath = p.substring(0, p.lastIndexOf('/')) || ''
-        browseDropbox(parentPath).then(parentResult => {
+        browseDropbox(parentPath).then(async parentResult => {
           const siblings = (parentResult.entries || [])
             .filter((e: any) => e.tag === 'folder' && e.path !== p && e.pathLower !== p.toLowerCase())
             .slice(0, 5)
           setRelatedFolders(siblings)
+
+          // For each sibling, try to get a thumbnail from its linked videos or images
+          const thumbMap: Record<string, string> = {}
+          for (const sib of siblings) {
+            // Check if there's a linked video for this folder
+            try {
+              const vids = await getFolderVideos(sib.path).catch(() => ({ videos: [] }))
+              if (vids.videos && vids.videos.length > 0) {
+                thumbMap[sib.path] = vids.videos[0].thumbnail || `https://img.youtube.com/vi/${vids.videos[0].id}/mqdefault.jpg`
+                continue
+              }
+            } catch { /* ignore */ }
+            // Otherwise browse for an image
+            try {
+              const contents = await browseDropbox(sib.path)
+              const img = (contents.entries || []).find((e: any) => e.tag === 'file' && e.fileType === 'image')
+              if (img) {
+                const dl = await downloadDropbox(img.pathLower, 'view')
+                if (dl.url) thumbMap[sib.path] = dl.url
+              }
+            } catch { /* ignore */ }
+          }
+          setFolderVideoThumbs(thumbMap)
         }).catch(() => {})
       }
     } catch (e: any) { setError(e.message || 'Erro') }
@@ -192,6 +217,7 @@ export default function PreviewMateriais() {
 
   useEffect(() => { loadFolder(initialPath) }, [loadFolder, initialPath])
   useEffect(() => { getTopDownloads().then(setTopDownloads).catch(() => {}) }, [getTopDownloads])
+  useEffect(() => { getFolderThumbnails().then(d => setFolderThumbs(d.thumbnails || {})).catch(() => {}) }, [getFolderThumbnails])
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) { loadFolder(path); return }
@@ -459,8 +485,8 @@ export default function PreviewMateriais() {
 
           <div className="flex flex-col lg:flex-row gap-4 mt-4">
             {/* Left: Preview area */}
-            <div className="flex-1 min-w-0">
-              <div className="bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col">
+            <div className="flex-1 min-w-0 flex flex-col">
+              <div className="bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col flex-1">
                 {/* Video playing — full 16:9 without cropping */}
                 {selectedVideo && (
                   <div className="w-full">
@@ -480,7 +506,7 @@ export default function PreviewMateriais() {
                 )}
                 {/* File preview (when no video selected) */}
                 {!selectedVideo && !selectedFile && (
-                  <div className="flex items-center justify-center min-h-[400px] text-center text-gray-400 p-8">
+                  <div className="flex items-center justify-center flex-1 text-center text-gray-400 p-8">
                     <div>
                       <File size={48} className="mx-auto mb-3 text-gray-300" />
                       <p className="text-sm">Selecione um arquivo para visualizar</p>
@@ -488,12 +514,12 @@ export default function PreviewMateriais() {
                   </div>
                 )}
                 {!selectedVideo && selectedFile && previewLoading && (
-                  <div className="flex items-center justify-center min-h-[400px]">
+                  <div className="flex items-center justify-center flex-1">
                     <Loader2 size={32} className="animate-spin text-green-500" />
                   </div>
                 )}
                 {!selectedVideo && selectedFile && !previewLoading && !previewUrl && (
-                  <div className="flex items-center justify-center min-h-[400px] text-center text-gray-400 p-8">
+                  <div className="flex items-center justify-center flex-1 text-center text-gray-400 p-8">
                     <div>
                       <FileIcon fileType={selectedFile.fileType} size={48} />
                       <p className="text-sm mt-3">Preview não disponível</p>
@@ -517,7 +543,7 @@ export default function PreviewMateriais() {
                         <Download size={14} /> Baixar
                       </a>
                     </div>
-                    <div className="flex items-center justify-center p-4 overflow-auto min-h-[350px]">
+                    <div className="flex items-center justify-center p-4 overflow-auto flex-1">
                       {selectedFile.fileType === 'image' ? (
                         <img src={previewUrl} alt={selectedFile.name} className="max-w-full max-h-[450px] object-contain rounded-lg shadow" />
                       ) : selectedFile.fileType === 'video' ? (
@@ -645,22 +671,49 @@ export default function PreviewMateriais() {
                 {relatedFolders.map(folder => {
                   const theme = getFolderTheme(folder.name)
                   const ThemeIcon = theme.icon
+                  // Priority: admin custom thumb > auto-detected thumb > gradient fallback
+                  const customThumb = folderThumbs[folder.path]
+                  const autoThumb = folderVideoThumbs[folder.path]
+                  const thumbUrl = customThumb || autoThumb
                   return (
-                    <button key={folder.id} onClick={() => loadFolder(folder.path)}
-                      className="text-left group">
-                      <div className={`relative rounded-xl overflow-hidden aspect-video bg-gradient-to-br ${theme.gradient}`}>
-                        <div className="absolute inset-0 opacity-20">
-                          <div className="absolute top-3 right-4 w-16 h-16 rounded-full bg-white/30 blur-xl" />
+                    <div key={folder.id} className="group relative">
+                      <button onClick={() => loadFolder(folder.path)} className="text-left w-full">
+                        <div className={`relative rounded-xl overflow-hidden aspect-video ${!thumbUrl ? `bg-gradient-to-br ${theme.gradient}` : 'bg-gray-900'}`}>
+                          {thumbUrl ? (
+                            <img src={thumbUrl} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                          ) : (
+                            <>
+                              <div className="absolute inset-0 opacity-20">
+                                <div className="absolute top-3 right-4 w-16 h-16 rounded-full bg-white/30 blur-xl" />
+                              </div>
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <ThemeIcon size={40} className="text-white/80 group-hover:scale-110 transition-transform" />
+                              </div>
+                            </>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                            <p className="text-white font-semibold text-[12px] line-clamp-2 leading-snug">{folder.name}</p>
+                          </div>
                         </div>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <ThemeIcon size={40} className="text-white/80 group-hover:scale-110 transition-transform" />
-                        </div>
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/40 to-transparent p-3">
-                          <p className="text-white font-semibold text-[13px] line-clamp-2 leading-snug">{folder.name}</p>
-                        </div>
-                      </div>
-                      <p className="text-[11px] text-gray-500 mt-2 group-hover:text-green-600 transition">Ver materiais →</p>
-                    </button>
+                        <p className="text-[11px] text-gray-500 mt-2 group-hover:text-green-600 transition">Ver materiais →</p>
+                      </button>
+                      {/* Admin: change thumbnail */}
+                      {isAdmin && (
+                        <label className="absolute top-2 right-2 bg-black/60 text-white text-[9px] px-2 py-1 rounded-lg cursor-pointer opacity-0 group-hover:opacity-100 transition hover:bg-black/80">
+                          📷 Trocar
+                          <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            try {
+                              const { uploadUrl, fileUrl } = await getUploadPresignedUrl(file.name, file.type)
+                              await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
+                              await saveFolderThumbnail(folder.path, fileUrl)
+                              setFolderThumbs(prev => ({ ...prev, [folder.path]: fileUrl }))
+                            } catch { /* ignore */ }
+                          }} />
+                        </label>
+                      )}
+                    </div>
                   )
                 })}
               </div>

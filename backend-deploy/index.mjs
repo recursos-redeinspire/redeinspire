@@ -235,6 +235,8 @@ export async function handler(event) {
     if (path === '/folder-videos' && method === 'GET') return await folderVideosGet(qs(event), getUserFromToken(event));
     if (path === '/folder-videos' && method === 'POST') return await folderVideosSave(body(event), getUserFromToken(event));
     if (path === '/dropbox/file-text' && method === 'POST') return await dropboxFileText(body(event), getUserFromToken(event));
+    if (path === '/folder-thumbnails' && method === 'GET') return await folderThumbnailsGet(getUserFromToken(event));
+    if (path === '/folder-thumbnails' && method === 'POST') return await folderThumbnailSave(body(event), getUserFromToken(event));
 
     // ---- Video Recommendations ----
     if (path === '/video-recs' && method === 'GET') return await videoRecsGet(qs(event), getUserFromToken(event));
@@ -2319,6 +2321,38 @@ async function folderVideosSave(data, user) {
   }));
 
   return res(200, { folder, videos });
+}
+
+// =============================================================================
+// FOLDER THUMBNAILS (admin custom thumbs for material folders)
+// =============================================================================
+const FOLDER_THUMBNAILS_KEY = '__FOLDER_THUMBNAILS__';
+
+async function folderThumbnailsGet(user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  const data = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_THUMBNAILS_KEY } }));
+  return res(200, { thumbnails: (data.Item && data.Item.thumbnails) || {} });
+}
+
+async function folderThumbnailSave(data, user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem alterar thumbnails de pastas.' });
+  if (!data.folder) return res(400, { message: 'folder obrigatorio.' });
+
+  const current = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_THUMBNAILS_KEY } }));
+  const thumbnails = (current.Item && current.Item.thumbnails) || {};
+
+  if (data.thumbnailUrl) {
+    thumbnails[data.folder] = data.thumbnailUrl;
+  } else {
+    delete thumbnails[data.folder];
+  }
+
+  await ddb.send(new PutCommand({
+    TableName: T.VIDEO_TAGS,
+    Item: { videoId: FOLDER_THUMBNAILS_KEY, thumbnails, updatedAt: new Date().toISOString(), updatedBy: user.id }
+  }));
+
+  return res(200, { folder: data.folder, thumbnailUrl: data.thumbnailUrl || null });
 }
 
 // ---- Custom Video Thumbnails ----
