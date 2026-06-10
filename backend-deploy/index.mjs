@@ -1644,28 +1644,27 @@ async function dropboxFileText(data, user) {
 
   try {
     const token = await getDropboxToken();
-    // Download the file content from Dropbox
-    const r = await fetch('https://content.dropboxapi.com/2/files/download', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Dropbox-API-Arg': JSON.stringify({ path: data.path }),
-      },
-    });
-    if (!r.ok) {
-      const errText = await r.text().catch(() => '');
-      return res(400, { message: 'Erro ao baixar arquivo do Dropbox', detail: errText });
-    }
 
-    const buffer = await r.arrayBuffer();
+    // Step 1: Get temporary link (same approach as dropboxDownload which works)
+    const linkResp = await fetch('https://api.dropboxapi.com/2/files/get_temporary_link', {
+      method: 'POST',
+      headers: dbxHeaders(token),
+      body: JSON.stringify({ path: data.path }),
+    });
+    const linkResult = await linkResp.json();
+    if (linkResult.error) return res(400, { message: 'Erro Dropbox', error: linkResult.error_summary });
+
+    // Step 2: Download the file content via the temporary link
+    const fileResp = await fetch(linkResult.link);
+    if (!fileResp.ok) return res(400, { message: 'Erro ao baixar conteudo do arquivo' });
+
+    const buffer = await fileResp.arrayBuffer();
     const ext = (data.path.split('.').pop() || '').toLowerCase();
     let text = '';
 
     if (ext === 'docx') {
-      // Parse .docx (ZIP with XML inside)
       try {
         const zip = await JSZip.loadAsync(buffer);
-        // Try word/document.xml first, then other possible locations
         let docXml = null;
         const possiblePaths = ['word/document.xml', 'word/document2.xml', 'content.xml'];
         for (const p of possiblePaths) {
@@ -1673,30 +1672,25 @@ async function dropboxFileText(data, user) {
           if (file) { docXml = await file.async('text'); break; }
         }
         if (!docXml) {
-          // Try to find any xml file in word/ folder
           const wordFiles = Object.keys(zip.files).filter(f => f.startsWith('word/') && f.endsWith('.xml'));
           if (wordFiles.length > 0) {
             docXml = await zip.file(wordFiles[0])?.async('text');
           }
         }
         if (docXml) {
-          // Extract text content from <w:t> tags specifically for better accuracy
           const wtMatches = docXml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g);
           if (wtMatches && wtMatches.length > 0) {
             text = wtMatches.map(m => m.replace(/<[^>]+>/g, '')).join(' ').replace(/\s+/g, ' ').trim();
           } else {
-            // Fallback: strip all XML tags
             text = docXml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
           }
         }
       } catch (zipErr) {
         console.error('JSZip error:', zipErr.message);
-        text = '';
       }
     } else if (ext === 'txt') {
       text = new TextDecoder().decode(buffer);
     } else if (ext === 'doc') {
-      // .doc is binary, extract readable ASCII sequences
       const bytes = new Uint8Array(buffer);
       const chars = [];
       let seq = '';
@@ -1712,9 +1706,7 @@ async function dropboxFileText(data, user) {
       text = chars.join(' ').replace(/\s+/g, ' ').trim();
     }
 
-    // Limit to 3000 chars
     if (text.length > 3000) text = text.substring(0, 3000);
-
     return res(200, { path: data.path, text, ext, textLength: text.length });
   } catch (err) {
     console.error('Dropbox file-text error:', err);
