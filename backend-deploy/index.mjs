@@ -230,6 +230,10 @@ export async function handler(event) {
     if (path === '/video-categories' && method === 'GET') return await videoCategoriesGetAll(getUserFromToken(event));
     if (path === '/video-categories' && method === 'POST') return await videoCategoriesSave(body(event), getUserFromToken(event));
 
+    // ---- Folder Videos (admin links videos to material folders) ----
+    if (path === '/folder-videos' && method === 'GET') return await folderVideosGet(qs(event), getUserFromToken(event));
+    if (path === '/folder-videos' && method === 'POST') return await folderVideosSave(body(event), getUserFromToken(event));
+
     // ---- Video Recommendations ----
     if (path === '/video-recs' && method === 'GET') return await videoRecsGet(qs(event), getUserFromToken(event));
     if (path === '/video-recs' && method === 'POST') return await videoRecsSave(body(event), getUserFromToken(event));
@@ -2143,6 +2147,49 @@ async function videoCategoriesSave(data, user) {
   }));
 
   return res(200, { videoId, categories, assignments });
+}
+
+// =============================================================================
+// FOLDER VIDEOS (admin links YouTube videos to material folders)
+// =============================================================================
+// Uses VIDEO_TAGS table with videoId = '__FOLDER_VIDEOS__'
+// Structure: { videoId: '__FOLDER_VIDEOS__', folders: { "/path/to/folder": [{ id, title, thumbnail }] } }
+
+const FOLDER_VIDEOS_KEY = '__FOLDER_VIDEOS__';
+
+async function folderVideosGet(query, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  const folderPath = query.folder || '';
+  const data = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_VIDEOS_KEY } }));
+  const folders = (data.Item && data.Item.folders) || {};
+  if (folderPath) {
+    return res(200, { folder: folderPath, videos: folders[folderPath] || [] });
+  }
+  return res(200, { folders });
+}
+
+async function folderVideosSave(data, user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem vincular videos a pastas.' });
+  if (!data.folder) return res(400, { message: 'folder obrigatorio.' });
+  const folder = data.folder;
+  const videos = Array.isArray(data.videos) ? data.videos : [];
+
+  // Get current
+  const current = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_VIDEOS_KEY } }));
+  const folders = (current.Item && current.Item.folders) || {};
+
+  if (videos.length === 0) {
+    delete folders[folder];
+  } else {
+    folders[folder] = videos;
+  }
+
+  await ddb.send(new PutCommand({
+    TableName: T.VIDEO_TAGS,
+    Item: { videoId: FOLDER_VIDEOS_KEY, folders, updatedAt: new Date().toISOString(), updatedBy: user.id }
+  }));
+
+  return res(200, { folder, videos });
 }
 
 // ---- Custom Video Thumbnails ----

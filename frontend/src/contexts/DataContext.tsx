@@ -97,6 +97,8 @@ interface DataContextType {
   getAllVideoTags: () => Promise<{ tagMap: Record<string, string[]>; allTags: string[] }>
   getVideoCategories: () => Promise<{ assignments: Record<string, string[]> }>
   saveVideoCategories: (videoId: string, categories: string[]) => Promise<any>
+  getFolderVideos: (folder: string) => Promise<{ folder: string; videos: any[] }>
+  saveFolderVideos: (folder: string, videos: any[]) => Promise<any>
   saveVideoThumbnail: (videoId: string, thumbnailUrl: string) => Promise<any>
   deleteVideoThumbnail: (videoId: string) => Promise<any>
   getAllVideoThumbnails: () => Promise<{ thumbnails: Record<string, string> }>
@@ -576,6 +578,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return apiFetch('/video-categories', { method: 'POST', body: JSON.stringify({ videoId, categories }) })
   }, [])
 
+  const getFolderVideos = useCallback(async (folder: string): Promise<{ folder: string; videos: any[] }> => {
+    return apiFetch(`/folder-videos?folder=${encodeURIComponent(folder)}`)
+  }, [])
+
+  const saveFolderVideos = useCallback(async (folder: string, videos: any[]): Promise<any> => {
+    return apiFetch('/folder-videos', { method: 'POST', body: JSON.stringify({ folder, videos }) })
+  }, [])
+
   const saveVideoThumbnail = useCallback(async (videoId: string, thumbnailUrl: string): Promise<any> => {
     return apiFetch('/video-thumbnail', { method: 'POST', body: JSON.stringify({ videoId, thumbnailUrl }) })
   }, [])
@@ -746,7 +756,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getMetrics, getLeaderRanking, getTimeline, getRecentAccesses,
     getMessages, getUnreadCount, markAsRead, sendMessage, getMessageRecipients,
     getMinistries, createMinistry, deleteMinistry, updateMinistry, getMyPoints, getPointsRanking,
-    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, smartSearchDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, smartSearchYoutube, getComments, addComment, getVideoTags, saveVideoTags, getAllVideoTags, getVideoCategories, saveVideoCategories, saveVideoThumbnail, deleteVideoThumbnail, getAllVideoThumbnails, getVideoRecs, addVideoRec, deleteVideoRec, getTopDownloads, getBanner, getUploadPresignedUrl,
+    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, smartSearchDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, smartSearchYoutube, getComments, addComment, getVideoTags, saveVideoTags, getAllVideoTags, getVideoCategories, saveVideoCategories, getFolderVideos, saveFolderVideos, saveVideoThumbnail, deleteVideoThumbnail, getAllVideoThumbnails, getVideoRecs, addVideoRec, deleteVideoRec, getTopDownloads, getBanner, getUploadPresignedUrl,
     getChurches, getTopChurches, createChurch, deleteChurch, updateChurch,
     getPlans, savePlan, deletePlan,
     getPodcastEpisodes, createPodcast, updatePodcast, deletePodcast, getPodcastProgress, updatePodcastProgress,
