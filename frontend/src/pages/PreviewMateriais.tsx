@@ -138,12 +138,13 @@ export default function PreviewMateriais() {
   const [folderDescription, setFolderDescription] = useState('')
   const [docFilePath, setDocFilePath] = useState('')
   const [regenerating, setRegenerating] = useState(false)
+  const [relatedFolders, setRelatedFolders] = useState<any[]>([])
   const isAdmin = _user?.role === 'admin'
 
   const loadFolder = useCallback(async (p: string) => {
     setLoading(true); setError(''); setIsSearching(false); setSearchKeywords([])
     setSelectedFile(null); setPreviewUrl(''); setSelectedVideo(null); setFolderVideos([])
-    setFolderDescription(''); setDocFilePath('')
+    setFolderDescription(''); setDocFilePath(''); setRelatedFolders([])
     try {
       const [result, vidsResult] = await Promise.all([
         browseDropbox(p),
@@ -173,6 +174,17 @@ export default function PreviewMateriais() {
         } catch (e) {
           console.log('[PreviewMateriais] Could not read doc:', e)
         }
+      }
+
+      // Fetch sibling folders for "Related Content"
+      if (p) {
+        const parentPath = p.substring(0, p.lastIndexOf('/')) || ''
+        browseDropbox(parentPath).then(parentResult => {
+          const siblings = (parentResult.entries || [])
+            .filter((e: any) => e.tag === 'folder' && e.path !== p && e.pathLower !== p.toLowerCase())
+            .slice(0, 5)
+          setRelatedFolders(siblings)
+        }).catch(() => {})
       }
     } catch (e: any) { setError(e.message || 'Erro') }
     finally { setLoading(false) }
@@ -385,8 +397,9 @@ export default function PreviewMateriais() {
               <div className="border-t my-6" />
               {/* Description from doc */}
               {(folderDescription || (!isRoot && files.length > 0)) && (
-                <div className="bg-green-50 border border-green-100 rounded-xl p-4 mb-4">
-                  <p className="text-[12px] text-gray-700 leading-relaxed">
+                <div className="mb-4">
+                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Resumo do Conteúdo:</p>
+                  <p className="text-[12px] text-gray-600 leading-relaxed">
                     {folderDescription || generateFolderDescription(breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : '', files, files.filter(f => f.fileType === 'document'))}
                   </p>
                   {isAdmin && docFilePath && (
@@ -538,8 +551,9 @@ export default function PreviewMateriais() {
             <div className="lg:w-80 xl:w-96 flex-shrink-0 space-y-4">
               {/* Folder description */}
               {displayDescription && (
-                <div className="bg-green-50 border border-green-100 rounded-xl p-4">
-                  <p className="text-[12px] text-gray-700 leading-relaxed">{displayDescription}</p>
+                <div className="p-4">
+                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Resumo do Conteúdo:</p>
+                  <p className="text-[12px] text-gray-600 leading-relaxed">{displayDescription}</p>
                   {isAdmin && docFilePath && (
                     <button onClick={async () => {
                       setRegenerating(true)
@@ -622,6 +636,36 @@ export default function PreviewMateriais() {
               </div>
             </div>
           </div>
+
+          {/* ═══ RELATED CONTENT (Life.Church style) ═══ */}
+          {relatedFolders.length > 0 && (
+            <div className="mt-8">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-4">Conteúdos Relacionados</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {relatedFolders.map(folder => {
+                  const theme = getFolderTheme(folder.name)
+                  const ThemeIcon = theme.icon
+                  return (
+                    <button key={folder.id} onClick={() => loadFolder(folder.path)}
+                      className="text-left group">
+                      <div className={`relative rounded-xl overflow-hidden aspect-video bg-gradient-to-br ${theme.gradient}`}>
+                        <div className="absolute inset-0 opacity-20">
+                          <div className="absolute top-3 right-4 w-16 h-16 rounded-full bg-white/30 blur-xl" />
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <ThemeIcon size={40} className="text-white/80 group-hover:scale-110 transition-transform" />
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/40 to-transparent p-3">
+                          <p className="text-white font-semibold text-[13px] line-clamp-2 leading-snug">{folder.name}</p>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-2 group-hover:text-green-600 transition">Ver materiais →</p>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
         )
       })()}
