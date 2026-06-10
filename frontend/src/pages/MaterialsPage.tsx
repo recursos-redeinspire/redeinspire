@@ -225,6 +225,34 @@ export default function MaterialsPage() {
   useEffect(() => { getTopDownloads().then(setTopDownloads).catch(() => {}) }, [getTopDownloads])
   useEffect(() => { getFolderThumbnails().then(d => setFolderThumbs(d.thumbnails || {})).catch(() => {}) }, [getFolderThumbnails])
 
+  // Auto-fetch thumbs for top downloaded folders (from linked videos or images inside)
+  useEffect(() => {
+    if (topDownloads.length === 0) return
+    const fetchThumbs = async () => {
+      const newThumbs: Record<string, string> = {}
+      for (const item of topDownloads.slice(0, 5)) {
+        if (folderThumbs[item.folderPath]) continue // already has custom thumb
+        try {
+          const vids = await getFolderVideos(item.folderPath).catch(() => ({ videos: [] }))
+          if (vids.videos && vids.videos.length > 0) {
+            newThumbs[item.folderPath] = vids.videos[0].thumbnail || `https://img.youtube.com/vi/${vids.videos[0].id}/mqdefault.jpg`
+            continue
+          }
+          const contents = await browseDropbox(item.folderPath)
+          const img = (contents.entries || []).find((e: any) => e.tag === 'file' && e.fileType === 'image')
+          if (img) {
+            const dl = await downloadDropbox(img.pathLower, 'view')
+            if (dl.url) newThumbs[item.folderPath] = dl.url
+          }
+        } catch { /* ignore */ }
+      }
+      if (Object.keys(newThumbs).length > 0) {
+        setFolderVideoThumbs(prev => ({ ...prev, ...newThumbs }))
+      }
+    }
+    fetchThumbs()
+  }, [topDownloads, folderThumbs])
+
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) { loadFolder(path); return }
     setLoading(true); setError(''); setIsSearching(true)
@@ -328,7 +356,7 @@ export default function MaterialsPage() {
             {topDownloads.slice(0, 5).map(item => {
               const theme = getFolderTheme(item.folderName || '')
               const ThemeIcon = theme.icon
-              const thumbUrl = folderThumbs[item.folderPath]
+              const thumbUrl = folderThumbs[item.folderPath] || folderVideoThumbs[item.folderPath]
               return (
                 <button key={item.folderPath} onClick={() => loadFolder(item.folderPath)}
                   className="text-left group">
