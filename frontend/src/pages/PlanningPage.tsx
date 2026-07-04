@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 
 export default function PlanningPage() {
-  const { getPlans, savePlan, deletePlan, getWebinars, getMentoringSessions, getMaterials, getUploadPresignedUrl } = useData()
+  const { getPlans, savePlan, deletePlan, getWebinars, getMentoringSessions, getUploadPresignedUrl, smartSearchDropbox } = useData()
   const { user } = useAuth()
   const { t } = useI18n()
 
@@ -18,7 +18,6 @@ export default function PlanningPage() {
   const [plans, setPlans] = useState<any[]>([])
   const [refresh, setRefresh] = useState(0)
   const [agendaItems, setAgendaItems] = useState<any[]>([])
-  const [materials, setMaterials] = useState<any[]>([])
 
   // Calendar state
   const [calMonth, setCalMonth] = useState(new Date().getMonth())
@@ -29,9 +28,27 @@ export default function PlanningPage() {
   const [annualPlan, setAnnualPlan] = useState({ title: '', goals: '', events: '', notes: '' })
   const [ministryPlan, setMinistryPlan] = useState({ title: '', ministry: '', objectives: '', resources: '' })
   const [uploading, setUploading] = useState(false)
+  const [materialSearch, setMaterialSearch] = useState('')
+  const [materialResults, setMaterialResults] = useState<any[]>([])
+  const [materialSearching, setMaterialSearching] = useState(false)
+  const [showMaterialResults, setShowMaterialResults] = useState(false)
 
   useEffect(() => { getPlans().then(setPlans) }, [refresh])
-  useEffect(() => { getMaterials().then(m => setMaterials(m.filter((x: any) => x.category === 'mensagem'))) }, [])
+
+  const searchMaterials = async (query: string) => {
+    if (!query.trim() || query.length < 2) { setMaterialResults([]); return }
+    setMaterialSearching(true)
+    try {
+      const result = await smartSearchDropbox(query)
+      const docs = (result.entries || []).filter((e: any) => {
+        const ext = (e.ext || '').toLowerCase()
+        return e.tag === 'file' && (ext === 'pdf' || ext === 'doc' || ext === 'docx')
+      })
+      setMaterialResults(docs.slice(0, 8))
+      setShowMaterialResults(true)
+    } catch { setMaterialResults([]) }
+    finally { setMaterialSearching(false) }
+  }
   useEffect(() => {
     Promise.all([getWebinars(), getMentoringSessions()]).then(([webinars, sessions]) => {
       const items: any[] = []
@@ -137,7 +154,7 @@ export default function PlanningPage() {
         <div className="flex gap-2">
           <button onClick={() => { setTab('domingo'); setEditingPlan(null) }}
             className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition flex items-center gap-2">
-            <Plus size={16} /> Novo Plano
+            <Plus size={16} /> Nova Celebração
           </button>
         </div>
       </div>
@@ -148,7 +165,7 @@ export default function PlanningPage() {
       <div className="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
         {[
           { key: 'visao', label: '📊 Visão Geral' },
-          { key: 'domingo', label: '🙏 Montar Domingo' },
+          { key: 'domingo', label: '🙏 Monte sua Celebração' },
           { key: 'anual', label: '📅 Plano Anual' },
           { key: 'ministerio', label: '⛪ Ministério' },
         ].map(tb => (
@@ -303,7 +320,7 @@ export default function PlanningPage() {
         <div className="max-w-2xl">
           <div className="bg-white border border-gray-100 rounded-xl p-6">
             <h2 className="font-bold text-lg text-gray-900 flex items-center gap-2 mb-5">
-              <Church size={20} className="text-blue-600" /> {t('planning.sundayTitle')}
+              <Church size={20} className="text-blue-600" /> Monte sua Celebração
             </h2>
             <div className="space-y-4">
               <div>
@@ -331,11 +348,36 @@ export default function PlanningPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">📝 {t('planning.selectMaterial')}</label>
-                <select value={sundayPlan.materialId} onChange={e => setSundayPlan({ ...sundayPlan, materialId: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition">
-                  <option value="">{t('planning.noMaterialSelected')}</option>
-                  {materials.map((m: any) => <option key={m.id} value={m.id}>{m.title}</option>)}
-                </select>
+                <div className="relative">
+                  <input type="text" value={materialSearch}
+                    onChange={e => { setMaterialSearch(e.target.value); searchMaterials(e.target.value) }}
+                    onFocus={() => { if (materialResults.length > 0) setShowMaterialResults(true) }}
+                    placeholder="Digite o título para buscar materiais (PDF, DOC)..."
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
+                  {materialSearching && <Loader2 size={14} className="absolute right-3 top-3 animate-spin text-gray-400" />}
+                  {sundayPlan.materialId && (
+                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">✓ Vinculado: {sundayPlan.materialId.split('/').pop()}</p>
+                  )}
+                  {showMaterialResults && materialResults.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 max-h-[200px] overflow-y-auto">
+                      {materialResults.map(file => (
+                        <button key={file.id} onClick={() => {
+                          setSundayPlan({ ...sundayPlan, materialId: file.pathLower || file.path })
+                          setMaterialSearch(file.name)
+                          setShowMaterialResults(false)
+                        }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition flex items-center gap-3 border-b last:border-b-0">
+                          <FileText size={14} className={file.ext === 'pdf' ? 'text-red-500' : 'text-blue-500'} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                            <p className="text-[10px] text-gray-400 truncate">{file.path}</p>
+                          </div>
+                          <span className="text-[10px] uppercase font-medium text-gray-400">{file.ext}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1.5"><Upload size={14} /> {t('planning.fileUpload')}</label>
