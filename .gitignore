@@ -30,3 +30,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Capacitor native projects (regenerate with: npx cap add android/ios)
+frontend/android/
+frontend/ios/
