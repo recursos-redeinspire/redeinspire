@@ -715,19 +715,20 @@ export default function PlanningPage() {
 
 // ─── Material Text Preview (loads doc content from Dropbox) ───
 function MaterialTextPreview({ materialPath }: { materialPath: string }) {
-  const { getFileText } = useData()
-  const [text, setText] = useState('')
+  const { downloadDropbox } = useData()
+  const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
-    getFileText(materialPath)
-      .then(data => { if (data.text) setText(data.text) })
+    downloadDropbox(materialPath, 'view')
+      .then(data => { if (data.url) setUrl(data.url) })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [materialPath, getFileText])
+  }, [materialPath, downloadDropbox])
 
   const fileName = materialPath.split('/').pop() || ''
+  const ext = (fileName.split('.').pop() || '').toLowerCase()
 
   return (
     <div>
@@ -735,14 +736,24 @@ function MaterialTextPreview({ materialPath }: { materialPath: string }) {
       <p className="text-[10px] text-green-600 mb-2">📎 {fileName}</p>
       {loading ? (
         <div className="flex items-center gap-2 text-xs text-gray-400">
-          <Loader2 size={12} className="animate-spin" /> Carregando conteúdo...
+          <Loader2 size={12} className="animate-spin" /> Carregando documento...
         </div>
-      ) : text ? (
-        <div className="bg-gray-50 rounded-xl p-4 max-h-[300px] overflow-y-auto">
-          <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{text}</p>
+      ) : url ? (
+        <div className="rounded-xl overflow-hidden border border-gray-200">
+          {ext === 'pdf' ? (
+            <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`} className="w-full h-[400px]" title={fileName} />
+          ) : (ext === 'doc' || ext === 'docx') ? (
+            <iframe src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`} className="w-full h-[400px]" title={fileName} />
+          ) : (
+            <div className="p-6 text-center text-gray-400">
+              <FileText size={32} className="mx-auto mb-2" />
+              <p className="text-sm">Formato não suportado para visualização</p>
+              <a href={url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-xs text-green-600 hover:text-green-800 font-medium">Abrir arquivo ↗</a>
+            </div>
+          )}
         </div>
       ) : (
-        <p className="text-xs text-gray-400">Não foi possível extrair o conteúdo do material.</p>
+        <p className="text-xs text-gray-400">Não foi possível carregar o documento.</p>
       )}
     </div>
   )
