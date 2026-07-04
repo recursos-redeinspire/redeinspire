@@ -665,13 +665,37 @@ export default function PlanningPage() {
                     <button onClick={() => {
                       const printContent = document.getElementById('event-print-area')
                       if (!printContent) return
+                      const materialId = ev.data?.materialId || ''
+                      // Get the document URL from the iframe if present
+                      const docIframe = document.getElementById('material-viewer-iframe') as HTMLIFrameElement | null
+                      const docSrc = docIframe?.src || ''
+
                       const w = window.open('', '_blank')
                       if (!w) return
-                      w.document.write(`<html><head><title>${ev.title}</title><style>body{font-family:system-ui,sans-serif;padding:40px;max-width:700px;margin:0 auto}h1{font-size:22px;margin-bottom:8px}h2{font-size:14px;color:#666;margin-bottom:24px}.section{margin-bottom:16px}.label{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;margin-bottom:4px}.content{font-size:14px;color:#333;white-space:pre-line}</style></head><body>`)
+                      w.document.write(`<html><head><title>${ev.title}</title><style>
+                        body{font-family:system-ui,sans-serif;padding:40px;max-width:700px;margin:0 auto}
+                        h1{font-size:22px;margin-bottom:8px}
+                        h2{font-size:14px;color:#666;margin-bottom:24px}
+                        .section{margin-bottom:16px}
+                        .label{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;margin-bottom:4px}
+                        .content{font-size:14px;color:#333;white-space:pre-line}
+                        .doc-frame{width:100%;height:800px;border:1px solid #ddd;border-radius:8px;margin-top:24px}
+                        .doc-label{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;margin-top:24px;margin-bottom:8px}
+                        @media print { .doc-frame{height:100vh;page-break-before:always} }
+                      </style></head><body>`)
                       w.document.write(printContent.innerHTML)
+                      if (materialId && docSrc) {
+                        w.document.write(`<div class="doc-label">Documento: ${materialId.split('/').pop()}</div>`)
+                        w.document.write(`<iframe class="doc-frame" src="${docSrc}"></iframe>`)
+                      }
                       w.document.write('</body></html>')
                       w.document.close()
-                      w.print()
+                      // Wait for iframe to load before printing
+                      if (materialId && docSrc) {
+                        setTimeout(() => w.print(), 2000)
+                      } else {
+                        w.print()
+                      }
                     }}
                       className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition">
                       <Printer size={14} /> Imprimir
@@ -741,9 +765,9 @@ function MaterialTextPreview({ materialPath }: { materialPath: string }) {
       ) : url ? (
         <div className="rounded-xl overflow-hidden border border-gray-200">
           {ext === 'pdf' ? (
-            <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`} className="w-full h-[400px]" title={fileName} />
+            <iframe id="material-viewer-iframe" src={`https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`} className="w-full h-[400px]" title={fileName} />
           ) : (ext === 'doc' || ext === 'docx') ? (
-            <iframe src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`} className="w-full h-[400px]" title={fileName} />
+            <iframe id="material-viewer-iframe" src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`} className="w-full h-[400px]" title={fileName} />
           ) : (
             <div className="p-6 text-center text-gray-400">
               <FileText size={32} className="mx-auto mb-2" />
