@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
 import {
   ChevronLeft, ChevronRight, Plus, Calendar, Clock, Users,
-  Edit2, Trash2, Video, GraduationCap, Church, Target, Music, FileText, Upload, Loader2
+  Edit2, Trash2, Video, GraduationCap, Church, Target, Music, FileText, Upload, Loader2, Printer, X
 } from 'lucide-react'
 
 export default function PlanningPage() {
@@ -32,6 +32,7 @@ export default function PlanningPage() {
   const [materialResults, setMaterialResults] = useState<any[]>([])
   const [materialSearching, setMaterialSearching] = useState(false)
   const [showMaterialResults, setShowMaterialResults] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<any | null>(null)
 
   useEffect(() => { getPlans().then(setPlans) }, [refresh])
 
@@ -208,7 +209,8 @@ export default function PlanningPage() {
                     const isToday = day && calYear === today.getFullYear() && calMonth === today.getMonth() && day === today.getDate()
                     const events = day ? monthEvents[day] : undefined
                     return (
-                      <div key={di} className={`min-h-[80px] p-1.5 border-b border-r last:border-r-0 ${!day ? 'bg-gray-50/50' : 'hover:bg-gray-50/50'}`}>
+                      <div key={di} className={`min-h-[80px] p-1.5 border-b border-r last:border-r-0 ${!day ? 'bg-gray-50/50' : 'hover:bg-gray-50/50'} ${events ? 'cursor-pointer' : ''}`}
+                        onClick={() => { if (events && events.length === 1) setSelectedEvent(events[0]); else if (events && events.length > 1) setSelectedEvent({ _multi: true, events, day }) }}>
                         {day && (
                           <>
                             <span className={`inline-flex items-center justify-center w-6 h-6 text-[12px] rounded-full ${isToday ? 'bg-green-600 text-white font-bold' : 'text-gray-600'}`}>
@@ -523,6 +525,190 @@ export default function PlanningPage() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ EVENT DETAIL MODAL ═══ */}
+      {selectedEvent && (
+        <div className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center p-4" onClick={() => setSelectedEvent(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+            {/* Multi events (when day has multiple) */}
+            {selectedEvent._multi ? (
+              <>
+                <div className="px-6 py-4 border-b flex items-center justify-between">
+                  <h2 className="font-bold text-gray-900">Eventos do dia {selectedEvent.day}</h2>
+                  <button onClick={() => setSelectedEvent(null)} className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100"><X size={18} /></button>
+                </div>
+                <div className="p-4 space-y-2">
+                  {selectedEvent.events.map((ev: any, i: number) => {
+                    const cfg = typeConfig[ev.type || ev.eventType] || typeConfig.sunday
+                    const Icon = cfg.icon
+                    return (
+                      <button key={i} onClick={() => setSelectedEvent(ev)}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition text-left border border-gray-100">
+                        <div className={`w-9 h-9 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}>
+                          <Icon size={16} className={cfg.color} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{ev.title}</p>
+                          <p className="text-[10px] text-gray-400">{cfg.label}</p>
+                        </div>
+                        <ChevronRight size={14} className="text-gray-300" />
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            ) : (() => {
+              const ev = selectedEvent
+              const cfg = typeConfig[ev.type || ev.eventType] || typeConfig.sunday
+              const Icon = cfg.icon
+              const d = ev.scheduledAt ? new Date(ev.scheduledAt) : ev.data?.date ? new Date(ev.data.date) : null
+              const isPlan = ev.id && !ev.meetingUrl && (ev.type === 'sunday' || ev.type === 'annual' || ev.type === 'ministry' || ev.eventType)
+              return (
+                <>
+                  <div className="px-6 py-4 border-b flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl ${cfg.bg} flex items-center justify-center`}>
+                        <Icon size={20} className={cfg.color} />
+                      </div>
+                      <div>
+                        <span className={`text-[10px] font-semibold uppercase ${cfg.color}`}>{cfg.label}</span>
+                        <h2 className="font-bold text-gray-900 text-lg leading-snug">{ev.title}</h2>
+                      </div>
+                    </div>
+                    <button onClick={() => setSelectedEvent(null)} className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100"><X size={18} /></button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    {/* Date/time */}
+                    {d && (
+                      <div className="flex items-center gap-3 text-sm text-gray-600">
+                        <Calendar size={16} className="text-gray-400" />
+                        <span>{d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                        {ev.scheduledAt && <span className="text-gray-400">· {d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>}
+                      </div>
+                    )}
+                    {/* Person */}
+                    {ev.person && (
+                      <div className="flex items-center gap-3 text-sm text-gray-600">
+                        <Users size={16} className="text-gray-400" />
+                        <span>{ev.person}</span>
+                      </div>
+                    )}
+                    {/* Description */}
+                    {ev.description && (
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <p className="text-sm text-gray-700 whitespace-pre-line">{ev.description}</p>
+                      </div>
+                    )}
+                    {/* Plan data details */}
+                    {ev.data && (
+                      <div className="space-y-3">
+                        {ev.data.worship && (
+                          <div>
+                            <p className="text-[11px] font-semibold text-gray-400 uppercase mb-1">Louvor</p>
+                            <p className="text-sm text-gray-700 whitespace-pre-line">{ev.data.worship}</p>
+                          </div>
+                        )}
+                        {ev.data.message && (
+                          <div>
+                            <p className="text-[11px] font-semibold text-gray-400 uppercase mb-1">Mensagem</p>
+                            <p className="text-sm text-gray-700 whitespace-pre-line">{ev.data.message}</p>
+                          </div>
+                        )}
+                        {ev.data.goals && (
+                          <div>
+                            <p className="text-[11px] font-semibold text-gray-400 uppercase mb-1">Metas</p>
+                            <p className="text-sm text-gray-700 whitespace-pre-line">{ev.data.goals}</p>
+                          </div>
+                        )}
+                        {ev.data.events && (
+                          <div>
+                            <p className="text-[11px] font-semibold text-gray-400 uppercase mb-1">Eventos/Campanhas</p>
+                            <p className="text-sm text-gray-700 whitespace-pre-line">{ev.data.events}</p>
+                          </div>
+                        )}
+                        {ev.data.objectives && (
+                          <div>
+                            <p className="text-[11px] font-semibold text-gray-400 uppercase mb-1">Objetivos</p>
+                            <p className="text-sm text-gray-700 whitespace-pre-line">{ev.data.objectives}</p>
+                          </div>
+                        )}
+                        {ev.data.resources && (
+                          <div>
+                            <p className="text-[11px] font-semibold text-gray-400 uppercase mb-1">Recursos</p>
+                            <p className="text-sm text-gray-700 whitespace-pre-line">{ev.data.resources}</p>
+                          </div>
+                        )}
+                        {ev.data.notes && (
+                          <div>
+                            <p className="text-[11px] font-semibold text-gray-400 uppercase mb-1">Observações</p>
+                            <p className="text-sm text-gray-700 whitespace-pre-line">{ev.data.notes}</p>
+                          </div>
+                        )}
+                        {ev.data.materialId && (
+                          <div>
+                            <p className="text-[11px] font-semibold text-gray-400 uppercase mb-1">Material vinculado</p>
+                            <p className="text-sm text-green-700">{ev.data.materialId.split('/').pop()}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* Meeting URL */}
+                    {ev.meetingUrl && (
+                      <a href={ev.meetingUrl} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
+                        <Video size={14} /> Acessar reunião
+                      </a>
+                    )}
+                  </div>
+                  {/* Footer actions */}
+                  <div className="px-6 py-4 border-t flex items-center justify-between">
+                    <button onClick={() => {
+                      const printContent = document.getElementById('event-print-area')
+                      if (!printContent) return
+                      const w = window.open('', '_blank')
+                      if (!w) return
+                      w.document.write(`<html><head><title>${ev.title}</title><style>body{font-family:system-ui,sans-serif;padding:40px;max-width:700px;margin:0 auto}h1{font-size:22px;margin-bottom:8px}h2{font-size:14px;color:#666;margin-bottom:24px}.section{margin-bottom:16px}.label{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;margin-bottom:4px}.content{font-size:14px;color:#333;white-space:pre-line}</style></head><body>`)
+                      w.document.write(printContent.innerHTML)
+                      w.document.write('</body></html>')
+                      w.document.close()
+                      w.print()
+                    }}
+                      className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition">
+                      <Printer size={14} /> Imprimir
+                    </button>
+                    <div className="flex gap-2">
+                      {isPlan && (
+                        <button onClick={() => { handleEdit(ev); setSelectedEvent(null) }}
+                          className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-800 transition">
+                          <Edit2 size={14} /> Editar
+                        </button>
+                      )}
+                      <button onClick={() => setSelectedEvent(null)}
+                        className="border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition">
+                        Fechar
+                      </button>
+                    </div>
+                  </div>
+                  {/* Hidden print area */}
+                  <div id="event-print-area" className="hidden">
+                    <h1>{ev.title}</h1>
+                    <h2>{cfg.label}{d ? ` — ${d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}` : ''}</h2>
+                    {ev.data?.worship && <div className="section"><div className="label">Louvor</div><div className="content">{ev.data.worship}</div></div>}
+                    {ev.data?.message && <div className="section"><div className="label">Mensagem</div><div className="content">{ev.data.message}</div></div>}
+                    {ev.data?.goals && <div className="section"><div className="label">Metas</div><div className="content">{ev.data.goals}</div></div>}
+                    {ev.data?.events && <div className="section"><div className="label">Eventos</div><div className="content">{ev.data.events}</div></div>}
+                    {ev.data?.objectives && <div className="section"><div className="label">Objetivos</div><div className="content">{ev.data.objectives}</div></div>}
+                    {ev.data?.resources && <div className="section"><div className="label">Recursos</div><div className="content">{ev.data.resources}</div></div>}
+                    {ev.data?.notes && <div className="section"><div className="label">Observações</div><div className="content">{ev.data.notes}</div></div>}
+                    {ev.description && <div className="section"><div className="label">Descrição</div><div className="content">{ev.description}</div></div>}
+                    {ev.person && <div className="section"><div className="label">Responsável</div><div className="content">{ev.person}</div></div>}
+                  </div>
+                </>
+              )
+            })()}
           </div>
         </div>
       )}
