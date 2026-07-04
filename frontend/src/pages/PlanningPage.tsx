@@ -617,6 +617,9 @@ export default function PlanningPage() {
                             <p className="text-sm text-gray-700 whitespace-pre-line">{ev.data.message}</p>
                           </div>
                         )}
+                        {ev.data.materialId && (
+                          <MaterialTextPreview materialPath={ev.data.materialId} />
+                        )}
                         {ev.data.goals && (
                           <div>
                             <p className="text-[11px] font-semibold text-gray-400 uppercase mb-1">Metas</p>
@@ -645,12 +648,6 @@ export default function PlanningPage() {
                           <div>
                             <p className="text-[11px] font-semibold text-gray-400 uppercase mb-1">Observações</p>
                             <p className="text-sm text-gray-700 whitespace-pre-line">{ev.data.notes}</p>
-                          </div>
-                        )}
-                        {ev.data.materialId && (
-                          <div>
-                            <p className="text-[11px] font-semibold text-gray-400 uppercase mb-1">Material vinculado</p>
-                            <p className="text-sm text-green-700">{ev.data.materialId.split('/').pop()}</p>
                           </div>
                         )}
                       </div>
@@ -711,6 +708,41 @@ export default function PlanningPage() {
             })()}
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Material Text Preview (loads doc content from Dropbox) ───
+function MaterialTextPreview({ materialPath }: { materialPath: string }) {
+  const { getFileText } = useData()
+  const [text, setText] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    getFileText(materialPath)
+      .then(data => { if (data.text) setText(data.text) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [materialPath, getFileText])
+
+  const fileName = materialPath.split('/').pop() || ''
+
+  return (
+    <div>
+      <p className="text-[11px] font-semibold text-gray-400 uppercase mb-1">Conteúdo do Material</p>
+      <p className="text-[10px] text-green-600 mb-2">📎 {fileName}</p>
+      {loading ? (
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <Loader2 size={12} className="animate-spin" /> Carregando conteúdo...
+        </div>
+      ) : text ? (
+        <div className="bg-gray-50 rounded-xl p-4 max-h-[300px] overflow-y-auto">
+          <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{text}</p>
+        </div>
+      ) : (
+        <p className="text-xs text-gray-400">Não foi possível extrair o conteúdo do material.</p>
       )}
     </div>
   )
