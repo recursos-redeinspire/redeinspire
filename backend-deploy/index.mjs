@@ -2122,6 +2122,7 @@ async function dropboxSmartSearch(query, user) {
 
     // List all files recursively with pagination
     let allFiles = [];
+    let allFolders = [];
     let hasMore = true;
     let cursor = null;
     const maxPages = 2;
@@ -2143,7 +2144,9 @@ async function dropboxSmartSearch(query, user) {
       if (data.error) break;
 
       const files = (data.entries || []).filter(e => e['.tag'] === 'file');
+      const folders = (data.entries || []).filter(e => e['.tag'] === 'folder');
       allFiles = allFiles.concat(files);
+      allFolders = allFolders.concat(folders);
       hasMore = data.has_more;
       cursor = data.cursor;
       pages++;
@@ -2158,10 +2161,14 @@ async function dropboxSmartSearch(query, user) {
       for (const kw of keywords) {
         if (name.includes(kw)) score += 10;
         if (path.includes(kw)) score += 3;
-        // Fuzzy: compare first 4 chars
+        // Fuzzy: partial match (starts with or contains substring of 3+ chars)
         const nameWords = name.split(/[\s\-_.]+/);
         for (const nw of nameWords) {
-          if (nw.length > 3 && kw.length > 3 && (nw.startsWith(kw.substring(0, 4)) || kw.startsWith(nw.substring(0, 4)))) score += 2;
+          if (nw.length > 2 && kw.length > 2) {
+            if (nw.startsWith(kw.substring(0, Math.min(kw.length, 4)))) score += 4;
+            else if (kw.startsWith(nw.substring(0, Math.min(nw.length, 4)))) score += 3;
+            else if (nw.includes(kw) || kw.includes(nw)) score += 2;
+          }
         }
       }
       return { file, score };
@@ -2169,6 +2176,29 @@ async function dropboxSmartSearch(query, user) {
     .filter(s => s.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 30);
+
+    // Score folders too
+    const scoredFolders = allFolders.map(folder => {
+      const name = normalize(folder.name);
+      const path = normalize(folder.path_display || '');
+      let score = 0;
+      for (const kw of keywords) {
+        if (name.includes(kw)) score += 12;
+        if (path.includes(kw)) score += 3;
+        const nameWords = name.split(/[\s\-_.]+/);
+        for (const nw of nameWords) {
+          if (nw.length > 2 && kw.length > 2) {
+            if (nw.startsWith(kw.substring(0, Math.min(kw.length, 4)))) score += 5;
+            else if (kw.startsWith(nw.substring(0, Math.min(nw.length, 4)))) score += 4;
+            else if (nw.includes(kw) || kw.includes(nw)) score += 3;
+          }
+        }
+      }
+      return { folder, score };
+    })
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 15);
 
     // Format results
     const entries = scored.map(s => {
@@ -2203,7 +2233,16 @@ async function dropboxSmartSearch(query, user) {
       };
     });
 
-    return res(200, { entries, totalResults: entries.length, query: query.q, keywords });
+    return res(200, { entries, totalResults: entries.length, query: query.q, keywords,
+      folders: scoredFolders.map(s => ({
+        tag: 'folder',
+        name: s.folder.name,
+        path: s.folder.path_display,
+        pathLower: s.folder.path_lower,
+        id: s.folder.id,
+        score: s.score,
+      }))
+    });
   } catch (err) {
     console.error('Dropbox smart search error:', err);
     return res(500, { message: 'Erro na busca', error: err.message });

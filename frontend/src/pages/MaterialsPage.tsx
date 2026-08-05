@@ -143,9 +143,12 @@ export default function MaterialsPage() {
     if (!q.trim()) { loadFolder(path); return }
     setLoading(true); setIsSearching(true)
     try {
-      const result = await smartSearchDropbox(q)
+      const result = await smartSearchDropbox(q) as any
       setSearchResults(result.entries || [])
       setSearchKeywords(result.keywords || [])
+      // Merge folder results into entries for card display
+      const folderResults = result.folders || []
+      setEntries([...folderResults, ...(result.entries || [])])
     } catch { /* ignore */ }
     finally { setLoading(false) }
   }, [smartSearchDropbox, loadFolder, path])
@@ -177,28 +180,28 @@ export default function MaterialsPage() {
           const contents = await browseDropbox(folder.path)
           const img = (contents.entries || []).find((e: any) => e.tag === 'file' && e.fileType === 'image')
           if (img) {
-            const dl = await downloadDropbox(img.pathLower, 'view')
+            const dl = await downloadDropbox(img.pathLower || img.path, 'view')
             if (dl.url) { newThumbs[folder.path] = dl.url; continue }
           }
           // 3. Try most recent subfolder (last alphabetically) for an image
           const subfolders = (contents.entries || []).filter((e: any) => e.tag === 'folder').sort((a: any, b: any) => b.name.localeCompare(a.name))
           for (const sub of subfolders.slice(0, 3)) {
             try {
-              const subContents = await browseDropbox(sub.path)
+              const subContents = await browseDropbox(sub.path || sub.pathLower)
               // Check for image in subfolder
               const subImg = (subContents.entries || []).find((e: any) => e.tag === 'file' && e.fileType === 'image')
               if (subImg) {
-                const dl = await downloadDropbox(subImg.pathLower, 'view')
+                const dl = await downloadDropbox(subImg.pathLower || subImg.path, 'view')
                 if (dl.url) { newThumbs[folder.path] = dl.url; break }
               }
               // Go one level deeper (most recent sub-subfolder)
               const subSubs = (subContents.entries || []).filter((e: any) => e.tag === 'folder').sort((a: any, b: any) => b.name.localeCompare(a.name))
               for (const subSub of subSubs.slice(0, 2)) {
                 try {
-                  const ssContents = await browseDropbox(subSub.path)
+                  const ssContents = await browseDropbox(subSub.path || subSub.pathLower)
                   const ssImg = (ssContents.entries || []).find((e: any) => e.tag === 'file' && e.fileType === 'image')
                   if (ssImg) {
-                    const dl = await downloadDropbox(ssImg.pathLower, 'view')
+                    const dl = await downloadDropbox(ssImg.pathLower || ssImg.path, 'view')
                     if (dl.url) { newThumbs[folder.path] = dl.url; break }
                   }
                 } catch { /* ignore */ }
@@ -267,9 +270,9 @@ export default function MaterialsPage() {
       </div>
 
       {/* Search results */}
-      {isSearching && (
+      {isSearching && !loading && (
         <div className="mb-6">
-          <p className="text-sm text-gray-500 mb-2">Resultados para "<span className="font-medium text-gray-800">{searchQuery}</span>"
+          <p className="text-sm text-gray-500 mb-4">Resultados para "<span className="font-medium text-gray-800">{searchQuery}</span>"
             <button onClick={() => { setSearchQuery(''); setIsSearching(false); loadFolder(path) }} className="ml-2 text-red-500 text-xs">Limpar</button>
           </p>
           {searchKeywords.length > 0 && (
@@ -277,22 +280,57 @@ export default function MaterialsPage() {
               {searchKeywords.slice(0, 6).map(kw => <span key={kw} className="bg-green-50 text-green-700 text-xs px-2.5 py-1 rounded-full">{kw}</span>)}
             </div>
           )}
-          {!loading && searchResults.length === 0 && <p className="text-gray-400 text-center py-8">Nenhum resultado encontrado</p>}
-          {!loading && searchResults.length > 0 && (
-            <div className="space-y-2">
-              {searchResults.map((file: any) => (
-                <div key={file.id} className="flex items-center gap-3 bg-white border border-gray-100 rounded-xl p-3 hover:shadow-sm transition">
-                  <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                    <Folder size={16} className="text-gray-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                    <p className="text-[10px] text-gray-400 truncate">{file.path}</p>
-                  </div>
-                </div>
-              ))}
+
+          {/* Folder results as cards */}
+          {folders.length > 0 && (
+            <div className="mb-6">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Pastas encontradas</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+                {folders.map(folder => {
+                  const thumb = getThumb(folder.path || folder.pathLower, folder.name)
+                  const tags = getTags(folder.path || folder.pathLower)
+                  return (
+                    <div key={folder.id} className="group">
+                      <button onClick={() => { setIsSearching(false); setSearchQuery(''); loadFolder(folder.path || folder.pathLower) }} className="w-full text-left">
+                        <div className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 mb-2.5">
+                          <img src={thumb} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        </div>
+                        <h3 className="font-semibold text-[13px] text-gray-900 leading-snug line-clamp-2 group-hover:text-green-700 transition">{folder.name}</h3>
+                        {tags.length > 0 && <p className="text-[10px] text-gray-400 mt-0.5">{tags.join(' · ')}</p>}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
+
+          {/* File results */}
+          {searchResults.length > 0 && (
+            <div>
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Arquivos encontrados</p>
+              <div className="space-y-2">
+                {searchResults.map((file: any) => {
+                  const folderPath = file.path ? file.path.substring(0, file.path.lastIndexOf('/')) : ''
+                  return (
+                    <button key={file.id} onClick={() => { setIsSearching(false); setSearchQuery(''); loadFolder(folderPath) }}
+                      className="w-full flex items-center gap-3 bg-white border border-gray-100 rounded-xl p-3 hover:shadow-sm hover:border-green-200 transition text-left">
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${(FILE_ICONS[file.fileType] || FILE_ICONS.other).bg}`}>
+                        <FileIcon fileType={file.fileType} size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                        <p className="text-[10px] text-gray-400 truncate">{file.folder || file.path}</p>
+                      </div>
+                      <span className="text-[9px] uppercase font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{file.ext}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {folders.length === 0 && searchResults.length === 0 && <p className="text-gray-400 text-center py-8">Nenhum resultado encontrado</p>}
         </div>
       )}
 
