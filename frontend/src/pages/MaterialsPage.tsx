@@ -163,17 +163,24 @@ export default function MaterialsPage() {
   const folders = entries.filter(e => e.tag === 'folder')
 
   // Auto-fetch thumbs from linked videos, images in folder, or most recent subfolder
+  // Saves to DB so next time loads instantly. Only re-checks in background.
   useEffect(() => {
     if (folders.length === 0) return
+    const foldersWithoutThumb = folders.slice(0, 12).filter(f => !folderThumbs[f.path])
+    if (foldersWithoutThumb.length === 0) return
+
     const fetchAutoThumbs = async () => {
       const newThumbs: Record<string, string> = {}
-      for (const folder of folders.slice(0, 12)) {
-        if (folderThumbs[folder.path] || autoThumbs[folder.path]) continue
+      for (const folder of foldersWithoutThumb) {
+        if (autoThumbs[folder.path]) continue
         try {
           // 1. Try linked video
           const vids = await getFolderVideos(folder.path).catch(() => ({ videos: [] }))
           if (vids.videos && vids.videos.length > 0) {
-            newThumbs[folder.path] = vids.videos[0].thumbnail || `https://img.youtube.com/vi/${vids.videos[0].id}/mqdefault.jpg`
+            const url = vids.videos[0].thumbnail || `https://img.youtube.com/vi/${vids.videos[0].id}/mqdefault.jpg`
+            newThumbs[folder.path] = url
+            // Save to DB for instant load next time
+            saveFolderThumbnail(folder.path, url).catch(() => {})
             continue
           }
           // 2. Try image directly in the folder (prefer thumb.png/jpg, then lightest)
@@ -181,18 +188,16 @@ export default function MaterialsPage() {
           const allImgs = (contents.entries || []).filter((e: any) => e.tag === 'file' && e.fileType === 'image')
           const pickBestImg = (imgs: any[]) => {
             if (imgs.length === 0) return null
-            // Prefer files named "thumb"
             const thumbFile = imgs.find((e: any) => e.name.toLowerCase().startsWith('thumb'))
             if (thumbFile) return thumbFile
-            // Otherwise pick the lightest
             return imgs.sort((a: any, b: any) => (a.size || 999999) - (b.size || 999999))[0]
           }
           const img = pickBestImg(allImgs)
           if (img) {
             const dl = await downloadDropbox(img.pathLower || img.path, 'view')
-            if (dl.url) { newThumbs[folder.path] = dl.url; continue }
+            if (dl.url) { newThumbs[folder.path] = dl.url; saveFolderThumbnail(folder.path, dl.url).catch(() => {}); continue }
           }
-          // 3. Try most recent subfolder (last alphabetically) for an image
+          // 3. Try most recent subfolder
           const subfolders = (contents.entries || []).filter((e: any) => e.tag === 'folder').sort((a: any, b: any) => b.name.localeCompare(a.name))
           for (const sub of subfolders.slice(0, 3)) {
             try {
@@ -201,9 +206,8 @@ export default function MaterialsPage() {
               const subImg = pickBestImg(subImgs)
               if (subImg) {
                 const dl = await downloadDropbox(subImg.pathLower || subImg.path, 'view')
-                if (dl.url) { newThumbs[folder.path] = dl.url; break }
+                if (dl.url) { newThumbs[folder.path] = dl.url; saveFolderThumbnail(folder.path, dl.url).catch(() => {}); break }
               }
-              // Go one level deeper
               const subSubs = (subContents.entries || []).filter((e: any) => e.tag === 'folder').sort((a: any, b: any) => b.name.localeCompare(a.name))
               for (const subSub of subSubs.slice(0, 2)) {
                 try {
@@ -212,7 +216,7 @@ export default function MaterialsPage() {
                   const ssImg = pickBestImg(ssImgs)
                   if (ssImg) {
                     const dl = await downloadDropbox(ssImg.pathLower || ssImg.path, 'view')
-                    if (dl.url) { newThumbs[folder.path] = dl.url; break }
+                    if (dl.url) { newThumbs[folder.path] = dl.url; saveFolderThumbnail(folder.path, dl.url).catch(() => {}); break }
                   }
                 } catch { /* ignore */ }
               }
@@ -221,7 +225,11 @@ export default function MaterialsPage() {
           }
         } catch { /* ignore */ }
       }
-      if (Object.keys(newThumbs).length > 0) setAutoThumbs(prev => ({ ...prev, ...newThumbs }))
+      if (Object.keys(newThumbs).length > 0) {
+        setAutoThumbs(prev => ({ ...prev, ...newThumbs }))
+        // Also update folderThumbs state so they show instantly on re-render
+        setFolderThumbs(prev => ({ ...prev, ...newThumbs }))
+      }
     }
     fetchAutoThumbs()
   }, [folders.length, folderThumbs])
