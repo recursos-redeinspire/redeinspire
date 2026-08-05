@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import {
-  Folder, ChevronRight, Home, Loader2, X, ArrowLeft, Search, TrendingUp
+  Folder, ChevronRight, Home, Loader2, X, ArrowLeft, Search, TrendingUp,
+  FileText, Video, Headphones, Image, FileSpreadsheet, Presentation,
+  File, Download, Archive, Play
 } from 'lucide-react'
 
 // Generate a deterministic colorful SVG placeholder based on folder name
@@ -43,8 +45,34 @@ function generatePlaceholderThumb(name: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
+const FILE_ICONS: Record<string, { icon: typeof File; color: string; bg: string }> = {
+  video: { icon: Video, color: 'text-purple-600', bg: 'bg-purple-50' },
+  audio: { icon: Headphones, color: 'text-blue-600', bg: 'bg-blue-50' },
+  pdf: { icon: FileText, color: 'text-red-600', bg: 'bg-red-50' },
+  document: { icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
+  presentation: { icon: Presentation, color: 'text-orange-600', bg: 'bg-orange-50' },
+  spreadsheet: { icon: FileSpreadsheet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  image: { icon: Image, color: 'text-green-600', bg: 'bg-green-50' },
+  archive: { icon: Archive, color: 'text-yellow-600', bg: 'bg-yellow-50' },
+  other: { icon: File, color: 'text-gray-500', bg: 'bg-gray-50' },
+}
+
+function formatSize(bytes: number) {
+  if (!bytes) return ''
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB'
+  if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB'
+  return (bytes / 1073741824).toFixed(1) + ' GB'
+}
+
+function FileIcon({ fileType, size = 22 }: { fileType: string; size?: number }) {
+  const c = FILE_ICONS[fileType] || FILE_ICONS.other
+  const Icon = c.icon
+  return <Icon size={size} className={c.color} />
+}
+
 export default function MaterialsPage() {
-  const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox } = useData()
+  const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox, saveFolderVideos, getFileText } = useData()
   const { user } = useAuth()
 
   const [path, setPath] = useState('')
@@ -68,16 +96,48 @@ export default function MaterialsPage() {
   const [tagInput, setTagInput] = useState('')
   const [uploading, setUploading] = useState(false)
 
+  // File preview states
+  const [selectedFile, setSelectedFile] = useState<any | null>(null)
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [_downloading, setDownloading] = useState<string | null>(null)
+  const [folderVideos, setFolderVideos] = useState<any[]>([])
+  const [selectedVideo, setSelectedVideo] = useState<any | null>(null)
+  const [showAddVideo, setShowAddVideo] = useState(false)
+  const [newVideoUrl, setNewVideoUrl] = useState('')
+  const [newVideoTitle, setNewVideoTitle] = useState('')
+  const [folderDescription, setFolderDescription] = useState('')
+
   const isAdmin = user?.role === 'admin'
 
   const loadFolder = useCallback(async (p: string) => {
     setLoading(true); setIsSearching(false); setSearchResults([])
+    setSelectedFile(null); setPreviewUrl(''); setSelectedVideo(null); setFolderVideos([]); setFolderDescription('')
     try {
-      const result = await browseDropbox(p)
+      const [result, vidsResult] = await Promise.all([
+        browseDropbox(p),
+        p ? getFolderVideos(p).catch(() => ({ videos: [] })) : Promise.resolve({ videos: [] })
+      ])
       setEntries(result.entries); setPath(p)
+      const vids = vidsResult.videos || []
+      setFolderVideos(vids)
+      if (vids.length > 0) setSelectedVideo(vids[0])
+
+      // Try to extract description from first .doc/.docx
+      const fileEntries = (result.entries || []).filter((e: any) => e.tag === 'file')
+      const docFile = fileEntries.find((f: any) => {
+        const ext = (f.ext || f.name?.split('.').pop() || '').toLowerCase()
+        return ext === 'docx' || ext === 'doc'
+      })
+      if (docFile && p) {
+        try {
+          const data = await getFileText(docFile.pathLower || docFile.path)
+          if (data.text && data.text.length > 20) setFolderDescription(data.text)
+        } catch { /* ignore */ }
+      }
     } catch { /* ignore */ }
     finally { setLoading(false) }
-  }, [browseDropbox])
+  }, [browseDropbox, getFolderVideos, getFileText])
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) { loadFolder(path); return }
@@ -133,6 +193,21 @@ export default function MaterialsPage() {
   const isRoot = !path
   const getThumb = (folderPath: string, name: string) => folderThumbs[folderPath] || autoThumbs[folderPath] || generatePlaceholderThumb(name)
   const getTags = (folderPath: string) => folderTagMap[folderPath] || []
+  const files = entries.filter(e => e.tag === 'file')
+
+  const handlePreview = async (file: any) => {
+    setSelectedFile(file); setPreviewUrl(''); setPreviewLoading(true); setSelectedVideo(null)
+    try { const r = await downloadDropbox(file.pathLower, 'view'); setPreviewUrl(r.url) }
+    catch { setPreviewUrl('') }
+    finally { setPreviewLoading(false) }
+  }
+
+  const handleDownload = async (file: any) => {
+    setDownloading(file.pathLower)
+    try { const r = await downloadDropbox(file.pathLower, 'download'); window.open(r.url, '_blank') }
+    catch { alert('Erro ao baixar') }
+    finally { setDownloading(null) }
+  }
 
   return (
     <div>
@@ -284,6 +359,158 @@ export default function MaterialsPage() {
         </div>
       )}
 
+      {/* ═══ FILES VIEW — Split: Preview left + list right ═══ */}
+      {!loading && !isSearching && folders.length === 0 && files.length > 0 && (() => {
+        const folderTitle = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : 'Materiais'
+        return (
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-1">{folderTitle}</h2>
+          {folderDescription && (
+            <div className="mb-4">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Resumo do Conteúdo:</p>
+              <p className="text-[12px] text-gray-600 leading-relaxed">{folderDescription}</p>
+            </div>
+          )}
+          <div className="flex flex-col lg:flex-row gap-4 mt-4">
+            {/* Left: Preview */}
+            <div className="flex-1 min-w-0 flex flex-col">
+              <div className="bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col flex-1">
+                {selectedVideo && (
+                  <div className="w-full">
+                    <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                      <iframe src={`https://www.youtube.com/embed/${selectedVideo.id}?autoplay=0&rel=0`}
+                        className="absolute inset-0 w-full h-full rounded-t-xl" title={selectedVideo.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                    </div>
+                    <div className="px-4 py-3 border-t bg-gray-50">
+                      <p className="font-medium text-sm text-gray-900">{selectedVideo.title}</p>
+                    </div>
+                  </div>
+                )}
+                {!selectedVideo && !selectedFile && (
+                  <div className="flex items-center justify-center flex-1 text-center text-gray-400 p-8">
+                    <div><File size={48} className="mx-auto mb-3 text-gray-300" /><p className="text-sm">Selecione um arquivo para visualizar</p></div>
+                  </div>
+                )}
+                {!selectedVideo && selectedFile && previewLoading && (
+                  <div className="flex items-center justify-center flex-1"><Loader2 size={32} className="animate-spin text-green-500" /></div>
+                )}
+                {!selectedVideo && selectedFile && !previewLoading && !previewUrl && (
+                  <div className="flex items-center justify-center flex-1 text-center text-gray-400 p-8">
+                    <div><FileIcon fileType={selectedFile.fileType} size={48} /><p className="text-sm mt-3">Preview não disponível</p>
+                      <button onClick={() => handleDownload(selectedFile)} className="mt-4 bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-green-700 inline-flex items-center gap-2"><Download size={16} /> Baixar</button>
+                    </div>
+                  </div>
+                )}
+                {!selectedVideo && selectedFile && !previewLoading && previewUrl && (
+                  <div className="w-full flex flex-col">
+                    <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileIcon fileType={selectedFile.fileType} size={18} />
+                        <span className="font-medium text-sm text-gray-900 truncate">{selectedFile.name}</span>
+                        <span className="text-xs text-gray-400">{formatSize(selectedFile.size)}</span>
+                      </div>
+                      <a href={previewUrl} download target="_blank" rel="noopener noreferrer"
+                        className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-700 flex items-center gap-1.5 shrink-0"><Download size={14} /> Baixar</a>
+                    </div>
+                    <div className="flex items-center justify-center p-4 overflow-auto flex-1">
+                      {selectedFile.fileType === 'image' ? <img src={previewUrl} alt="" className="max-w-full max-h-[450px] object-contain rounded-lg shadow" />
+                      : selectedFile.fileType === 'video' ? <video src={previewUrl} controls className="max-w-full max-h-[450px] rounded-lg shadow" />
+                      : selectedFile.fileType === 'audio' ? <div className="flex flex-col items-center gap-4 w-full max-w-md"><Headphones size={36} className="text-blue-400" /><p className="font-medium text-gray-700">{selectedFile.name}</p><audio src={previewUrl} controls className="w-full" /></div>
+                      : selectedFile.fileType === 'pdf' ? <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(previewUrl)}&embedded=true`} className="w-full h-[450px] rounded-lg border" title={selectedFile.name} />
+                      : (selectedFile.ext === 'ppt' || selectedFile.ext === 'pptx' || selectedFile.ext === 'doc' || selectedFile.ext === 'docx') ? <iframe src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`} className="w-full h-[450px] rounded-lg border" title={selectedFile.name} />
+                      : <div className="text-center text-gray-500"><FileIcon fileType={selectedFile.fileType} size={48} /><p className="font-medium mt-3">{selectedFile.name}</p></div>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Right: list */}
+            <div className="lg:w-80 xl:w-96 shrink-0 space-y-4">
+              <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-700">{folderVideos.length > 0 ? `${folderVideos.length} vídeos · ` : ''}{files.length} arquivos</p>
+                  {isAdmin && <button onClick={() => setShowAddVideo(true)} className="text-xs text-green-600 hover:text-green-800 font-medium">+ Vídeo</button>}
+                </div>
+                <div className="max-h-[420px] overflow-y-auto divide-y divide-gray-50">
+                  {folderVideos.map((vid, idx) => {
+                    const isActive = selectedVideo?.id === vid.id
+                    return (
+                      <div key={vid.id} className="relative group">
+                        <button onClick={() => { setSelectedVideo(vid); setSelectedFile(null); setPreviewUrl('') }}
+                          className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${isActive ? 'bg-purple-50 border-l-2 border-l-purple-500' : 'hover:bg-gray-50 border-l-2 border-l-transparent'}`}>
+                          <div className="shrink-0 w-10 h-7 rounded bg-gray-900 overflow-hidden relative">
+                            <img src={vid.thumbnail || `https://img.youtube.com/vi/${vid.id}/default.jpg`} alt="" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 flex items-center justify-center"><Play size={10} className="text-white" fill="white" /></div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-medium truncate ${isActive ? 'text-purple-900' : 'text-gray-900'}`}>{vid.title}</p>
+                            <p className="text-[10px] text-gray-400">Vídeo</p>
+                          </div>
+                        </button>
+                        {isAdmin && <button onClick={() => { const updated = folderVideos.filter((_, i) => i !== idx); setFolderVideos(updated); saveFolderVideos(path, updated) }}
+                          className="absolute top-2 right-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><X size={12} /></button>}
+                      </div>
+                    )
+                  })}
+                  {files.map(file => {
+                    const isActive = selectedFile?.id === file.id && !selectedVideo
+                    return (
+                      <button key={file.id} onClick={() => { setSelectedVideo(null); handlePreview(file) }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${isActive ? 'bg-green-50 border-l-2 border-l-green-500' : 'hover:bg-gray-50 border-l-2 border-l-transparent'}`}>
+                        <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${(FILE_ICONS[file.fileType] || FILE_ICONS.other).bg}`}>
+                          <FileIcon fileType={file.fileType} size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-medium truncate ${isActive ? 'text-green-900' : 'text-gray-900'}`}>{file.name.replace(/\.[^/.]+$/, '')}</p>
+                          <p className="text-[10px] text-gray-400"><span className="uppercase font-medium">{file.ext}</span> · {formatSize(file.size)}</p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        )
+      })()}
+
+      {/* Add Video Modal */}
+      {showAddVideo && isAdmin && (
+        <div className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowAddVideo(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b"><h2 className="font-bold text-gray-900">Adicionar vídeo à pasta</h2></div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">URL ou ID do YouTube</label>
+                <input type="text" value={newVideoUrl} onChange={e => setNewVideoUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..."
+                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-200" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
+                <input type="text" value={newVideoTitle} onChange={e => setNewVideoTitle(e.target.value)} placeholder="Título do vídeo"
+                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-200" />
+              </div>
+            </div>
+            <div className="p-5 border-t flex gap-3">
+              <button onClick={() => setShowAddVideo(false)} className="flex-1 border rounded-lg py-2.5 text-sm text-gray-700 hover:bg-gray-50">Cancelar</button>
+              <button onClick={async () => {
+                const id = extractYoutubeId(newVideoUrl)
+                if (!id || !newVideoTitle.trim()) return
+                const newVid = { id, title: newVideoTitle.trim(), thumbnail: `https://img.youtube.com/vi/${id}/mqdefault.jpg` }
+                const updated = [...folderVideos, newVid]
+                setFolderVideos(updated)
+                await saveFolderVideos(path, updated)
+                setNewVideoUrl(''); setNewVideoTitle(''); setShowAddVideo(false)
+                if (!selectedVideo) setSelectedVideo(newVid)
+              }} disabled={!newVideoUrl || !newVideoTitle.trim()}
+                className="flex-1 bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700 disabled:opacity-50">Adicionar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══ ADMIN EDIT MODAL ═══ */}
       {editingFolder && isAdmin && (
         <div className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center p-4" onClick={() => setEditingFolder(null)}>
@@ -369,4 +596,19 @@ export default function MaterialsPage() {
       )}
     </div>
   )
+}
+
+
+function extractYoutubeId(input: string): string | null {
+  if (!input) return null
+  if (/^[a-zA-Z0-9_-]{11}$/.test(input.trim())) return input.trim()
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+  ]
+  for (const p of patterns) {
+    const m = input.match(p)
+    if (m) return m[1]
+  }
+  return null
 }
