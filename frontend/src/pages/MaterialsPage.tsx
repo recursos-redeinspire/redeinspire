@@ -176,9 +176,18 @@ export default function MaterialsPage() {
             newThumbs[folder.path] = vids.videos[0].thumbnail || `https://img.youtube.com/vi/${vids.videos[0].id}/mqdefault.jpg`
             continue
           }
-          // 2. Try image directly in the folder
+          // 2. Try image directly in the folder (prefer thumb.png/jpg, then lightest)
           const contents = await browseDropbox(folder.path)
-          const img = (contents.entries || []).find((e: any) => e.tag === 'file' && e.fileType === 'image')
+          const allImgs = (contents.entries || []).filter((e: any) => e.tag === 'file' && e.fileType === 'image')
+          const pickBestImg = (imgs: any[]) => {
+            if (imgs.length === 0) return null
+            // Prefer files named "thumb"
+            const thumbFile = imgs.find((e: any) => e.name.toLowerCase().startsWith('thumb'))
+            if (thumbFile) return thumbFile
+            // Otherwise pick the lightest
+            return imgs.sort((a: any, b: any) => (a.size || 999999) - (b.size || 999999))[0]
+          }
+          const img = pickBestImg(allImgs)
           if (img) {
             const dl = await downloadDropbox(img.pathLower || img.path, 'view')
             if (dl.url) { newThumbs[folder.path] = dl.url; continue }
@@ -188,18 +197,19 @@ export default function MaterialsPage() {
           for (const sub of subfolders.slice(0, 3)) {
             try {
               const subContents = await browseDropbox(sub.path || sub.pathLower)
-              // Check for image in subfolder
-              const subImg = (subContents.entries || []).find((e: any) => e.tag === 'file' && e.fileType === 'image')
+              const subImgs = (subContents.entries || []).filter((e: any) => e.tag === 'file' && e.fileType === 'image')
+              const subImg = pickBestImg(subImgs)
               if (subImg) {
                 const dl = await downloadDropbox(subImg.pathLower || subImg.path, 'view')
                 if (dl.url) { newThumbs[folder.path] = dl.url; break }
               }
-              // Go one level deeper (most recent sub-subfolder)
+              // Go one level deeper
               const subSubs = (subContents.entries || []).filter((e: any) => e.tag === 'folder').sort((a: any, b: any) => b.name.localeCompare(a.name))
               for (const subSub of subSubs.slice(0, 2)) {
                 try {
                   const ssContents = await browseDropbox(subSub.path || subSub.pathLower)
-                  const ssImg = (ssContents.entries || []).find((e: any) => e.tag === 'file' && e.fileType === 'image')
+                  const ssImgs = (ssContents.entries || []).filter((e: any) => e.tag === 'file' && e.fileType === 'image')
+                  const ssImg = pickBestImg(ssImgs)
                   if (ssImg) {
                     const dl = await downloadDropbox(ssImg.pathLower || ssImg.path, 'view')
                     if (dl.url) { newThumbs[folder.path] = dl.url; break }
