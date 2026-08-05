@@ -1,395 +1,204 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
-import { useI18n } from '../i18n/I18nContext'
 import {
-  Folder, FileText, Video, Headphones, Image, FileSpreadsheet, Presentation,
-  File, Download, ChevronRight, Home, Loader2, X, Archive, Search, ArrowLeft,
-  BookOpen, Users, Star, Music, Heart, Lightbulb, Calendar, TrendingUp, Play
+  Folder, ChevronRight, Home, Loader2, X, ArrowLeft, Search, TrendingUp
 } from 'lucide-react'
 
-const FILE_ICONS: Record<string, { icon: typeof File; color: string; bg: string }> = {
-  video: { icon: Video, color: 'text-purple-600', bg: 'bg-purple-50' },
-  audio: { icon: Headphones, color: 'text-blue-600', bg: 'bg-blue-50' },
-  pdf: { icon: FileText, color: 'text-red-600', bg: 'bg-red-50' },
-  document: { icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
-  presentation: { icon: Presentation, color: 'text-orange-600', bg: 'bg-orange-50' },
-  spreadsheet: { icon: FileSpreadsheet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-  image: { icon: Image, color: 'text-green-600', bg: 'bg-green-50' },
-  archive: { icon: Archive, color: 'text-yellow-600', bg: 'bg-yellow-50' },
-  other: { icon: File, color: 'text-gray-500', bg: 'bg-gray-50' },
-}
-
-// Folder theme colors/icons for root-level categories
-const FOLDER_THEMES: Record<string, { icon: typeof Folder; gradient: string; iconColor: string }> = {
-  'Mensagens': { icon: BookOpen, gradient: 'from-purple-500 to-indigo-600', iconColor: 'text-white' },
-  'Crianças': { icon: Heart, gradient: 'from-pink-400 to-rose-500', iconColor: 'text-white' },
-  'Jovens': { icon: Music, gradient: 'from-cyan-500 to-blue-600', iconColor: 'text-white' },
-  'Liderança': { icon: Star, gradient: 'from-amber-400 to-orange-500', iconColor: 'text-white' },
-  'Gestão': { icon: Lightbulb, gradient: 'from-emerald-400 to-teal-600', iconColor: 'text-white' },
-  'Eventos': { icon: Calendar, gradient: 'from-violet-500 to-purple-600', iconColor: 'text-white' },
-  'Ministérios': { icon: Users, gradient: 'from-blue-500 to-indigo-600', iconColor: 'text-white' },
-  'Worship': { icon: Music, gradient: 'from-rose-400 to-pink-600', iconColor: 'text-white' },
-}
-
-function getFolderTheme(name: string) {
-  for (const [key, theme] of Object.entries(FOLDER_THEMES)) {
-    if (name.toLowerCase().includes(key.toLowerCase())) return theme
-  }
-  // Default theme based on first letter hash
-  const defaults = [
-    { icon: Folder, gradient: 'from-slate-500 to-gray-700', iconColor: 'text-white' },
-    { icon: Folder, gradient: 'from-green-500 to-emerald-600', iconColor: 'text-white' },
-    { icon: Folder, gradient: 'from-sky-500 to-blue-600', iconColor: 'text-white' },
-    { icon: Folder, gradient: 'from-orange-400 to-red-500', iconColor: 'text-white' },
+// Generate a deterministic colorful SVG placeholder based on folder name
+function generatePlaceholderThumb(name: string): string {
+  const colors = [
+    ['#16a34a', '#059669'], ['#2563eb', '#1d4ed8'], ['#9333ea', '#7c3aed'],
+    ['#dc2626', '#b91c1c'], ['#ea580c', '#c2410c'], ['#0891b2', '#0e7490'],
+    ['#4f46e5', '#4338ca'], ['#be185d', '#9d174d'], ['#ca8a04', '#a16207'],
+    ['#0d9488', '#0f766e'],
   ]
-  return defaults[name.charCodeAt(0) % defaults.length]
-}
+  const shapes = ['circle', 'rect', 'triangle', 'diamond', 'cross']
+  const hash = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+  const [c1, c2] = colors[hash % colors.length]
+  const shape = shapes[(hash * 7) % shapes.length]
+  const rotation = (hash * 13) % 360
 
-function formatSize(bytes: number) {
-  if (!bytes) return ''
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB'
-  if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB'
-  return (bytes / 1073741824).toFixed(1) + ' GB'
-}
-
-function FileIcon({ fileType, size = 22 }: { fileType: string; size?: number }) {
-  const c = FILE_ICONS[fileType] || FILE_ICONS.other
-  const Icon = c.icon
-  return <Icon size={size} className={c.color} />
-}
-
-// Generate a brief description based on folder name and file contents
-function generateFolderDescription(folderTitle: string, allFiles: any[], docFiles: any[]): string {
-  const fileTypes = new Set(allFiles.map(f => f.fileType))
-  const extensions = new Set(allFiles.map(f => f.ext?.toLowerCase()).filter(Boolean))
-
-  const parts: string[] = []
-
-  // Describe content type based on what's in the folder
-  const typeDescriptions: string[] = []
-  if (fileTypes.has('presentation') || extensions.has('pptx') || extensions.has('ppt')) typeDescriptions.push('apresentações')
-  if (fileTypes.has('pdf') || extensions.has('pdf')) typeDescriptions.push('PDFs')
-  if (fileTypes.has('document') || extensions.has('docx') || extensions.has('doc')) typeDescriptions.push('documentos')
-  if (fileTypes.has('video') || extensions.has('mp4')) typeDescriptions.push('vídeos')
-  if (fileTypes.has('audio') || extensions.has('mp3')) typeDescriptions.push('áudios')
-  if (fileTypes.has('image') || extensions.has('jpg') || extensions.has('png')) typeDescriptions.push('imagens')
-
-  if (typeDescriptions.length > 0) {
-    parts.push(`Esta pasta contém ${typeDescriptions.join(', ')}`)
+  let shapesSvg = ''
+  // Background pattern
+  for (let i = 0; i < 3; i++) {
+    const x = 30 + ((hash * (i + 3) * 17) % 200)
+    const y = 30 + ((hash * (i + 5) * 13) % 200)
+    const size = 20 + ((hash * (i + 1)) % 40)
+    const opacity = 0.1 + ((hash * (i + 2)) % 3) * 0.05
+    if (shape === 'circle') {
+      shapesSvg += `<circle cx="${x}" cy="${y}" r="${size}" fill="white" opacity="${opacity}"/>`
+    } else if (shape === 'rect') {
+      shapesSvg += `<rect x="${x - size / 2}" y="${y - size / 2}" width="${size}" height="${size}" fill="white" opacity="${opacity}" transform="rotate(${rotation} ${x} ${y})"/>`
+    } else if (shape === 'triangle') {
+      shapesSvg += `<polygon points="${x},${y - size} ${x - size},${y + size} ${x + size},${y + size}" fill="white" opacity="${opacity}"/>`
+    } else if (shape === 'diamond') {
+      shapesSvg += `<rect x="${x - size / 2}" y="${y - size / 2}" width="${size}" height="${size}" fill="white" opacity="${opacity}" transform="rotate(45 ${x} ${y})"/>`
+    } else {
+      shapesSvg += `<rect x="${x - size / 2}" y="${y - 4}" width="${size}" height="8" fill="white" opacity="${opacity}"/><rect x="${x - 4}" y="${y - size / 2}" width="8" height="${size}" fill="white" opacity="${opacity}"/>`
+    }
   }
 
-  // Context based on folder name keywords
-  const titleLower = folderTitle.toLowerCase()
-  if (titleLower.includes('mensagen') || titleLower.includes('sermon') || titleLower.includes('pregaç')) {
-    parts.push('Material de apoio para mensagens e pregações. Use as apresentações e roteiros para enriquecer seu culto.')
-  } else if (titleLower.includes('lideranç') || titleLower.includes('líder') || titleLower.includes('treinament')) {
-    parts.push('Recursos de capacitação para líderes. Ideal para reuniões de equipe e desenvolvimento ministerial.')
-  } else if (titleLower.includes('crianç') || titleLower.includes('kids') || titleLower.includes('infantil')) {
-    parts.push('Materiais voltados para o ministério infantil. Histórias, atividades e recursos visuais.')
-  } else if (titleLower.includes('jovens') || titleLower.includes('adolescent')) {
-    parts.push('Conteúdo dinâmico para o ministério de jovens e adolescentes.')
-  } else if (titleLower.includes('worship') || titleLower.includes('louvor') || titleLower.includes('música')) {
-    parts.push('Recursos para o ministério de louvor e adoração.')
-  } else if (titleLower.includes('gestão') || titleLower.includes('operacion') || titleLower.includes('financ')) {
-    parts.push('Ferramentas e templates para a gestão e operação da igreja.')
-  } else if (docFiles.length > 0) {
-    parts.push('Explore os materiais disponíveis para uso no seu ministério.')
-  }
-
-  // Add file count info
-  if (allFiles.length > 0) {
-    parts.push(`${allFiles.length} arquivo${allFiles.length > 1 ? 's' : ''} disponíve${allFiles.length > 1 ? 'is' : 'l'} para download.`)
-  }
-
-  return parts.join(' ')
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs><rect width="300" height="300" fill="url(#g)"/>${shapesSvg}<text x="150" y="160" text-anchor="middle" font-family="system-ui,sans-serif" font-size="24" font-weight="700" fill="white" opacity="0.9">${name.substring(0, 18)}</text></svg>`
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
 export default function MaterialsPage() {
-  const { browseDropbox, downloadDropbox, smartSearchDropbox, getTopDownloads, getFolderVideos, saveFolderVideos, getFileText, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderTags, saveFolderTags } = useData()
-  const { user: _user } = useAuth()
-  const { t } = useI18n()
-  const [searchParams] = useSearchParams()
-  const initialPath = searchParams.get('path') || ''
+  const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox } = useData()
+  const { user } = useAuth()
 
   const [path, setPath] = useState('')
   const [entries, setEntries] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [downloading, setDownloading] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [isSearching, setIsSearching] = useState(false)
-  const [searchKeywords, setSearchKeywords] = useState<string[]>([])
+  const [folderThumbs, setFolderThumbs] = useState<Record<string, string>>({})
+  const [folderTagMap, setFolderTagMap] = useState<Record<string, string[]>>({})
+  const [autoThumbs, setAutoThumbs] = useState<Record<string, string>>({})
   const [topDownloads, setTopDownloads] = useState<any[]>([])
 
-  // Drawer preview state
-  const [selectedFile, setSelectedFile] = useState<any | null>(null)
-  const [previewUrl, setPreviewUrl] = useState('')
-  const [previewLoading, setPreviewLoading] = useState(false)
+  // Search
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searchKeywords, setSearchKeywords] = useState<string[]>([])
 
-  // Folder videos state
-  const [folderVideos, setFolderVideos] = useState<any[]>([])
-  const [selectedVideo, setSelectedVideo] = useState<any | null>(null)
-  const [showAddVideo, setShowAddVideo] = useState(false)
-  const [newVideoUrl, setNewVideoUrl] = useState('')
-  const [newVideoTitle, setNewVideoTitle] = useState('')
-  const [folderDescription, setFolderDescription] = useState('')
-  const [docFilePath, setDocFilePath] = useState('')
-  const [regenerating, setRegenerating] = useState(false)
-  const [relatedFolders, setRelatedFolders] = useState<any[]>([])
-  const [folderThumbs, setFolderThumbs] = useState<Record<string, string>>({})
-  const [folderVideoThumbs, setFolderVideoThumbs] = useState<Record<string, string>>({})
-  const [folderTags, setFolderTags] = useState<string[]>([])
-  const [showTagEditor, setShowTagEditor] = useState(false)
+  // Admin edit state
+  const [editingFolder, setEditingFolder] = useState<any | null>(null)
+  const [editDesc, setEditDesc] = useState('')
+  const [editTags, setEditTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
-  const isAdmin = _user?.role === 'admin'
+  const [uploading, setUploading] = useState(false)
+
+  const isAdmin = user?.role === 'admin'
 
   const loadFolder = useCallback(async (p: string) => {
-    setLoading(true); setError(''); setIsSearching(false); setSearchKeywords([])
-    setSelectedFile(null); setPreviewUrl(''); setSelectedVideo(null); setFolderVideos([])
-    setFolderDescription(''); setDocFilePath(''); setRelatedFolders([]); setFolderTags([])
+    setLoading(true); setIsSearching(false); setSearchResults([])
     try {
-      const [result, vidsResult] = await Promise.all([
-        browseDropbox(p),
-        p ? getFolderVideos(p).catch(() => ({ videos: [] })) : Promise.resolve({ videos: [] })
-      ])
+      const result = await browseDropbox(p)
       setEntries(result.entries); setPath(p)
-      const vids = vidsResult.videos || []
-      setFolderVideos(vids)
-      if (vids.length > 0) setSelectedVideo(vids[0])
-
-      // Try to extract description from first .doc/.docx in the folder
-      const fileEntries = (result.entries || []).filter((e: any) => e.tag === 'file')
-      const docFile = fileEntries.find((f: any) => {
-        const ext = (f.ext || f.name?.split('.').pop() || '').toLowerCase()
-        return ext === 'docx' || ext === 'doc'
-      })
-      if (docFile && p) {
-        try {
-          const filePath = docFile.pathLower || docFile.path
-          setDocFilePath(filePath)
-          console.log('[PreviewMateriais] Reading doc for description:', filePath)
-          const data = await getFileText(filePath)
-          console.log('[PreviewMateriais] Got text, length:', data.text?.length)
-          if (data.text && data.text.length > 20) {
-            setFolderDescription(data.text)
-          }
-        } catch (e) {
-          console.log('[PreviewMateriais] Could not read doc:', e)
-        }
-      }
-
-      // Fetch sibling folders for "Related Content"
-      if (p) {
-        // Load folder tags
-        getFolderTags(p).then(d => setFolderTags(d.tags || [])).catch(() => {})
-
-        const parentPath = p.substring(0, p.lastIndexOf('/')) || ''
-        browseDropbox(parentPath).then(async parentResult => {
-          const siblings = (parentResult.entries || [])
-            .filter((e: any) => e.tag === 'folder' && e.path !== p && e.pathLower !== p.toLowerCase())
-            .slice(0, 5)
-          setRelatedFolders(siblings)
-
-          // For each sibling, try to get a thumbnail from its linked videos or images
-          const thumbMap: Record<string, string> = {}
-          for (const sib of siblings) {
-            // Check if there's a linked video for this folder
-            try {
-              const vids = await getFolderVideos(sib.path).catch(() => ({ videos: [] }))
-              if (vids.videos && vids.videos.length > 0) {
-                thumbMap[sib.path] = vids.videos[0].thumbnail || `https://img.youtube.com/vi/${vids.videos[0].id}/mqdefault.jpg`
-                continue
-              }
-            } catch { /* ignore */ }
-            // Otherwise browse for an image
-            try {
-              const contents = await browseDropbox(sib.path)
-              const img = (contents.entries || []).find((e: any) => e.tag === 'file' && e.fileType === 'image')
-              if (img) {
-                const dl = await downloadDropbox(img.pathLower, 'view')
-                if (dl.url) thumbMap[sib.path] = dl.url
-              }
-            } catch { /* ignore */ }
-          }
-          setFolderVideoThumbs(thumbMap)
-        }).catch(() => {})
-      }
-    } catch (e: any) { setError(e.message || 'Erro') }
+    } catch { /* ignore */ }
     finally { setLoading(false) }
-  }, [browseDropbox, getFolderVideos, getFileText])
-
-  useEffect(() => { loadFolder(initialPath) }, [loadFolder, initialPath])
-  useEffect(() => { getTopDownloads().then(setTopDownloads).catch(() => {}) }, [getTopDownloads])
-  useEffect(() => { getFolderThumbnails().then(d => setFolderThumbs(d.thumbnails || {})).catch(() => {}) }, [getFolderThumbnails])
-
-  // Auto-fetch thumbs for top downloaded folders (from linked videos or images inside)
-  useEffect(() => {
-    if (topDownloads.length === 0) return
-    const fetchThumbs = async () => {
-      const newThumbs: Record<string, string> = {}
-      for (const item of topDownloads.slice(0, 5)) {
-        if (folderThumbs[item.folderPath]) continue // already has custom thumb
-        try {
-          const vids = await getFolderVideos(item.folderPath).catch(() => ({ videos: [] }))
-          if (vids.videos && vids.videos.length > 0) {
-            newThumbs[item.folderPath] = vids.videos[0].thumbnail || `https://img.youtube.com/vi/${vids.videos[0].id}/mqdefault.jpg`
-            continue
-          }
-          const contents = await browseDropbox(item.folderPath)
-          const img = (contents.entries || []).find((e: any) => e.tag === 'file' && e.fileType === 'image')
-          if (img) {
-            const dl = await downloadDropbox(img.pathLower, 'view')
-            if (dl.url) newThumbs[item.folderPath] = dl.url
-          }
-        } catch { /* ignore */ }
-      }
-      if (Object.keys(newThumbs).length > 0) {
-        setFolderVideoThumbs(prev => ({ ...prev, ...newThumbs }))
-      }
-    }
-    fetchThumbs()
-  }, [topDownloads, folderThumbs])
+  }, [browseDropbox])
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) { loadFolder(path); return }
-    setLoading(true); setError(''); setIsSearching(true)
-    setSelectedFile(null); setPreviewUrl('')
+    setLoading(true); setIsSearching(true)
     try {
       const result = await smartSearchDropbox(q)
-      setEntries(result.entries); setSearchKeywords(result.keywords || [])
-    } catch (e: any) { setError(e.message || 'Erro') }
+      setSearchResults(result.entries || [])
+      setSearchKeywords(result.keywords || [])
+    } catch { /* ignore */ }
     finally { setLoading(false) }
   }, [smartSearchDropbox, loadFolder, path])
 
-  const handlePreview = async (file: any) => {
-    setSelectedFile(file); setPreviewUrl(''); setPreviewLoading(true)
-    try { const r = await downloadDropbox(file.pathLower, 'view'); setPreviewUrl(r.url) }
-    catch { setPreviewUrl('') }
-    finally { setPreviewLoading(false) }
-  }
+  useEffect(() => { loadFolder('') }, [loadFolder])
+  useEffect(() => {
+    getFolderThumbnails().then(d => setFolderThumbs(d.thumbnails || {})).catch(() => {})
+    getAllFolderTags().then(d => setFolderTagMap(d.tagMap || {})).catch(() => {})
+    getTopDownloads().then(setTopDownloads).catch(() => {})
+  }, [])
 
-  const handleDownload = async (file: any) => {
-    setDownloading(file.pathLower)
-    try { const r = await downloadDropbox(file.pathLower, 'download'); window.open(r.url, '_blank') }
-    catch { alert('Erro ao baixar') }
-    finally { setDownloading(null) }
-  }
+  const folders = entries.filter(e => e.tag === 'folder')
+
+  // Auto-fetch thumbs from linked videos
+  useEffect(() => {
+    if (folders.length === 0) return
+    const fetchAutoThumbs = async () => {
+      const newThumbs: Record<string, string> = {}
+      for (const folder of folders.slice(0, 12)) {
+        if (folderThumbs[folder.path] || autoThumbs[folder.path]) continue
+        try {
+          const vids = await getFolderVideos(folder.path).catch(() => ({ videos: [] }))
+          if (vids.videos && vids.videos.length > 0) {
+            newThumbs[folder.path] = vids.videos[0].thumbnail || `https://img.youtube.com/vi/${vids.videos[0].id}/mqdefault.jpg`
+            continue
+          }
+          // Try to find image in folder
+          const contents = await browseDropbox(folder.path)
+          const img = (contents.entries || []).find((e: any) => e.tag === 'file' && e.fileType === 'image')
+          if (img) {
+            const dl = await downloadDropbox(img.pathLower, 'view')
+            if (dl.url) newThumbs[folder.path] = dl.url
+          }
+        } catch { /* ignore */ }
+      }
+      if (Object.keys(newThumbs).length > 0) setAutoThumbs(prev => ({ ...prev, ...newThumbs }))
+    }
+    fetchAutoThumbs()
+  }, [folders.length, folderThumbs])
 
   const breadcrumbs = path ? path.split('/').filter(Boolean).map((part, i, arr) => ({
     name: part, path: '/' + arr.slice(0, i + 1).join('/'),
   })) : []
 
-  const folders = entries.filter(e => e.tag === 'folder')
-  const files = entries.filter(e => e.tag === 'file')
   const isRoot = !path
+  const getThumb = (folderPath: string, name: string) => folderThumbs[folderPath] || autoThumbs[folderPath] || generatePlaceholderThumb(name)
+  const getTags = (folderPath: string) => folderTagMap[folderPath] || []
 
   return (
-    <div className="min-h-screen">
-      {/* ═══ HERO BANNER ═══ */}
-      {isRoot && !isSearching && (
-        <div className="relative rounded-2xl overflow-hidden mb-8 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600">
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-4 right-8 w-32 h-32 rounded-full bg-white/20 blur-2xl" />
-            <div className="absolute bottom-4 left-16 w-24 h-24 rounded-full bg-white/30 blur-xl" />
-          </div>
-          <div className="relative px-8 py-10 md:py-14">
-            <h1 className="text-2xl md:text-3xl font-bold text-white">Recursos para seu ministério</h1>
-            <p className="text-white/70 text-sm mt-2 max-w-lg">Mensagens, materiais para liderança, crianças, jovens e muito mais. Tudo pronto para download.</p>
-            {/* Search inside hero */}
-            <div className="mt-6 max-w-xl">
-              <div className="flex gap-2">
-                <div className="flex-1 relative">
-                  <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" />
-                  <input type="text" value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && doSearch(searchQuery)}
-                    placeholder="Buscar materiais, mensagens, apresentações..."
-                    className="w-full pl-11 pr-10 py-3 bg-white/15 border border-white/20 rounded-xl text-sm text-white placeholder-white/50 outline-none focus:bg-white/20 focus:border-white/40 transition backdrop-blur-sm" />
-                  {searchQuery && (
-                    <button onClick={() => { setSearchQuery(''); if (isSearching) loadFolder(path) }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"><X size={14} /></button>
-                  )}
-                </div>
-                <button onClick={() => doSearch(searchQuery)}
-                  className="bg-white text-green-700 px-5 py-3 rounded-xl text-sm font-semibold hover:bg-white/90 transition shadow-lg shadow-green-900/20">
-                  Buscar
-                </button>
-              </div>
+    <div>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Materiais</h1>
+          <p className="text-sm text-gray-500 mt-1">Recursos para seu ministério</p>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="flex gap-2 mb-6">
+        <div className="flex-1 relative">
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input type="text" value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && doSearch(searchQuery)}
+            placeholder="Buscar materiais, mensagens, apresentações..."
+            className="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
+          {searchQuery && (
+            <button onClick={() => { setSearchQuery(''); if (isSearching) loadFolder(path) }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X size={14} /></button>
+          )}
+        </div>
+        <button onClick={() => doSearch(searchQuery)}
+          className="bg-green-600 text-white px-5 py-3 rounded-xl text-sm font-medium hover:bg-green-700 transition">
+          Buscar
+        </button>
+      </div>
+
+      {/* Search results */}
+      {isSearching && (
+        <div className="mb-6">
+          <p className="text-sm text-gray-500 mb-2">Resultados para "<span className="font-medium text-gray-800">{searchQuery}</span>"
+            <button onClick={() => { setSearchQuery(''); setIsSearching(false); loadFolder(path) }} className="ml-2 text-red-500 text-xs">Limpar</button>
+          </p>
+          {searchKeywords.length > 0 && (
+            <div className="flex gap-1.5 mb-4 flex-wrap">
+              {searchKeywords.slice(0, 6).map(kw => <span key={kw} className="bg-green-50 text-green-700 text-xs px-2.5 py-1 rounded-full">{kw}</span>)}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Search bar (when not on root) */}
-      {(!isRoot || isSearching) && (
-        <div className="flex gap-2 mb-5">
-          <div className="flex-1 relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && doSearch(searchQuery)}
-              placeholder="Buscar materiais..."
-              className="w-full pl-10 pr-10 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
-            {searchQuery && (
-              <button onClick={() => { setSearchQuery(''); if (isSearching) loadFolder(path) }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X size={14} /></button>
-            )}
-          </div>
-          <button onClick={() => doSearch(searchQuery)}
-            className="bg-green-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-green-700 transition">
-            Buscar
-          </button>
-        </div>
-      )}
-
-      {/* ═══ TOP DOWNLOADS (root only) — Now shows FOLDERS ═══ */}
-      {isRoot && !isSearching && topDownloads.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp size={18} className="text-green-600" />
-            <h2 className="text-[16px] font-bold text-gray-900">Mais baixados</h2>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            {topDownloads.slice(0, 5).map(item => {
-              const theme = getFolderTheme(item.folderName || '')
-              const ThemeIcon = theme.icon
-              const thumbUrl = folderThumbs[item.folderPath] || folderVideoThumbs[item.folderPath]
-              return (
-                <button key={item.folderPath} onClick={() => loadFolder(item.folderPath)}
-                  className="text-left group">
-                  <div className={`relative rounded-xl overflow-hidden aspect-video ${!thumbUrl ? `bg-gradient-to-br ${theme.gradient}` : 'bg-gray-900'}`}>
-                    {thumbUrl ? (
-                      <img src={thumbUrl} alt={item.folderName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <ThemeIcon size={32} className="text-white/70" />
-                      </div>
-                    )}
-                    <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
-                      #{item.rank}
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2.5">
-                      <p className="text-white font-medium text-[11px] line-clamp-2 leading-snug">{item.folderName}</p>
-                    </div>
+          )}
+          {!loading && searchResults.length === 0 && <p className="text-gray-400 text-center py-8">Nenhum resultado encontrado</p>}
+          {!loading && searchResults.length > 0 && (
+            <div className="space-y-2">
+              {searchResults.map((file: any) => (
+                <div key={file.id} className="flex items-center gap-3 bg-white border border-gray-100 rounded-xl p-3 hover:shadow-sm transition">
+                  <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                    <Folder size={16} className="text-gray-400" />
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-1.5">Ver materiais →</p>
-                </button>
-              )
-            })}
-          </div>
-        </section>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                    <p className="text-[10px] text-gray-400 truncate">{file.path}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
-      {/* ═══ BREADCRUMB (not root) ═══ */}
+      {/* Breadcrumb */}
       {!isRoot && !isSearching && (
         <div className="flex items-center gap-1.5 mb-5 text-sm flex-wrap">
-          {path && (
-            <button onClick={() => { const parts = path.split('/'); parts.pop(); loadFolder(parts.join('/')) }}
-              className="text-gray-400 hover:text-gray-700 mr-1 p-1 rounded-lg hover:bg-gray-100 transition"><ArrowLeft size={16} /></button>
-          )}
+          <button onClick={() => { const parts = path.split('/'); parts.pop(); loadFolder(parts.join('/')) }}
+            className="text-gray-400 hover:text-gray-700 mr-1 p-1 rounded-lg hover:bg-gray-100 transition"><ArrowLeft size={16} /></button>
           <button onClick={() => loadFolder('')} className="flex items-center gap-1 text-gray-500 hover:text-gray-900 transition">
             <Home size={14} /> Materiais
           </button>
@@ -403,451 +212,156 @@ export default function MaterialsPage() {
         </div>
       )}
 
-      {/* Search results info */}
-      {isSearching && (
-        <div className="mb-4">
-          <p className="text-sm text-gray-500">Resultados para "<span className="font-medium text-gray-800">{searchQuery}</span>" — {files.length} arquivos
-            <button onClick={() => { setSearchQuery(''); setIsSearching(false); loadFolder(path) }}
-              className="ml-2 text-red-500 hover:text-red-700 text-xs">Limpar</button>
-          </p>
-          {searchKeywords.length > 0 && (
-            <div className="flex gap-1.5 mt-2 flex-wrap">
-              {searchKeywords.slice(0, 8).map(kw => <span key={kw} className="bg-green-50 text-green-700 text-xs px-2.5 py-1 rounded-full">{kw}</span>)}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Loading */}
-      {loading && <div className="flex justify-center py-20"><Loader2 size={32} className="animate-spin text-green-500" /></div>}
-      {error && <div className="rounded-xl bg-red-50 border border-red-100 p-4 text-sm text-red-700 mb-4">{error}</div>}
-
-      {/* Empty */}
-      {!loading && !error && folders.length === 0 && files.length === 0 && (
-        <div className="text-center py-20 text-gray-400">
-          <Folder size={48} className="mx-auto mb-3 text-gray-300" />
-          <p>{isSearching ? 'Nenhum resultado encontrado' : t('materials.emptyFolder')}</p>
-        </div>
-      )}
-
-      {/* ═══ FOLDER GRID — Visual cards ═══ */}
-      {!loading && folders.length > 0 && (
-        <div className="mb-6">
-          {isRoot && <h2 className="text-[16px] font-bold text-gray-900 mb-4">Categorias</h2>}
-          <div className={`grid gap-4 ${isRoot ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
-            {folders.map(folder => {
-              const theme = getFolderTheme(folder.name)
-              const ThemeIcon = theme.icon
+      {/* ═══ TOP DOWNLOADS (root only) ═══ */}
+      {isRoot && !isSearching && topDownloads.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp size={18} className="text-green-600" />
+            <h2 className="text-[15px] font-bold text-gray-900">Mais baixados</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            {topDownloads.slice(0, 5).map(item => {
+              const thumb = getThumb(item.folderPath, item.folderName || '')
               return (
-                <button key={folder.id} onClick={() => loadFolder(folder.path)}
-                  className="relative overflow-hidden rounded-xl text-left group hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5">
-                  <div className={`absolute inset-0 bg-gradient-to-br ${theme.gradient} opacity-90 group-hover:opacity-100 transition`} />
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-10 transition">
-                    <div className="absolute -top-4 -right-4 w-20 h-20 rounded-full bg-white blur-xl" />
+                <button key={item.folderPath} onClick={() => loadFolder(item.folderPath)} className="text-left group">
+                  <div className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 mb-2">
+                    <img src={thumb} alt={item.folderName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <div className="absolute top-2 left-2 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">#{item.rank}</div>
                   </div>
-                  <div className="relative p-5 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
-                      <ThemeIcon size={24} className={theme.iconColor} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-white text-[14px] truncate">{folder.name}</p>
-                      <p className="text-white/60 text-[11px] mt-0.5">Abrir pasta</p>
-                    </div>
-                    <ChevronRight size={18} className="text-white/40 group-hover:text-white/80 group-hover:translate-x-0.5 transition shrink-0" />
-                  </div>
+                  <p className="text-[12px] font-medium text-gray-900 line-clamp-2 leading-snug">{item.folderName}</p>
                 </button>
               )
             })}
           </div>
+        </section>
+      )}
 
-          {/* Files below folders (if any) */}
-          {files.length > 0 && (
-            <>
-              <div className="border-t my-6" />
-              {/* Description from doc */}
-              {(folderDescription || (!isRoot && files.length > 0)) && (
-                <div className="mb-4">
-                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Resumo do Conteúdo:</p>
-                  <p className="text-[12px] text-gray-600 leading-relaxed">
-                    {folderDescription || generateFolderDescription(breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : '', files, files.filter(f => f.fileType === 'document'))}
-                  </p>
-                  {isAdmin && docFilePath && (
-                    <button onClick={async () => {
-                      setRegenerating(true)
-                      try {
-                        const data = await getFileText(docFilePath, true)
-                        if (data.text && data.text.length > 20) setFolderDescription(data.text)
-                      } catch { /* ignore */ }
-                      finally { setRegenerating(false) }
-                    }}
-                      disabled={regenerating}
-                      className="mt-2 text-[10px] text-green-700 hover:text-green-900 font-medium flex items-center gap-1 opacity-70 hover:opacity-100 transition">
-                      {regenerating ? <Loader2 size={10} className="animate-spin" /> : '🔄'} {regenerating ? 'Gerando...' : 'Atualizar descrição'}
+      {loading && <div className="flex justify-center py-20"><Loader2 size={32} className="animate-spin text-green-500" /></div>}
+
+      {/* ═══ FOLDER CARDS — Life.Church style ═══ */}
+      {!loading && !isSearching && folders.length > 0 && (
+        <div>
+          {isRoot && <h2 className="text-[15px] font-bold text-gray-900 mb-4">Conteúdos disponíveis</h2>}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+            {folders.map(folder => {
+              const thumb = getThumb(folder.path, folder.name)
+              const tags = getTags(folder.path)
+              const parentName = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : 'Materiais'
+              return (
+                <div key={folder.id} className="group">
+                  <button onClick={() => loadFolder(folder.path)} className="w-full text-left">
+                    {/* Thumbnail */}
+                    <div className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 mb-2.5">
+                      <img src={thumb} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    </div>
+                    {/* Title */}
+                    <h3 className="font-semibold text-[13px] text-gray-900 leading-snug line-clamp-2 group-hover:text-green-700 transition">{folder.name}</h3>
+                    {/* Category */}
+                    <p className="text-[11px] text-gray-500 mt-0.5">{parentName}</p>
+                    {/* Tags */}
+                    {tags.length > 0 && (
+                      <p className="text-[10px] text-gray-400 mt-0.5">{tags.join(' · ')}</p>
+                    )}
+                  </button>
+                  {/* Admin edit */}
+                  {isAdmin && (
+                    <button onClick={() => { setEditingFolder(folder); setEditTags(getTags(folder.path)); setEditDesc('') }}
+                      className="mt-1 text-[10px] text-gray-400 hover:text-green-600 transition opacity-0 group-hover:opacity-100">
+                      ✏️ Editar card
                     </button>
                   )}
                 </div>
-              )}
-              <h3 className="text-[14px] font-semibold text-gray-700 mb-3">Arquivos nesta pasta</h3>
-              <div className="space-y-2">
-                {files.map(file => (
-                  <div key={file.id} className="flex items-center gap-3 bg-white border border-gray-100 rounded-xl p-3.5 hover:shadow-sm hover:border-gray-200 transition group cursor-pointer" onClick={() => handlePreview(file)}>
-                    <div className={`flex-shrink-0 w-10 h-10 rounded-lg ${(FILE_ICONS[file.fileType] || FILE_ICONS.other).bg} flex items-center justify-center`}>
-                      <FileIcon fileType={file.fileType} size={20} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-gray-900 truncate">{file.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
-                        <span className="uppercase font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px]">{file.ext}</span>
-                        <span>{formatSize(file.size)}</span>
-                      </div>
-                    </div>
-                    <button onClick={(e) => { e.stopPropagation(); handleDownload(file) }} disabled={downloading === file.pathLower}
-                      className="text-gray-400 hover:text-green-600 p-2 rounded-lg hover:bg-green-50 transition">
-                      {downloading === file.pathLower ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+              )
+            })}
+          </div>
         </div>
       )}
 
-      {/* ═══ FILES ONLY VIEW — Split: Preview left + list right ═══ */}
-      {!loading && folders.length === 0 && files.length > 0 && (() => {
-        // Folder title from last breadcrumb
-        const folderTitle = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : 'Materiais'
-        // Use doc-based description if available, otherwise auto-generate
-        const docFiles = files.filter(f => f.fileType === 'document' || f.fileType === 'pdf' || f.ext === 'doc' || f.ext === 'docx' || f.ext === 'txt')
-        const displayDescription = folderDescription || generateFolderDescription(folderTitle, files, docFiles)
-
-        return (
-        <div>
-          {/* Folder title */}
-          <h2 className="text-xl font-bold text-gray-900 mb-1">{folderTitle}</h2>
-          {/* Folder tags */}
-          <div className="flex items-center gap-2 flex-wrap mb-4">
-            {folderTags.map(tag => (
-              <span key={tag} className="bg-gray-100 text-gray-600 text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1">
-                {tag}
-                {isAdmin && (
-                  <button onClick={async () => {
-                    const updated = folderTags.filter(t => t !== tag)
-                    setFolderTags(updated)
-                    await saveFolderTags(path, updated)
-                  }} className="text-gray-400 hover:text-red-500"><X size={10} /></button>
-                )}
-              </span>
-            ))}
-            {isAdmin && (
-              showTagEditor ? (
-                <div className="flex items-center gap-1">
-                  <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)}
-                    onKeyDown={async e => {
-                      if (e.key === 'Enter' && tagInput.trim()) {
-                        const newTag = tagInput.trim().toLowerCase()
-                        if (!folderTags.includes(newTag)) {
-                          const updated = [...folderTags, newTag]
-                          setFolderTags(updated)
-                          await saveFolderTags(path, updated)
-                        }
-                        setTagInput('')
-                      }
-                      if (e.key === 'Escape') setShowTagEditor(false)
-                    }}
-                    placeholder="Nova tag..."
-                    className="border rounded-full px-3 py-1 text-[11px] w-28 outline-none focus:ring-1 focus:ring-green-300" autoFocus />
-                  <button onClick={() => setShowTagEditor(false)} className="text-gray-400 hover:text-gray-600"><X size={12} /></button>
-                </div>
-              ) : (
-                <button onClick={() => setShowTagEditor(true)}
-                  className="text-[11px] text-gray-400 hover:text-gray-700 border border-dashed border-gray-300 rounded-full px-2.5 py-1 flex items-center gap-1 hover:border-gray-400 transition">
-                  + Tag
-                </button>
-              )
-            )}
-          </div>
-
-          <div className="flex flex-col lg:flex-row gap-4 mt-4">
-            {/* Left: Preview area */}
-            <div className="flex-1 min-w-0 flex flex-col">
-              <div className="bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col flex-1">
-                {/* Video playing — full 16:9 without cropping */}
-                {selectedVideo && (
-                  <div className="w-full">
-                    <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                      <iframe
-                        src={`https://www.youtube.com/embed/${selectedVideo.id}?autoplay=0&rel=0`}
-                        className="absolute inset-0 w-full h-full rounded-t-xl"
-                        title={selectedVideo.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    </div>
-                    <div className="px-4 py-3 border-t bg-gray-50">
-                      <p className="font-medium text-sm text-gray-900">{selectedVideo.title}</p>
-                    </div>
-                  </div>
-                )}
-                {/* File preview (when no video selected) */}
-                {!selectedVideo && !selectedFile && (
-                  <div className="flex items-center justify-center flex-1 text-center text-gray-400 p-8">
-                    <div>
-                      <File size={48} className="mx-auto mb-3 text-gray-300" />
-                      <p className="text-sm">Selecione um arquivo para visualizar</p>
-                    </div>
-                  </div>
-                )}
-                {!selectedVideo && selectedFile && previewLoading && (
-                  <div className="flex items-center justify-center flex-1">
-                    <Loader2 size={32} className="animate-spin text-green-500" />
-                  </div>
-                )}
-                {!selectedVideo && selectedFile && !previewLoading && !previewUrl && (
-                  <div className="flex items-center justify-center flex-1 text-center text-gray-400 p-8">
-                    <div>
-                      <FileIcon fileType={selectedFile.fileType} size={48} />
-                      <p className="text-sm mt-3">Preview não disponível</p>
-                      <button onClick={() => handleDownload(selectedFile)}
-                        className="mt-4 bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-green-700 inline-flex items-center gap-2">
-                        <Download size={16} /> Baixar arquivo
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {!selectedVideo && selectedFile && !previewLoading && previewUrl && (
-                  <div className="w-full flex flex-col">
-                    <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileIcon fileType={selectedFile.fileType} size={18} />
-                        <span className="font-medium text-sm text-gray-900 truncate">{selectedFile.name}</span>
-                        <span className="text-xs text-gray-400">{formatSize(selectedFile.size)}</span>
-                      </div>
-                      <a href={previewUrl} download target="_blank" rel="noopener noreferrer"
-                        className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-700 flex items-center gap-1.5 flex-shrink-0">
-                        <Download size={14} /> Baixar
-                      </a>
-                    </div>
-                    <div className="flex items-center justify-center p-4 overflow-auto flex-1">
-                      {selectedFile.fileType === 'image' ? (
-                        <img src={previewUrl} alt={selectedFile.name} className="max-w-full max-h-[450px] object-contain rounded-lg shadow" />
-                      ) : selectedFile.fileType === 'video' ? (
-                        <video src={previewUrl} controls className="max-w-full max-h-[450px] rounded-lg shadow" />
-                      ) : selectedFile.fileType === 'audio' ? (
-                        <div className="flex flex-col items-center gap-4 w-full max-w-md">
-                          <div className="w-20 h-20 rounded-2xl bg-blue-50 flex items-center justify-center">
-                            <Headphones size={36} className="text-blue-400" />
-                          </div>
-                          <p className="font-medium text-gray-700 text-center">{selectedFile.name}</p>
-                          <audio src={previewUrl} controls className="w-full" />
-                        </div>
-                      ) : selectedFile.fileType === 'pdf' ? (
-                        <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(previewUrl)}&embedded=true`} className="w-full h-[450px] rounded-lg border" title={selectedFile.name} />
-                      ) : (selectedFile.ext === 'ppt' || selectedFile.ext === 'pptx' || selectedFile.ext === 'doc' || selectedFile.ext === 'docx') ? (
-                        <iframe src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`} className="w-full h-[450px] rounded-lg border" title={selectedFile.name} />
-                      ) : (
-                        <div className="text-center text-gray-500">
-                          <FileIcon fileType={selectedFile.fileType} size={48} />
-                          <p className="font-medium mt-3">{selectedFile.name}</p>
-                          <p className="text-sm text-gray-400 mt-1">Clique em "Baixar" para abrir</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Right: Description + Videos + File list */}
-            <div className="lg:w-80 xl:w-96 flex-shrink-0 space-y-4">
-              {/* Folder description */}
-              {displayDescription && (
-                <div className="p-4">
-                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Resumo do Conteúdo:</p>
-                  <p className="text-[12px] text-gray-600 leading-relaxed">{displayDescription}</p>
-                  {isAdmin && docFilePath && (
-                    <button onClick={async () => {
-                      setRegenerating(true)
-                      try {
-                        const data = await getFileText(docFilePath, true)
-                        if (data.text && data.text.length > 20) setFolderDescription(data.text)
-                      } catch { /* ignore */ }
-                      finally { setRegenerating(false) }
-                    }}
-                      disabled={regenerating}
-                      className="mt-2 text-[10px] text-green-700 hover:text-green-900 font-medium flex items-center gap-1 opacity-70 hover:opacity-100 transition">
-                      {regenerating ? <Loader2 size={10} className="animate-spin" /> : '🔄'} {regenerating ? 'Gerando...' : 'Atualizar descrição'}
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* List */}
-              <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-                <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
-                  <p className="text-sm font-semibold text-gray-700">
-                    {folderVideos.length > 0 ? `${folderVideos.length} vídeos · ` : ''}{files.length} {t('materials.files')}
-                  </p>
-                  {isAdmin && (
-                    <button onClick={() => setShowAddVideo(true)} className="text-xs text-green-600 hover:text-green-800 font-medium">+ Vídeo</button>
-                  )}
-                </div>
-                <div className="max-h-[420px] overflow-y-auto divide-y divide-gray-50">
-                  {/* Folder videos */}
-                  {folderVideos.map((vid, idx) => {
-                    const isActive = selectedVideo?.id === vid.id
-                    return (
-                      <div key={vid.id} className="relative group">
-                        <button onClick={() => { setSelectedVideo(vid); setSelectedFile(null); setPreviewUrl('') }}
-                          className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${isActive ? 'bg-purple-50 border-l-2 border-l-purple-500' : 'hover:bg-gray-50 border-l-2 border-l-transparent'}`}>
-                          <div className="flex-shrink-0 w-10 h-7 rounded bg-gray-900 overflow-hidden relative">
-                            <img src={vid.thumbnail || `https://img.youtube.com/vi/${vid.id}/default.jpg`} alt="" className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <Play size={10} className="text-white" fill="white" />
-                            </div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-xs font-medium truncate ${isActive ? 'text-purple-900' : 'text-gray-900'}`}>{vid.title}</p>
-                            <p className="text-[10px] text-gray-400">Vídeo</p>
-                          </div>
-                        </button>
-                        {isAdmin && (
-                          <button onClick={() => {
-                            const updated = folderVideos.filter((_, i) => i !== idx)
-                            setFolderVideos(updated)
-                            saveFolderVideos(path, updated)
-                            if (selectedVideo?.id === vid.id) setSelectedVideo(updated[0] || null)
-                          }}
-                            className="absolute top-2 right-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition">
-                            <X size={12} />
-                          </button>
-                        )}
-                      </div>
-                    )
-                  })}
-                  {/* Files */}
-                  {files.map(file => {
-                    const isActive = selectedFile?.id === file.id && !selectedVideo
-                    return (
-                      <button key={file.id} onClick={() => { setSelectedVideo(null); handlePreview(file) }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${isActive ? 'bg-green-50 border-l-2 border-l-green-500' : 'hover:bg-gray-50 border-l-2 border-l-transparent'}`}>
-                        <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${(FILE_ICONS[file.fileType] || FILE_ICONS.other).bg}`}>
-                          <FileIcon fileType={file.fileType} size={16} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-medium truncate ${isActive ? 'text-green-900' : 'text-gray-900'}`}>{file.name.replace(/\.[^/.]+$/, '')}</p>
-                          <p className="text-[10px] text-gray-400">
-                            <span className="uppercase font-medium">{file.ext}</span> · {formatSize(file.size)}
-                          </p>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ═══ RELATED CONTENT (Life.Church style) ═══ */}
-          {relatedFolders.length > 0 && (
-            <div className="mt-8">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-4">Conteúdos Relacionados</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {relatedFolders.map(folder => {
-                  const theme = getFolderTheme(folder.name)
-                  const ThemeIcon = theme.icon
-                  // Priority: admin custom thumb > auto-detected thumb > gradient fallback
-                  const customThumb = folderThumbs[folder.path]
-                  const autoThumb = folderVideoThumbs[folder.path]
-                  const thumbUrl = customThumb || autoThumb
-                  return (
-                    <div key={folder.id} className="group relative">
-                      <button onClick={() => loadFolder(folder.path)} className="text-left w-full">
-                        <div className={`relative rounded-xl overflow-hidden aspect-video ${!thumbUrl ? `bg-gradient-to-br ${theme.gradient}` : 'bg-gray-900'}`}>
-                          {thumbUrl ? (
-                            <img src={thumbUrl} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                          ) : (
-                            <>
-                              <div className="absolute inset-0 opacity-20">
-                                <div className="absolute top-3 right-4 w-16 h-16 rounded-full bg-white/30 blur-xl" />
-                              </div>
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <ThemeIcon size={40} className="text-white/80 group-hover:scale-110 transition-transform" />
-                              </div>
-                            </>
-                          )}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
-                            <p className="text-white font-semibold text-[12px] line-clamp-2 leading-snug">{folder.name}</p>
-                          </div>
-                        </div>
-                        <p className="text-[11px] text-gray-500 mt-2 group-hover:text-green-600 transition">Ver materiais →</p>
-                      </button>
-                      {/* Admin: change thumbnail */}
-                      {isAdmin && (
-                        <label className="absolute top-2 right-2 bg-black/60 text-white text-[9px] px-2 py-1 rounded-lg cursor-pointer opacity-0 group-hover:opacity-100 transition hover:bg-black/80">
-                          📷 Trocar
-                          <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                            const file = e.target.files?.[0]
-                            if (!file) return
-                            try {
-                              const { uploadUrl, fileUrl } = await getUploadPresignedUrl(file.name, file.type)
-                              await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
-                              await saveFolderThumbnail(folder.path, fileUrl)
-                              setFolderThumbs(prev => ({ ...prev, [folder.path]: fileUrl }))
-                            } catch { /* ignore */ }
-                          }} />
-                        </label>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+      {!loading && !isSearching && folders.length === 0 && entries.length === 0 && (
+        <div className="text-center py-20 text-gray-400">
+          <Folder size={48} className="mx-auto mb-3 text-gray-300" />
+          <p>Pasta vazia</p>
         </div>
-        )
-      })()}
+      )}
 
-      {/* ═══ ADD VIDEO MODAL (admin) ═══ */}
-      {showAddVideo && isAdmin && (
-        <div className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowAddVideo(false)}>
+      {/* ═══ ADMIN EDIT MODAL ═══ */}
+      {editingFolder && isAdmin && (
+        <div className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center p-4" onClick={() => setEditingFolder(null)}>
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b">
-              <h2 className="font-bold text-gray-900">Adicionar vídeo à pasta</h2>
-              <p className="text-xs text-gray-400 mt-1">Cole o link ou ID do YouTube</p>
+              <h2 className="font-bold text-gray-900">Editar card da pasta</h2>
+              <p className="text-xs text-gray-400 mt-1">{editingFolder.name}</p>
             </div>
             <div className="p-5 space-y-4">
+              {/* Thumb upload */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">URL ou ID do YouTube *</label>
-                <input type="text" value={newVideoUrl} onChange={e => setNewVideoUrl(e.target.value)}
-                  placeholder="https://youtube.com/watch?v=... ou ID"
-                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-200" />
-                {newVideoUrl && (() => {
-                  const id = extractYoutubeId(newVideoUrl)
-                  return id ? <img src={`https://img.youtube.com/vi/${id}/mqdefault.jpg`} alt="" className="mt-2 w-40 rounded-lg" /> : null
-                })()}
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Thumbnail</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-20 h-20 rounded-lg overflow-hidden border shrink-0">
+                    <img src={getThumb(editingFolder.path, editingFolder.name)} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <label className="inline-flex items-center gap-1.5 text-xs text-green-600 hover:text-green-800 cursor-pointer font-medium">
+                      <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        setUploading(true)
+                        try {
+                          const { uploadUrl, fileUrl } = await getUploadPresignedUrl(file.name, file.type)
+                          await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
+                          await saveFolderThumbnail(editingFolder.path, fileUrl)
+                          setFolderThumbs(prev => ({ ...prev, [editingFolder.path]: fileUrl }))
+                        } catch { /* ignore */ }
+                        finally { setUploading(false) }
+                      }} />
+                      {uploading ? 'Enviando...' : folderThumbs[editingFolder.path] ? '📷 Trocar' : '📷 Subir imagem'}
+                    </label>
+                    {folderThumbs[editingFolder.path] && (
+                      <button onClick={async () => {
+                        await saveFolderThumbnail(editingFolder.path, '')
+                        setFolderThumbs(prev => { const n = { ...prev }; delete n[editingFolder.path]; return n })
+                      }} className="block text-[10px] text-red-500 hover:text-red-700 mt-1">Remover thumb</button>
+                    )}
+                  </div>
+                </div>
               </div>
+              {/* Tags */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
-                <input type="text" value={newVideoTitle} onChange={e => setNewVideoTitle(e.target.value)}
-                  placeholder="Título do vídeo"
-                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-200" />
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Tags</label>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {editTags.map(tag => (
+                    <span key={tag} className="bg-gray-100 text-gray-700 text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1">
+                      {tag}
+                      <button onClick={() => setEditTags(prev => prev.filter(t => t !== tag))} className="text-gray-400 hover:text-red-500"><X size={10} /></button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && tagInput.trim()) { setEditTags(prev => [...prev, tagInput.trim().toLowerCase()]); setTagInput('') } }}
+                    placeholder="Adicionar tag..."
+                    className="flex-1 border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-green-300" />
+                  <button onClick={() => { if (tagInput.trim()) { setEditTags(prev => [...prev, tagInput.trim().toLowerCase()]); setTagInput('') } }}
+                    className="text-xs text-green-600 font-medium px-2">+ Add</button>
+                </div>
+              </div>
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Descritivo breve</label>
+                <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={2}
+                  placeholder="Breve descrição do conteúdo desta pasta..."
+                  className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-200" />
               </div>
             </div>
             <div className="p-5 border-t flex gap-3">
-              <button onClick={() => setShowAddVideo(false)} className="flex-1 border rounded-lg py-2.5 text-sm text-gray-700 hover:bg-gray-50">Cancelar</button>
+              <button onClick={() => setEditingFolder(null)} className="flex-1 border rounded-lg py-2.5 text-sm text-gray-700 hover:bg-gray-50">Cancelar</button>
               <button onClick={async () => {
-                const id = extractYoutubeId(newVideoUrl)
-                if (!id || !newVideoTitle.trim()) return
-                const newVid = { id, title: newVideoTitle.trim(), thumbnail: `https://img.youtube.com/vi/${id}/mqdefault.jpg` }
-                const updated = [...folderVideos, newVid]
-                setFolderVideos(updated)
-                await saveFolderVideos(path, updated)
-                setNewVideoUrl(''); setNewVideoTitle(''); setShowAddVideo(false)
-                if (!selectedVideo) setSelectedVideo(newVid)
-              }} disabled={!newVideoUrl || !newVideoTitle.trim()}
-                className="flex-1 bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700 disabled:opacity-50">
-                Adicionar
+                await saveFolderTags(editingFolder.path, editTags)
+                setFolderTagMap(prev => ({ ...prev, [editingFolder.path]: editTags }))
+                setEditingFolder(null)
+              }}
+                className="flex-1 bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700">
+                Salvar
               </button>
             </div>
           </div>
@@ -855,20 +369,4 @@ export default function MaterialsPage() {
       )}
     </div>
   )
-}
-
-function extractYoutubeId(input: string): string | null {
-  if (!input) return null
-  // Direct ID (11 chars)
-  if (/^[a-zA-Z0-9_-]{11}$/.test(input.trim())) return input.trim()
-  // URL patterns
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
-  ]
-  for (const p of patterns) {
-    const m = input.match(p)
-    if (m) return m[1]
-  }
-  return null
 }
