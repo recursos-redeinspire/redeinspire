@@ -162,96 +162,89 @@ export default function MaterialsPage() {
 
   const folders = entries.filter(e => e.tag === 'folder')
 
-  // Auto-fetch thumbs from linked videos, images in folder, or most recent subfolder
-  // Saves to DB so next time loads instantly. Only re-checks in background.
+  // Auto-fetch thumbs — parallel, fast, max 1 level deep
   useEffect(() => {
     if (folders.length === 0) return
-    const foldersWithoutThumb = folders.slice(0, 12).filter(f => {
+    const foldersNeedingThumb = folders.slice(0, 12).filter(f => {
       const saved = folderThumbs[f.path]
-      // Discard expired Dropbox temp links (contain dl.dropboxusercontent)
-      if (saved && saved.includes('dropboxusercontent.com')) return true
-      return !saved
+      if (saved && !saved.includes('dropboxusercontent.com')) return false
+      if (autoThumbs[f.path]) return false
+      return true
     })
-    if (foldersWithoutThumb.length === 0) return
+    if (foldersNeedingThumb.length === 0) return
 
-    const fetchAutoThumbs = async () => {
-      const newThumbs: Record<string, string> = {}
-      for (const folder of foldersWithoutThumb) {
-        if (autoThumbs[folder.path]) continue
-        try {
-          // 1. Try linked video
-          const vids = await getFolderVideos(folder.path).catch(() => ({ videos: [] }))
-          if (vids.videos && vids.videos.length > 0) {
-            const url = vids.videos[0].thumbnail || `https://img.youtube.com/vi/${vids.videos[0].id}/mqdefault.jpg`
-            newThumbs[folder.path] = url
-            // Save to DB for instant load next time
-            saveFolderThumbnail(folder.path, url).catch(() => {})
-            continue
-          }
-          // 2. Try image directly in the folder (prefer thumb.png/jpg, then lightest)
-          const contents = await browseDropbox(folder.path)
-          const allImgs = (contents.entries || []).filter((e: any) => e.tag === 'file' && e.fileType === 'image')
-          const pickBestImg = (imgs: any[]) => {
-            if (imgs.length === 0) return null
-            const thumbFile = imgs.find((e: any) => e.name.toLowerCase().startsWith('thumb'))
-            if (thumbFile) return thumbFile
-            return imgs.sort((a: any, b: any) => (a.size || 999999) - (b.size || 999999))[0]
-          }
-          const uploadThumbToS3 = async (imgEntry: any): Promise<string | null> => {
+    const fetchThumbForFolder = async (folder: any): Promise<[string, string] | null> => {
+      try {
+        // 1. Linked video (fast — no file download needed)
+        const vids = await getFolderVideos(folder.path).catch(() => ({ videos: [] }))
+        if (vids.videos && vids.videos.length > 0) {
+          const url = vids.videos[0].thumbnail || `https://img.youtube.com/vi/${vids.videos[0].id}/mqdefault.jpg`
+          return [folder.path, url]
+        }
+        // 2. Image in folder
+        const contents = await browseDropbox(folder.path)
+        const allImgs = (contents.entries || []).filter((e: any) => e.tag === 'file' && e.fileType === 'image')
+        const pickBest = (imgs: any[]) => {
+          if (imgs.length === 0) return null
+          const t = imgs.find((e: any) => e.name.toLowerCase().startsWith('thumb'))
+          if (t) return t
+          return imgs.sort((a: any, b: any) => (a.size || 999999) - (b.size || 999999))[0]
+        }
+        const img = pickBest(allImgs)
+        if (img) {
+          const dl = await downloadDropbox(img.pathLower || img.path, 'view')
+          if (dl.url) {
+            // Upload to S3 for permanent URL
             try {
-              // Get temp link from Dropbox
-              const dl = await downloadDropbox(imgEntry.pathLower || imgEntry.path, 'view')
-              if (!dl.url) return null
-              // Download the image and re-upload to S3 for permanent URL
               const resp = await fetch(dl.url)
-              if (!resp.ok) return null
-              const blob = await resp.blob()
-              const fileName = `folder-thumb-${Date.now()}-${imgEntry.name}`
-              const { uploadUrl, fileUrl } = await getUploadPresignedUrl(fileName, blob.type || 'image/jpeg')
-              await fetch(uploadUrl, { method: 'PUT', body: blob, headers: { 'Content-Type': blob.type || 'image/jpeg' } })
-              return fileUrl
-            } catch { return null }
-          }
-          const img = pickBestImg(allImgs)
-          if (img) {
-            const permanentUrl = await uploadThumbToS3(img)
-            if (permanentUrl) { newThumbs[folder.path] = permanentUrl; saveFolderThumbnail(folder.path, permanentUrl).catch(() => {}); continue }
-          }
-          // 3. Try most recent subfolder
-          const subfolders = (contents.entries || []).filter((e: any) => e.tag === 'folder').sort((a: any, b: any) => b.name.localeCompare(a.name))
-          for (const sub of subfolders.slice(0, 3)) {
-            try {
-              const subContents = await browseDropbox(sub.path || sub.pathLower)
-              const subImgs = (subContents.entries || []).filter((e: any) => e.tag === 'file' && e.fileType === 'image')
-              const subImg = pickBestImg(subImgs)
-              if (subImg) {
-                const permanentUrl = await uploadThumbToS3(subImg)
-                if (permanentUrl) { newThumbs[folder.path] = permanentUrl; saveFolderThumbnail(folder.path, permanentUrl).catch(() => {}); break }
+              if (resp.ok) {
+                const blob = await resp.blob()
+                const { uploadUrl, fileUrl } = await getUploadPresignedUrl(`ft-${Date.now()}-${img.name}`, blob.type || 'image/jpeg')
+                await fetch(uploadUrl, { method: 'PUT', body: blob, headers: { 'Content-Type': blob.type || 'image/jpeg' } })
+                saveFolderThumbnail(folder.path, fileUrl).catch(() => {})
+                return [folder.path, fileUrl]
               }
-              const subSubs = (subContents.entries || []).filter((e: any) => e.tag === 'folder').sort((a: any, b: any) => b.name.localeCompare(a.name))
-              for (const subSub of subSubs.slice(0, 2)) {
-                try {
-                  const ssContents = await browseDropbox(subSub.path || subSub.pathLower)
-                  const ssImgs = (ssContents.entries || []).filter((e: any) => e.tag === 'file' && e.fileType === 'image')
-                  const ssImg = pickBestImg(ssImgs)
-                  if (ssImg) {
-                    const permanentUrl = await uploadThumbToS3(ssImg)
-                    if (permanentUrl) { newThumbs[folder.path] = permanentUrl; saveFolderThumbnail(folder.path, permanentUrl).catch(() => {}); break }
-                  }
-                } catch { /* ignore */ }
-              }
-              if (newThumbs[folder.path]) break
-            } catch { /* ignore */ }
+            } catch { /* fallback to temp url */ }
+            return [folder.path, dl.url]
           }
-        } catch { /* ignore */ }
+        }
+        // 3. First subfolder with image (only 1 level deep)
+        const subs = (contents.entries || []).filter((e: any) => e.tag === 'folder').sort((a: any, b: any) => b.name.localeCompare(a.name)).slice(0, 2)
+        for (const sub of subs) {
+          const sc = await browseDropbox(sub.path || sub.pathLower)
+          const si = pickBest((sc.entries || []).filter((e: any) => e.tag === 'file' && e.fileType === 'image'))
+          if (si) {
+            const dl = await downloadDropbox(si.pathLower || si.path, 'view')
+            if (dl.url) {
+              try {
+                const resp = await fetch(dl.url)
+                if (resp.ok) {
+                  const blob = await resp.blob()
+                  const { uploadUrl, fileUrl } = await getUploadPresignedUrl(`ft-${Date.now()}-${si.name}`, blob.type || 'image/jpeg')
+                  await fetch(uploadUrl, { method: 'PUT', body: blob, headers: { 'Content-Type': blob.type || 'image/jpeg' } })
+                  saveFolderThumbnail(folder.path, fileUrl).catch(() => {})
+                  return [folder.path, fileUrl]
+                }
+              } catch { /* ignore */ }
+              return [folder.path, dl.url]
+            }
+          }
+        }
+      } catch { /* ignore */ }
+      return null
+    }
+
+    // Run ALL folder thumb fetches in parallel
+    Promise.all(foldersNeedingThumb.map(f => fetchThumbForFolder(f))).then(results => {
+      const newThumbs: Record<string, string> = {}
+      for (const r of results) {
+        if (r) newThumbs[r[0]] = r[1]
       }
       if (Object.keys(newThumbs).length > 0) {
         setAutoThumbs(prev => ({ ...prev, ...newThumbs }))
-        // Also update folderThumbs state so they show instantly on re-render
         setFolderThumbs(prev => ({ ...prev, ...newThumbs }))
       }
-    }
-    fetchAutoThumbs()
+    })
   }, [folders.length, folderThumbs])
 
   const breadcrumbs = path ? path.split('/').filter(Boolean).map((part, i, arr) => ({
