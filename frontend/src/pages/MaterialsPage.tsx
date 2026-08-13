@@ -166,7 +166,12 @@ export default function MaterialsPage() {
   // Saves to DB so next time loads instantly. Only re-checks in background.
   useEffect(() => {
     if (folders.length === 0) return
-    const foldersWithoutThumb = folders.slice(0, 12).filter(f => !folderThumbs[f.path])
+    const foldersWithoutThumb = folders.slice(0, 12).filter(f => {
+      const saved = folderThumbs[f.path]
+      // Discard expired Dropbox temp links (contain dl.dropboxusercontent)
+      if (saved && saved.includes('dropboxusercontent.com')) return true
+      return !saved
+    })
     if (foldersWithoutThumb.length === 0) return
 
     const fetchAutoThumbs = async () => {
@@ -192,10 +197,25 @@ export default function MaterialsPage() {
             if (thumbFile) return thumbFile
             return imgs.sort((a: any, b: any) => (a.size || 999999) - (b.size || 999999))[0]
           }
+          const uploadThumbToS3 = async (imgEntry: any): Promise<string | null> => {
+            try {
+              // Get temp link from Dropbox
+              const dl = await downloadDropbox(imgEntry.pathLower || imgEntry.path, 'view')
+              if (!dl.url) return null
+              // Download the image and re-upload to S3 for permanent URL
+              const resp = await fetch(dl.url)
+              if (!resp.ok) return null
+              const blob = await resp.blob()
+              const fileName = `folder-thumb-${Date.now()}-${imgEntry.name}`
+              const { uploadUrl, fileUrl } = await getUploadPresignedUrl(fileName, blob.type || 'image/jpeg')
+              await fetch(uploadUrl, { method: 'PUT', body: blob, headers: { 'Content-Type': blob.type || 'image/jpeg' } })
+              return fileUrl
+            } catch { return null }
+          }
           const img = pickBestImg(allImgs)
           if (img) {
-            const dl = await downloadDropbox(img.pathLower || img.path, 'view')
-            if (dl.url) { newThumbs[folder.path] = dl.url; saveFolderThumbnail(folder.path, dl.url).catch(() => {}); continue }
+            const permanentUrl = await uploadThumbToS3(img)
+            if (permanentUrl) { newThumbs[folder.path] = permanentUrl; saveFolderThumbnail(folder.path, permanentUrl).catch(() => {}); continue }
           }
           // 3. Try most recent subfolder
           const subfolders = (contents.entries || []).filter((e: any) => e.tag === 'folder').sort((a: any, b: any) => b.name.localeCompare(a.name))
@@ -205,8 +225,8 @@ export default function MaterialsPage() {
               const subImgs = (subContents.entries || []).filter((e: any) => e.tag === 'file' && e.fileType === 'image')
               const subImg = pickBestImg(subImgs)
               if (subImg) {
-                const dl = await downloadDropbox(subImg.pathLower || subImg.path, 'view')
-                if (dl.url) { newThumbs[folder.path] = dl.url; saveFolderThumbnail(folder.path, dl.url).catch(() => {}); break }
+                const permanentUrl = await uploadThumbToS3(subImg)
+                if (permanentUrl) { newThumbs[folder.path] = permanentUrl; saveFolderThumbnail(folder.path, permanentUrl).catch(() => {}); break }
               }
               const subSubs = (subContents.entries || []).filter((e: any) => e.tag === 'folder').sort((a: any, b: any) => b.name.localeCompare(a.name))
               for (const subSub of subSubs.slice(0, 2)) {
@@ -215,8 +235,8 @@ export default function MaterialsPage() {
                   const ssImgs = (ssContents.entries || []).filter((e: any) => e.tag === 'file' && e.fileType === 'image')
                   const ssImg = pickBestImg(ssImgs)
                   if (ssImg) {
-                    const dl = await downloadDropbox(ssImg.pathLower || ssImg.path, 'view')
-                    if (dl.url) { newThumbs[folder.path] = dl.url; saveFolderThumbnail(folder.path, dl.url).catch(() => {}); break }
+                    const permanentUrl = await uploadThumbToS3(ssImg)
+                    if (permanentUrl) { newThumbs[folder.path] = permanentUrl; saveFolderThumbnail(folder.path, permanentUrl).catch(() => {}); break }
                   }
                 } catch { /* ignore */ }
               }
@@ -239,7 +259,13 @@ export default function MaterialsPage() {
   })) : []
 
   const isRoot = !path
-  const getThumb = (folderPath: string, name: string) => folderThumbs[folderPath] || autoThumbs[folderPath] || generatePlaceholderThumb(name)
+  const getThumb = (folderPath: string, name: string) => {
+    const saved = folderThumbs[folderPath]
+    if (saved && !saved.includes('dropboxusercontent.com')) return saved
+    const auto = autoThumbs[folderPath]
+    if (auto && !auto.includes('dropboxusercontent.com')) return auto
+    return generatePlaceholderThumb(name)
+  }
   const getTags = (folderPath: string) => folderTagMap[folderPath] || []
   const files = entries.filter(e => e.tag === 'file')
 
