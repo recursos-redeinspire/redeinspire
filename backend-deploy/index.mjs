@@ -2372,27 +2372,40 @@ const FOLDER_THUMBNAILS_KEY = '__FOLDER_THUMBNAILS__';
 
 async function folderThumbnailsGet(user) {
   if (!user) return res(401, { message: 'Nao autenticado' });
-  const data = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_THUMBNAILS_KEY } }));
-  return res(200, { thumbnails: (data.Item && data.Item.thumbnails) || {} });
+  // Try new per-folder approach first
+  const data = await ddb.send(new ScanCommand({
+    TableName: T.VIDEO_TAGS,
+    FilterExpression: 'begins_with(videoId, :prefix)',
+    ExpressionAttributeValues: { ':prefix': 'FTHUMB#' }
+  }));
+  const thumbnails = {};
+  for (const item of (data.Items || [])) {
+    const folderPath = item.videoId.replace('FTHUMB#', '');
+    thumbnails[folderPath] = item.thumbnailUrl;
+  }
+  // Also check legacy single-item format
+  const legacy = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_THUMBNAILS_KEY } }));
+  if (legacy.Item && legacy.Item.thumbnails) {
+    for (const [k, v] of Object.entries(legacy.Item.thumbnails)) {
+      if (!thumbnails[k] && v) thumbnails[k] = v;
+    }
+  }
+  return res(200, { thumbnails });
 }
 
 async function folderThumbnailSave(data, user) {
   if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem alterar thumbnails de pastas.' });
   if (!data.folder) return res(400, { message: 'folder obrigatorio.' });
 
-  const current = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_THUMBNAILS_KEY } }));
-  const thumbnails = (current.Item && current.Item.thumbnails) || {};
-
+  const key = `FTHUMB#${data.folder}`;
   if (data.thumbnailUrl) {
-    thumbnails[data.folder] = data.thumbnailUrl;
+    await ddb.send(new PutCommand({
+      TableName: T.VIDEO_TAGS,
+      Item: { videoId: key, thumbnailUrl: data.thumbnailUrl, updatedAt: new Date().toISOString(), updatedBy: user.id }
+    }));
   } else {
-    delete thumbnails[data.folder];
+    await ddb.send(new DeleteCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: key } }));
   }
-
-  await ddb.send(new PutCommand({
-    TableName: T.VIDEO_TAGS,
-    Item: { videoId: FOLDER_THUMBNAILS_KEY, thumbnails, updatedAt: new Date().toISOString(), updatedBy: user.id }
-  }));
 
   return res(200, { folder: data.folder, thumbnailUrl: data.thumbnailUrl || null });
 }

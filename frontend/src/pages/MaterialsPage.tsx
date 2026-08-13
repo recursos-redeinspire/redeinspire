@@ -329,7 +329,7 @@ export default function MaterialsPage() {
                   return (
                     <div key={folder.id} className="group">
                       <button onClick={() => { setIsSearching(false); setSearchQuery(''); loadFolder(folder.path || folder.pathLower) }} className="w-full text-left">
-                        <div className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 mb-2.5">
+                        <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 mb-2.5">
                           <img src={thumb} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                         </div>
                         <h3 className="font-semibold text-[13px] text-gray-900 leading-snug line-clamp-2 group-hover:text-green-700 transition">{folder.name}</h3>
@@ -401,7 +401,7 @@ export default function MaterialsPage() {
               const thumb = getThumb(item.folderPath, item.folderName || '')
               return (
                 <button key={item.folderPath} onClick={() => loadFolder(item.folderPath)} className="text-left group">
-                  <div className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 mb-2">
+                  <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 mb-2">
                     <img src={thumb} alt={item.folderName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     <div className="absolute top-2 left-2 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">#{item.rank}</div>
                   </div>
@@ -428,7 +428,7 @@ export default function MaterialsPage() {
                 <div key={folder.id} className="group">
                   <button onClick={() => loadFolder(folder.path)} className="w-full text-left">
                     {/* Thumbnail */}
-                    <div className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 mb-2.5">
+                    <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 mb-2.5">
                       <img src={thumb} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     </div>
                     {/* Title */}
