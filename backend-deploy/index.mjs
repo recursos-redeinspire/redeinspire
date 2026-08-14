@@ -655,10 +655,10 @@ async function uploadPresign(data, user) {
   if (!user) return res(401, { message: 'Não autenticado' });
   if (!data.fileName || !data.contentType) return res(400, { message: 'fileName e contentType obrigatórios' });
   const key = `uploads/${uuid()}_${data.fileName}`;
-  const command = new PutObjectCommand({ Bucket: UPLOAD_BUCKET, Key: key, ContentType: data.contentType });
-  const url = await getSignedUrl(s3, command, { expiresIn: 600 });
-  const publicUrl = `https://${UPLOAD_BUCKET}.s3.amazonaws.com/${key}`;
-  return res(200, { uploadUrl: url, fileUrl: publicUrl, key });
+  const putCmd = new PutObjectCommand({ Bucket: UPLOAD_BUCKET, Key: key, ContentType: data.contentType });
+  const uploadUrl = await getSignedUrl(s3, putCmd, { expiresIn: 600 });
+  const fileUrl = `https://${UPLOAD_BUCKET}.s3.amazonaws.com/${key}`;
+  return res(200, { uploadUrl, fileUrl, key });
 }
 
 async function getMyPoints(user) {

@@ -26,6 +26,9 @@ import AdminPage from './pages/AdminPage'
 import PreviewNewUI from './pages/PreviewNewUI'
 import PreviewDark from './pages/PreviewDark'
 import PreviewEditorial from './pages/PreviewEditorial'
+import PreviewPlanA from './pages/PreviewPlanA'
+import PreviewPlanB from './pages/PreviewPlanB'
+import PreviewPlanC from './pages/PreviewPlanC'
 
 function Protected({ children }: { children: React.ReactNode }) {
   return (
@@ -64,6 +67,9 @@ export default function App() {
             <Route path="/preview-new" element={<PreviewNewUI />} />
             <Route path="/preview-dark" element={<PreviewDark />} />
             <Route path="/preview-editorial" element={<PreviewEditorial />} />
+            <Route path="/preview-plan-a" element={<Protected><PreviewPlanA /></Protected>} />
+            <Route path="/preview-plan-b" element={<Protected><PreviewPlanB /></Protected>} />
+            <Route path="/preview-plan-c" element={<Protected><PreviewPlanC /></Protected>} />
           </Routes>
         </div>
       </DataProvider>
