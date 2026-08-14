@@ -2429,9 +2429,11 @@ async function folderTagsSave(data, user) {
   if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem gerenciar tags de pastas.' });
   if (!data.folder) return res(400, { message: 'folder obrigatorio.' });
   const tags = (data.tags || []).map(t => t.trim().toLowerCase()).filter(Boolean);
+  const description = data.description || '';
 
   const current = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_TAGS_KEY } }));
   const tagMap = (current.Item && current.Item.tagMap) || {};
+  const descMap = (current.Item && current.Item.descMap) || {};
 
   if (tags.length === 0) {
     delete tagMap[data.folder];
@@ -2439,21 +2441,28 @@ async function folderTagsSave(data, user) {
     tagMap[data.folder] = tags;
   }
 
+  if (description) {
+    descMap[data.folder] = description;
+  } else {
+    delete descMap[data.folder];
+  }
+
   await ddb.send(new PutCommand({
     TableName: T.VIDEO_TAGS,
-    Item: { videoId: FOLDER_TAGS_KEY, tagMap, updatedAt: new Date().toISOString(), updatedBy: user.id }
+    Item: { videoId: FOLDER_TAGS_KEY, tagMap, descMap, updatedAt: new Date().toISOString(), updatedBy: user.id }
   }));
 
-  return res(200, { folder: data.folder, tags });
+  return res(200, { folder: data.folder, tags, description });
 }
 
 async function folderTagsAll(user) {
   if (!user) return res(401, { message: 'Nao autenticado' });
   const data = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_TAGS_KEY } }));
   const tagMap = (data.Item && data.Item.tagMap) || {};
+  const descMap = (data.Item && data.Item.descMap) || {};
   const allTags = new Set();
   Object.values(tagMap).forEach(tags => (tags || []).forEach(t => allTags.add(t)));
-  return res(200, { tagMap, allTags: [...allTags].sort() });
+  return res(200, { tagMap, descMap, allTags: [...allTags].sort() });
 }
 
 // ---- Custom Video Thumbnails ----

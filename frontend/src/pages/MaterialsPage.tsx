@@ -80,6 +80,7 @@ export default function MaterialsPage() {
   const [loading, setLoading] = useState(true)
   const [folderThumbs, setFolderThumbs] = useState<Record<string, string>>({})
   const [folderTagMap, setFolderTagMap] = useState<Record<string, string[]>>({})
+  const [folderDescMap, setFolderDescMap] = useState<Record<string, string>>({})
   const [autoThumbs, setAutoThumbs] = useState<Record<string, string>>({})
   const [topDownloads, setTopDownloads] = useState<any[]>([])
 
@@ -156,7 +157,7 @@ export default function MaterialsPage() {
   useEffect(() => { loadFolder('') }, [loadFolder])
   useEffect(() => {
     getFolderThumbnails().then(d => setFolderThumbs(d.thumbnails || {})).catch(() => {})
-    getAllFolderTags().then(d => setFolderTagMap(d.tagMap || {})).catch(() => {})
+    getAllFolderTags().then(d => { setFolderTagMap(d.tagMap || {}); setFolderDescMap((d as any).descMap || {}) }).catch(() => {})
     getTopDownloads().then(setTopDownloads).catch(() => {})
   }, [])
 
@@ -260,6 +261,7 @@ export default function MaterialsPage() {
     return generatePlaceholderThumb(name)
   }
   const getTags = (folderPath: string) => folderTagMap[folderPath] || []
+  const getDesc = (folderPath: string) => folderDescMap[folderPath] || ''
   const files = entries.filter(e => e.tag === 'file')
 
   const handlePreview = async (file: any) => {
@@ -439,10 +441,14 @@ export default function MaterialsPage() {
                     {tags.length > 0 && (
                       <p className="text-[10px] text-gray-400 mt-0.5">{tags.join(' · ')}</p>
                     )}
+                    {/* Description */}
+                    {getDesc(folder.path) && (
+                      <p className="text-[10px] text-gray-400 mt-1 line-clamp-2 leading-relaxed">{getDesc(folder.path)}</p>
+                    )}
                   </button>
                   {/* Admin edit */}
                   {isAdmin && (
-                    <button onClick={() => { setEditingFolder(folder); setEditTags(getTags(folder.path)); setEditDesc('') }}
+                    <button onClick={() => { setEditingFolder(folder); setEditTags(getTags(folder.path)); setEditDesc(getDesc(folder.path)) }}
                       className="mt-1 text-[10px] text-gray-400 hover:text-green-600 transition opacity-0 group-hover:opacity-100">
                       ✏️ Editar card
                     </button>
@@ -685,8 +691,9 @@ export default function MaterialsPage() {
             <div className="p-5 border-t flex gap-3">
               <button onClick={() => setEditingFolder(null)} className="flex-1 border rounded-lg py-2.5 text-sm text-gray-700 hover:bg-gray-50">Cancelar</button>
               <button onClick={async () => {
-                await saveFolderTags(editingFolder.path, editTags)
+                await saveFolderTags(editingFolder.path, editTags, editDesc)
                 setFolderTagMap(prev => ({ ...prev, [editingFolder.path]: editTags }))
+                setFolderDescMap(prev => ({ ...prev, [editingFolder.path]: editDesc }))
                 setEditingFolder(null)
               }}
                 className="flex-1 bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700">

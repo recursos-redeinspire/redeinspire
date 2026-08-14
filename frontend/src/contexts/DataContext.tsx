@@ -103,8 +103,8 @@ interface DataContextType {
   getFolderThumbnails: () => Promise<{ thumbnails: Record<string, string> }>
   saveFolderThumbnail: (folder: string, thumbnailUrl: string) => Promise<any>
   getFolderTags: (folder: string) => Promise<{ folder: string; tags: string[] }>
-  saveFolderTags: (folder: string, tags: string[]) => Promise<any>
-  getAllFolderTags: () => Promise<{ tagMap: Record<string, string[]>; allTags: string[] }>
+  saveFolderTags: (folder: string, tags: string[], description?: string) => Promise<any>
+  getAllFolderTags: () => Promise<{ tagMap: Record<string, string[]>; descMap: Record<string, string>; allTags: string[] }>
   saveVideoThumbnail: (videoId: string, thumbnailUrl: string) => Promise<any>
   deleteVideoThumbnail: (videoId: string) => Promise<any>
   getAllVideoThumbnails: () => Promise<{ thumbnails: Record<string, string> }>
@@ -608,11 +608,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return apiFetch(`/folder-tags?folder=${encodeURIComponent(folder)}`)
   }, [])
 
-  const saveFolderTags = useCallback(async (folder: string, tags: string[]): Promise<any> => {
-    return apiFetch('/folder-tags', { method: 'POST', body: JSON.stringify({ folder, tags }) })
+  const saveFolderTags = useCallback(async (folder: string, tags: string[], description?: string): Promise<any> => {
+    return apiFetch('/folder-tags', { method: 'POST', body: JSON.stringify({ folder, tags, description }) })
   }, [])
 
-  const getAllFolderTags = useCallback(async (): Promise<{ tagMap: Record<string, string[]>; allTags: string[] }> => {
+  const getAllFolderTags = useCallback(async (): Promise<{ tagMap: Record<string, string[]>; descMap: Record<string, string>; allTags: string[] }> => {
     return apiFetch('/folder-tags/all')
   }, [])
 
