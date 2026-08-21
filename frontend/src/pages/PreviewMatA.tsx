@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 export default function PreviewMatA() {
   const navigate = useNavigate()
   return (
-    <div className="py-8 max-w-6xl mx-auto px-4">
+    <div className="py-8">
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Materiais</h1>
       <p className="text-sm text-gray-500 mb-8">Recursos para seu ministério</p>
 
