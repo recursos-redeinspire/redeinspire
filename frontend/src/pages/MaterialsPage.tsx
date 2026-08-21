@@ -232,16 +232,22 @@ export default function MaterialsPage() {
         </div>
         {isAdmin && (
           <button onClick={async () => {
-            if (!confirm('Gerar tags automáticas para todas as pastas? (isso pode levar alguns segundos)')) return
+            if (!confirm('Gerar tags automáticas para todas as pastas? (pode levar até 30 segundos)')) return
+            const btn = document.activeElement as HTMLButtonElement
+            if (btn) btn.textContent = '⏳ Gerando...'
             try {
               const token = localStorage.getItem('ri_token')
+              const controller = new AbortController()
+              const timeout = setTimeout(() => controller.abort(), 280000)
               const r = await fetch('https://h28wyjr7u7.execute-api.us-east-1.amazonaws.com/folder-tags/generate', {
-                method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                signal: controller.signal
               })
+              clearTimeout(timeout)
               const data = await r.json()
-              alert(data.message || 'Tags geradas!')
+              alert(data.message || JSON.stringify(data))
               window.location.reload()
-            } catch { alert('Erro ao gerar tags') }
+            } catch (err: any) { alert('Erro: ' + (err.message || 'timeout')) }
           }}
             className="text-[10px] text-gray-400 hover:text-green-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:border-green-300 transition">
             🏷️ Gerar tags automáticas

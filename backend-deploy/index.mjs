@@ -2,7 +2,7 @@
 // Rede Inspire — Single Lambda Backend (all routes)
 // =============================================================================
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, ScanCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, ScanCommand, UpdateCommand, DeleteCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
@@ -2541,7 +2541,8 @@ async function folderTagsGenerate(user) {
     const existingPaths = new Set((existingScan.Items || []).map(i => i.videoId.replace('FTAG#', '')));
 
     let generated = 0;
-    // Save each folder's tags as individual item
+    // Save in batches of 25 (DynamoDB BatchWrite limit)
+    let batch = [];
     for (const folder of allFolders) {
       const folderPath = folder.path_display;
       if (existingPaths.has(folderPath)) continue;
@@ -2557,12 +2558,18 @@ async function folderTagsGenerate(user) {
       }
 
       if (tags.size > 0) {
-        await ddb.send(new PutCommand({
-          TableName: T.VIDEO_TAGS,
-          Item: { videoId: `FTAG#${folderPath}`, tags: [...tags], updatedAt: new Date().toISOString() }
-        }));
+        batch.push({ PutRequest: { Item: { videoId: `FTAG#${folderPath}`, tags: [...tags], updatedAt: new Date().toISOString() } } });
         generated++;
+
+        if (batch.length >= 25) {
+          await ddb.send(new BatchWriteCommand({ RequestItems: { [T.VIDEO_TAGS]: batch } }));
+          batch = [];
+        }
       }
+    }
+    // Write remaining
+    if (batch.length > 0) {
+      await ddb.send(new BatchWriteCommand({ RequestItems: { [T.VIDEO_TAGS]: batch } }));
     }
 
     return res(200, { message: `Tags geradas para ${generated} pastas de ${allFolders.length} total.`, generated, totalFolders: allFolders.length });
