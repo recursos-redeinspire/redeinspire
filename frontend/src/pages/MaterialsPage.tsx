@@ -172,8 +172,11 @@ export default function MaterialsPage() {
   }, [smartSearchDropbox, loadFolder, path])
 
   useEffect(() => { loadFolder('') }, [loadFolder])
+  // Load thumbnails FIRST (priority) then tags and downloads
   useEffect(() => {
     getFolderThumbnails().then(d => setFolderThumbs(d.thumbnails || {})).catch(() => {})
+  }, [])
+  useEffect(() => {
     getAllFolderTags().then(d => { setFolderTagMap(d.tagMap || {}); setFolderDescMap((d as any).descMap || {}) }).catch(() => {})
     getTopDownloads().then(setTopDownloads).catch(() => {})
     // Pre-load folder names for instant autocomplete
@@ -433,7 +436,7 @@ export default function MaterialsPage() {
                     {/* Thumbnail */}
                     <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 mb-2.5">
                       {thumb ? (
-                        <img src={thumb} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        <img src={thumb} alt={folder.name} loading="eager" fetchPriority="high" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                       ) : (
                         <div className="w-full h-full bg-gray-50 flex items-center justify-center">
                           <Folder size={28} className="text-gray-300" />

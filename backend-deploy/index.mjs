@@ -2373,16 +2373,17 @@ const FOLDER_THUMBNAILS_KEY = '__FOLDER_THUMBNAILS__';
 
 async function folderThumbnailsGet(user) {
   if (!user) return res(401, { message: 'Nao autenticado' });
-  // Try new per-folder approach first
+  // Scan FTHUMB# items with minimal projection for speed
   const data = await ddb.send(new ScanCommand({
     TableName: T.VIDEO_TAGS,
     FilterExpression: 'begins_with(videoId, :prefix)',
-    ExpressionAttributeValues: { ':prefix': 'FTHUMB#' }
+    ExpressionAttributeValues: { ':prefix': 'FTHUMB#' },
+    ProjectionExpression: 'videoId, thumbnailUrl'
   }));
   const thumbnails = {};
   for (const item of (data.Items || [])) {
     const folderPath = item.videoId.replace('FTHUMB#', '');
-    thumbnails[folderPath] = item.thumbnailUrl;
+    if (item.thumbnailUrl) thumbnails[folderPath] = item.thumbnailUrl;
   }
   // Also check legacy single-item format
   const legacy = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_THUMBNAILS_KEY } }));
