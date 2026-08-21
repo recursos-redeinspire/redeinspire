@@ -7,6 +7,36 @@ import {
   File, Download, Archive, Play
 } from 'lucide-react'
 
+// Gera uma capa visual bonita para pastas sem thumbnail
+function generateCover(name: string): string {
+  const gradients = [
+    ['#059669','#047857'], ['#2563eb','#1e40af'], ['#7c3aed','#6d28d9'],
+    ['#dc2626','#991b1b'], ['#d97706','#b45309'], ['#0891b2','#0e7490'],
+    ['#4f46e5','#3730a3'], ['#be185d','#9d174d'], ['#0d9488','#0f766e'],
+    ['#65a30d','#4d7c0f'], ['#ea580c','#c2410c'], ['#8b5cf6','#7c3aed'],
+  ]
+  const hash = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+  const [c1, c2] = gradients[hash % gradients.length]
+  const displayName = name.length > 24 ? name.substring(0, 24) + '…' : name
+  // Split into 2 lines if long
+  const lines = displayName.length > 14 ? [displayName.substring(0, 14), displayName.substring(14)] : [displayName]
+  const textY = lines.length > 1 ? 85 : 95
+  const textSvg = lines.map((line, i) =>
+    `<text x="160" y="${textY + i * 22}" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="16" font-weight="700" fill="white" opacity="0.95">${line.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</text>`
+  ).join('')
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180">
+    <defs><linearGradient id="g${hash}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs>
+    <rect width="320" height="180" fill="url(#g${hash})"/>
+    <circle cx="260" cy="30" r="60" fill="white" opacity="0.06"/>
+    <circle cx="50" cy="150" r="40" fill="white" opacity="0.04"/>
+    <rect x="20" y="140" width="50" height="3" rx="1.5" fill="white" opacity="0.15"/>
+    <rect x="20" y="148" width="30" height="3" rx="1.5" fill="white" opacity="0.1"/>
+    ${textSvg}
+  </svg>`
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
+
 const FILE_ICONS: Record<string, { icon: typeof File; color: string; bg: string }> = {
   video: { icon: Video, color: 'text-purple-600', bg: 'bg-purple-50' },
   audio: { icon: Headphones, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -226,10 +256,10 @@ export default function MaterialsPage() {
   })) : []
 
   const isRoot = !path
-  const getThumb = (folderPath: string, _name: string) => {
+  const getThumb = (folderPath: string, name: string) => {
     const saved = folderThumbs[folderPath]
     if (saved && !saved.includes('dropboxusercontent.com')) return saved
-    return ''
+    return generateCover(name)
   }
   const getTags = (folderPath: string) => folderTagMap[folderPath] || []
   const getDesc = (folderPath: string) => folderDescMap[folderPath] || ''
@@ -459,13 +489,7 @@ export default function MaterialsPage() {
                   <button onClick={() => loadFolder(folder.path)} className="w-full text-left">
                     {/* Thumbnail */}
                     <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 mb-2.5">
-                      {thumb ? (
-                        <img src={thumb} alt={folder.name} loading="eager" fetchPriority="high" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                      ) : (
-                        <div className="w-full h-full bg-gray-50 flex items-center justify-center">
-                          <Folder size={28} className="text-gray-300" />
-                        </div>
-                      )}
+                      <img src={thumb} alt={folder.name} loading="eager" fetchPriority="high" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     </div>
                     {/* Title */}
                     <h3 className="font-semibold text-[13px] text-gray-900 leading-snug line-clamp-2 group-hover:text-green-700 transition">{folder.name}</h3>
