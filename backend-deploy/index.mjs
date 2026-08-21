@@ -2066,11 +2066,19 @@ function scoreVideo(video, keywords) {
     // Exact match in description
     if (desc.includes(kw)) score += 3;
     // Partial match in title (fuzzy)
-    const titleWords = title.split(' ');
+    const titleWords = title.split(/[\s\-_.,;:]+/);
     for (const tw of titleWords) {
-      if (tw.length > 3 && kw.length > 3) {
-        if (tw.startsWith(kw.substring(0, 4)) || kw.startsWith(tw.substring(0, 4))) score += 2;
+      if (tw.length > 2 && kw.length > 2) {
+        if (tw.startsWith(kw.substring(0, Math.min(kw.length, 4)))) score += 4;
+        else if (kw.startsWith(tw.substring(0, Math.min(tw.length, 4)))) score += 3;
+        else if (tw.includes(kw) || kw.includes(tw)) score += 2;
       }
+    }
+    // Check stem variants against title
+    const variants = getStemVariants(kw);
+    for (const variant of variants) {
+      if (variant !== kw && title.includes(variant)) score += 7;
+      if (variant !== kw && desc.includes(variant)) score += 2;
     }
   }
   return score;
@@ -2087,10 +2095,10 @@ async function youtubeSmartSearch(query, user) {
 
     const token = await ytGetAccessToken();
 
-    // Fetch multiple pages of videos to search through
+    // Fetch ALL videos from playlist to search through
     let allVideos = [];
     let pageToken = '';
-    const maxPages = 3; // ~150 videos to search through
+    const maxPages = 10; // ~500 videos
 
     for (let i = 0; i < maxPages; i++) {
       let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,status&playlistId=${YT_UPLOADS_PLAYLIST}&maxResults=50`;
