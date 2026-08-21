@@ -49,10 +49,11 @@ export default function MaterialsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<any[]>([])
-  const [searchKeywords, setSearchKeywords] = useState<string[]>([])
+  const [_searchKeywords, setSearchKeywords] = useState<string[]>([])
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<any[]>([])
   const [showAutocomplete, setShowAutocomplete] = useState(false)
   const [autocompleteCache, setAutocompleteCache] = useState<any[]>([])
+  const [searchFilter, setSearchFilter] = useState<'pastas' | 'arquivos'>('pastas')
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Admin edit state
   const [editingFolder, setEditingFolder] = useState<any | null>(null)
@@ -277,49 +278,71 @@ export default function MaterialsPage() {
       {/* Search results */}
       {isSearching && !loading && (
         <div className="mb-6">
-          <p className="text-sm text-gray-500 mb-4">Resultados para "<span className="font-medium text-gray-800">{searchQuery}</span>"
-            <button onClick={() => { setSearchQuery(''); setIsSearching(false); loadFolder(path) }} className="ml-2 text-red-500 text-xs">Limpar</button>
-          </p>
-          {searchKeywords.length > 0 && (
-            <div className="flex gap-1.5 mb-4 flex-wrap">
-              {searchKeywords.slice(0, 6).map(kw => <span key={kw} className="bg-green-50 text-green-700 text-xs px-2.5 py-1 rounded-full">{kw}</span>)}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+            <p className="text-sm text-gray-700">
+              Pastas com materiais com a palavra "<span className="font-semibold text-gray-900">{searchQuery}</span>"
+              <button onClick={() => { setSearchQuery(''); setIsSearching(false); loadFolder(path) }} className="ml-2 text-red-500 text-xs hover:text-red-700">✕ Limpar</button>
+            </p>
+            {/* Filter toggle */}
+            <div className="flex bg-gray-100 rounded-lg p-0.5">
+              <button onClick={() => setSearchFilter('pastas')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${searchFilter === 'pastas' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+                Pastas
+              </button>
+              <button onClick={() => setSearchFilter('arquivos')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${searchFilter === 'arquivos' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+                Arquivos
+              </button>
             </div>
-          )}
+          </div>
 
-          {/* Folder results as cards */}
-          {folders.length > 0 && (
-            <div className="mb-6">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Pastas encontradas</p>
+          {/* Folder results — same visual as home grid */}
+          {searchFilter === 'pastas' && (() => {
+            // Deduplicate: for files, get their parent folder
+            const folderPaths = new Set<string>()
+            const resultFolders: any[] = []
+            // Direct folder matches
+            for (const f of folders) {
+              const p = f.path || f.pathLower
+              if (p && !folderPaths.has(p)) { folderPaths.add(p); resultFolders.push(f) }
+            }
+            // File parent folders
+            for (const file of searchResults) {
+              const folderPath = file.path ? file.path.substring(0, file.path.lastIndexOf('/')) : ''
+              const folderName = folderPath.split('/').pop() || ''
+              if (folderPath && !folderPaths.has(folderPath)) {
+                folderPaths.add(folderPath)
+                resultFolders.push({ id: folderPath, name: folderName, path: folderPath, tag: 'folder' })
+              }
+            }
+            return resultFolders.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
-                {folders.map(folder => {
+                {resultFolders.map(folder => {
                   const thumb = getThumb(folder.path || folder.pathLower, folder.name)
                   const tags = getTags(folder.path || folder.pathLower)
+                  const desc = getDesc(folder.path || folder.pathLower)
                   return (
                     <div key={folder.id} className="group">
                       <button onClick={() => { setIsSearching(false); setSearchQuery(''); loadFolder(folder.path || folder.pathLower) }} className="w-full text-left">
                         <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 mb-2.5">
-                          {thumb ? (
-                            <img src={thumb} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                          ) : (
-                            <div className="w-full h-full bg-gray-50 flex items-center justify-center">
-                              <Folder size={28} className="text-gray-300" />
-                            </div>
-                          )}
+                          <img src={thumb} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                         </div>
                         <h3 className="font-semibold text-[13px] text-gray-900 leading-snug line-clamp-2 group-hover:text-green-700 transition">{folder.name}</h3>
                         {tags.length > 0 && <p className="text-[10px] text-gray-400 mt-0.5">{tags.join(' · ')}</p>}
+                        {desc && <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-2">{desc}</p>}
                       </button>
                     </div>
                   )
                 })}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-gray-400 text-center py-8">Nenhuma pasta encontrada</p>
+            )
+          })()}
 
           {/* File results */}
-          {searchResults.length > 0 && (
-            <div>
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Arquivos encontrados</p>
+          {searchFilter === 'arquivos' && (
+            searchResults.length > 0 ? (
               <div className="space-y-2">
                 {searchResults.map((file: any) => {
                   const folderPath = file.path ? file.path.substring(0, file.path.lastIndexOf('/')) : ''
@@ -331,17 +354,17 @@ export default function MaterialsPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                        <p className="text-[10px] text-gray-400 truncate">{file.folder || file.path}</p>
+                        <p className="text-[10px] text-gray-400 truncate">{file.folder || folderPath}</p>
                       </div>
                       <span className="text-[9px] uppercase font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{file.ext}</span>
                     </button>
                   )
                 })}
               </div>
-            </div>
+            ) : (
+              <p className="text-gray-400 text-center py-8">Nenhum arquivo encontrado</p>
+            )
           )}
-
-          {folders.length === 0 && searchResults.length === 0 && <p className="text-gray-400 text-center py-8">Nenhum resultado encontrado</p>}
         </div>
       )}
 
