@@ -81,6 +81,8 @@ export default function MaterialsPage() {
   const [showAutocomplete, setShowAutocomplete] = useState(false)
   const [autocompleteCache, setAutocompleteCache] = useState<any[]>([])
   const [searchFilter, setSearchFilter] = useState<'pastas' | 'arquivos' | 'pdf' | 'ppt' | 'doc' | 'imagens' | 'videos'>('pastas')
+  const [currentPage, setCurrentPage] = useState(1)
+  const ITEMS_PER_PAGE = 12
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Admin edit state
   const [editingFolder, setEditingFolder] = useState<any | null>(null)
@@ -111,6 +113,7 @@ export default function MaterialsPage() {
   const loadFolder = useCallback(async (p: string) => {
     setLoading(true); setIsSearching(false); setSearchResults([])
     setSelectedFile(null); setPreviewUrl(''); setSelectedVideo(null); setFolderVideos([]); setFolderDescription('')
+    setCurrentPage(1)
     try {
       const [result, vidsResult] = await Promise.all([
         browseDropbox(p),
@@ -520,11 +523,15 @@ export default function MaterialsPage() {
       {loading && <div className="flex justify-center py-20"><Loader2 size={32} className="animate-spin text-green-500" /></div>}
 
       {/* ═══ FOLDER CARDS — Life.Church style ═══ */}
-      {!loading && !isSearching && folders.length > 0 && (
+      {!loading && !isSearching && folders.length > 0 && (() => {
+        const totalPages = Math.ceil(folders.length / ITEMS_PER_PAGE)
+        const startIdx = (currentPage - 1) * ITEMS_PER_PAGE
+        const paginatedFolders = folders.slice(startIdx, startIdx + ITEMS_PER_PAGE)
+        return (
         <div>
           {isRoot && <h2 className="text-[15px] font-bold text-gray-900 mb-4">Conteúdos disponíveis</h2>}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
-            {folders.map(folder => {
+            {paginatedFolders.map(folder => {
               const thumb = getThumb(folder.path, folder.name)
               const tags = getTags(folder.path)
               const parentName = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : 'Materiais'
@@ -559,8 +566,28 @@ export default function MaterialsPage() {
               )
             })}
           </div>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-8">
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                ← Anterior
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <button key={page} onClick={() => setCurrentPage(page)}
+                  className={`w-9 h-9 rounded-lg text-sm font-medium transition ${currentPage === page ? 'bg-green-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                  {page}
+                </button>
+              ))}
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
+                Próximo →
+              </button>
+            </div>
+          )}
         </div>
-      )}
+        )
+      })()}
 
       {!loading && !isSearching && folders.length === 0 && entries.length === 0 && (
         <div className="text-center py-20 text-gray-400">
