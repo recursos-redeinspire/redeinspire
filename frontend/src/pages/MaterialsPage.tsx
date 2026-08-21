@@ -230,6 +230,23 @@ export default function MaterialsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Materiais</h1>
           <p className="text-sm text-gray-500 mt-1">Recursos para seu ministério</p>
         </div>
+        {isAdmin && (
+          <button onClick={async () => {
+            if (!confirm('Gerar tags automáticas para todas as pastas? (isso pode levar alguns segundos)')) return
+            try {
+              const token = localStorage.getItem('ri_token')
+              const r = await fetch('https://h28wyjr7u7.execute-api.us-east-1.amazonaws.com/folder-tags/generate', {
+                method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+              })
+              const data = await r.json()
+              alert(data.message || 'Tags geradas!')
+              window.location.reload()
+            } catch { alert('Erro ao gerar tags') }
+          }}
+            className="text-[10px] text-gray-400 hover:text-green-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:border-green-300 transition">
+            🏷️ Gerar tags automáticas
+          </button>
+        )}
       </div>
 
       {/* Search */}
