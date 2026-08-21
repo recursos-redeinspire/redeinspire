@@ -7,44 +7,6 @@ import {
   File, Download, Archive, Play
 } from 'lucide-react'
 
-// Generate a deterministic colorful SVG placeholder based on folder name
-function generatePlaceholderThumb(name: string): string {
-  const colors = [
-    ['#16a34a', '#059669'], ['#2563eb', '#1d4ed8'], ['#9333ea', '#7c3aed'],
-    ['#dc2626', '#b91c1c'], ['#ea580c', '#c2410c'], ['#0891b2', '#0e7490'],
-    ['#4f46e5', '#4338ca'], ['#be185d', '#9d174d'], ['#ca8a04', '#a16207'],
-    ['#0d9488', '#0f766e'],
-  ]
-  const shapes = ['circle', 'rect', 'triangle', 'diamond', 'cross']
-  const hash = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-  const [c1, c2] = colors[hash % colors.length]
-  const shape = shapes[(hash * 7) % shapes.length]
-  const rotation = (hash * 13) % 360
-
-  let shapesSvg = ''
-  // Background pattern
-  for (let i = 0; i < 3; i++) {
-    const x = 30 + ((hash * (i + 3) * 17) % 200)
-    const y = 30 + ((hash * (i + 5) * 13) % 200)
-    const size = 20 + ((hash * (i + 1)) % 40)
-    const opacity = 0.1 + ((hash * (i + 2)) % 3) * 0.05
-    if (shape === 'circle') {
-      shapesSvg += `<circle cx="${x}" cy="${y}" r="${size}" fill="white" opacity="${opacity}"/>`
-    } else if (shape === 'rect') {
-      shapesSvg += `<rect x="${x - size / 2}" y="${y - size / 2}" width="${size}" height="${size}" fill="white" opacity="${opacity}" transform="rotate(${rotation} ${x} ${y})"/>`
-    } else if (shape === 'triangle') {
-      shapesSvg += `<polygon points="${x},${y - size} ${x - size},${y + size} ${x + size},${y + size}" fill="white" opacity="${opacity}"/>`
-    } else if (shape === 'diamond') {
-      shapesSvg += `<rect x="${x - size / 2}" y="${y - size / 2}" width="${size}" height="${size}" fill="white" opacity="${opacity}" transform="rotate(45 ${x} ${y})"/>`
-    } else {
-      shapesSvg += `<rect x="${x - size / 2}" y="${y - 4}" width="${size}" height="8" fill="white" opacity="${opacity}"/><rect x="${x - 4}" y="${y - size / 2}" width="8" height="${size}" fill="white" opacity="${opacity}"/>`
-    }
-  }
-
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs><rect width="300" height="300" fill="url(#g)"/>${shapesSvg}<text x="150" y="160" text-anchor="middle" font-family="system-ui,sans-serif" font-size="24" font-weight="700" fill="white" opacity="0.9">${name.substring(0, 18)}</text></svg>`
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`
-}
-
 const FILE_ICONS: Record<string, { icon: typeof File; color: string; bg: string }> = {
   video: { icon: Video, color: 'text-purple-600', bg: 'bg-purple-50' },
   audio: { icon: Headphones, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -81,7 +43,6 @@ export default function MaterialsPage() {
   const [folderThumbs, setFolderThumbs] = useState<Record<string, string>>({})
   const [folderTagMap, setFolderTagMap] = useState<Record<string, string[]>>({})
   const [folderDescMap, setFolderDescMap] = useState<Record<string, string>>({})
-  const [autoThumbs, setAutoThumbs] = useState<Record<string, string>>({})
   const [topDownloads, setTopDownloads] = useState<any[]>([])
 
   // Search
@@ -96,6 +57,9 @@ export default function MaterialsPage() {
   const [editTags, setEditTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [folderImages, setFolderImages] = useState<any[]>([])
+  const [loadingImages, setLoadingImages] = useState(false)
+  const [showImagePicker, setShowImagePicker] = useState(false)
 
   // File preview states
   const [selectedFile, setSelectedFile] = useState<any | null>(null)
@@ -163,102 +127,15 @@ export default function MaterialsPage() {
 
   const folders = entries.filter(e => e.tag === 'folder')
 
-  // Auto-fetch thumbs — parallel, fast, max 1 level deep
-  useEffect(() => {
-    if (folders.length === 0) return
-    const foldersNeedingThumb = folders.slice(0, 12).filter(f => {
-      const saved = folderThumbs[f.path]
-      if (saved && !saved.includes('dropboxusercontent.com')) return false
-      if (autoThumbs[f.path]) return false
-      return true
-    })
-    if (foldersNeedingThumb.length === 0) return
-
-    const fetchThumbForFolder = async (folder: any): Promise<[string, string] | null> => {
-      try {
-        // 1. Linked video (fast — no file download needed)
-        const vids = await getFolderVideos(folder.path).catch(() => ({ videos: [] }))
-        if (vids.videos && vids.videos.length > 0) {
-          const url = vids.videos[0].thumbnail || `https://img.youtube.com/vi/${vids.videos[0].id}/mqdefault.jpg`
-          return [folder.path, url]
-        }
-        // 2. Image in folder
-        const contents = await browseDropbox(folder.path)
-        const allImgs = (contents.entries || []).filter((e: any) => e.tag === 'file' && e.fileType === 'image')
-        const pickBest = (imgs: any[]) => {
-          if (imgs.length === 0) return null
-          const t = imgs.find((e: any) => e.name.toLowerCase().startsWith('thumb'))
-          if (t) return t
-          return imgs.sort((a: any, b: any) => (a.size || 999999) - (b.size || 999999))[0]
-        }
-        const img = pickBest(allImgs)
-        if (img) {
-          const dl = await downloadDropbox(img.pathLower || img.path, 'view')
-          if (dl.url) {
-            // Upload to S3 for permanent URL
-            try {
-              const resp = await fetch(dl.url)
-              if (resp.ok) {
-                const blob = await resp.blob()
-                const { uploadUrl, fileUrl } = await getUploadPresignedUrl(`ft-${Date.now()}-${img.name}`, blob.type || 'image/jpeg')
-                await fetch(uploadUrl, { method: 'PUT', body: blob, headers: { 'Content-Type': blob.type || 'image/jpeg' } })
-                saveFolderThumbnail(folder.path, fileUrl).catch(() => {})
-                return [folder.path, fileUrl]
-              }
-            } catch { /* fallback to temp url */ }
-            return [folder.path, dl.url]
-          }
-        }
-        // 3. First subfolder with image (only 1 level deep)
-        const subs = (contents.entries || []).filter((e: any) => e.tag === 'folder').sort((a: any, b: any) => b.name.localeCompare(a.name)).slice(0, 2)
-        for (const sub of subs) {
-          const sc = await browseDropbox(sub.path || sub.pathLower)
-          const si = pickBest((sc.entries || []).filter((e: any) => e.tag === 'file' && e.fileType === 'image'))
-          if (si) {
-            const dl = await downloadDropbox(si.pathLower || si.path, 'view')
-            if (dl.url) {
-              try {
-                const resp = await fetch(dl.url)
-                if (resp.ok) {
-                  const blob = await resp.blob()
-                  const { uploadUrl, fileUrl } = await getUploadPresignedUrl(`ft-${Date.now()}-${si.name}`, blob.type || 'image/jpeg')
-                  await fetch(uploadUrl, { method: 'PUT', body: blob, headers: { 'Content-Type': blob.type || 'image/jpeg' } })
-                  saveFolderThumbnail(folder.path, fileUrl).catch(() => {})
-                  return [folder.path, fileUrl]
-                }
-              } catch { /* ignore */ }
-              return [folder.path, dl.url]
-            }
-          }
-        }
-      } catch { /* ignore */ }
-      return null
-    }
-
-    // Run ALL folder thumb fetches in parallel
-    Promise.all(foldersNeedingThumb.map(f => fetchThumbForFolder(f))).then(results => {
-      const newThumbs: Record<string, string> = {}
-      for (const r of results) {
-        if (r) newThumbs[r[0]] = r[1]
-      }
-      if (Object.keys(newThumbs).length > 0) {
-        setAutoThumbs(prev => ({ ...prev, ...newThumbs }))
-        setFolderThumbs(prev => ({ ...prev, ...newThumbs }))
-      }
-    })
-  }, [folders.length, folderThumbs])
-
   const breadcrumbs = path ? path.split('/').filter(Boolean).map((part, i, arr) => ({
     name: part, path: '/' + arr.slice(0, i + 1).join('/'),
   })) : []
 
   const isRoot = !path
-  const getThumb = (folderPath: string, name: string) => {
+  const getThumb = (folderPath: string, _name: string) => {
     const saved = folderThumbs[folderPath]
     if (saved && !saved.includes('dropboxusercontent.com')) return saved
-    const auto = autoThumbs[folderPath]
-    if (auto && !auto.includes('dropboxusercontent.com')) return auto
-    return generatePlaceholderThumb(name)
+    return ''
   }
   const getTags = (folderPath: string) => folderTagMap[folderPath] || []
   const getDesc = (folderPath: string) => folderDescMap[folderPath] || ''
@@ -332,7 +209,13 @@ export default function MaterialsPage() {
                     <div key={folder.id} className="group">
                       <button onClick={() => { setIsSearching(false); setSearchQuery(''); loadFolder(folder.path || folder.pathLower) }} className="w-full text-left">
                         <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 mb-2.5">
-                          <img src={thumb} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                          {thumb ? (
+                            <img src={thumb} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                          ) : (
+                            <div className="w-full h-full bg-gray-50 flex items-center justify-center">
+                              <Folder size={28} className="text-gray-300" />
+                            </div>
+                          )}
                         </div>
                         <h3 className="font-semibold text-[13px] text-gray-900 leading-snug line-clamp-2 group-hover:text-green-700 transition">{folder.name}</h3>
                         {tags.length > 0 && <p className="text-[10px] text-gray-400 mt-0.5">{tags.join(' · ')}</p>}
@@ -404,7 +287,13 @@ export default function MaterialsPage() {
               return (
                 <button key={item.folderPath} onClick={() => loadFolder(item.folderPath)} className="text-left group">
                   <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 mb-2">
-                    <img src={thumb} alt={item.folderName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    {thumb ? (
+                      <img src={thumb} alt={item.folderName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <div className="w-full h-full bg-gray-50 flex items-center justify-center">
+                        <Folder size={24} className="text-gray-300" />
+                      </div>
+                    )}
                     <div className="absolute top-2 left-2 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">#{item.rank}</div>
                   </div>
                   <p className="text-[12px] font-medium text-gray-900 line-clamp-2 leading-snug">{item.folderName}</p>
@@ -431,7 +320,13 @@ export default function MaterialsPage() {
                   <button onClick={() => loadFolder(folder.path)} className="w-full text-left">
                     {/* Thumbnail */}
                     <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 mb-2.5">
-                      <img src={thumb} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      {thumb ? (
+                        <img src={thumb} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ) : (
+                        <div className="w-full h-full bg-gray-50 flex items-center justify-center">
+                          <Folder size={28} className="text-gray-300" />
+                        </div>
+                      )}
                     </div>
                     {/* Title */}
                     <h3 className="font-semibold text-[13px] text-gray-900 leading-snug line-clamp-2 group-hover:text-green-700 transition">{folder.name}</h3>
@@ -631,11 +526,11 @@ export default function MaterialsPage() {
               {/* Thumb upload */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Thumbnail</label>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 mb-3">
                   <div className="w-20 h-20 rounded-lg overflow-hidden border shrink-0">
                     <img src={getThumb(editingFolder.path, editingFolder.name)} alt="" className="w-full h-full object-cover" />
                   </div>
-                  <div>
+                  <div className="space-y-1.5">
                     <label className="inline-flex items-center gap-1.5 text-xs text-green-600 hover:text-green-800 cursor-pointer font-medium">
                       <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                         const file = e.target.files?.[0]
@@ -649,16 +544,77 @@ export default function MaterialsPage() {
                         } catch { /* ignore */ }
                         finally { setUploading(false) }
                       }} />
-                      {uploading ? 'Enviando...' : folderThumbs[editingFolder.path] ? '📷 Trocar' : '📷 Subir imagem'}
+                      {uploading ? 'Enviando...' : '📷 Subir do computador'}
                     </label>
+                    <button onClick={async () => {
+                      setShowImagePicker(true); setLoadingImages(true); setFolderImages([])
+                      try {
+                        // Browse the folder recursively for images (up to 2 levels)
+                        const imgs: any[] = []
+                        const contents = await browseDropbox(editingFolder.path)
+                        const directImgs = (contents.entries || []).filter((e: any) => e.tag === 'file' && e.fileType === 'image')
+                        imgs.push(...directImgs)
+                        // Check subfolders
+                        const subs = (contents.entries || []).filter((e: any) => e.tag === 'folder').slice(0, 5)
+                        for (const sub of subs) {
+                          try {
+                            const subContents = await browseDropbox(sub.path)
+                            const subImgs = (subContents.entries || []).filter((e: any) => e.tag === 'file' && e.fileType === 'image')
+                            imgs.push(...subImgs)
+                          } catch { /* ignore */ }
+                        }
+                        setFolderImages(imgs)
+                      } catch { /* ignore */ }
+                      finally { setLoadingImages(false) }
+                    }}
+                      className="block text-xs text-blue-600 hover:text-blue-800 font-medium">🔍 Escolher da pasta</button>
                     {folderThumbs[editingFolder.path] && (
                       <button onClick={async () => {
                         await saveFolderThumbnail(editingFolder.path, '')
                         setFolderThumbs(prev => { const n = { ...prev }; delete n[editingFolder.path]; return n })
-                      }} className="block text-[10px] text-red-500 hover:text-red-700 mt-1">Remover thumb</button>
+                      }} className="block text-[10px] text-red-500 hover:text-red-700">Remover thumb</button>
                     )}
                   </div>
                 </div>
+                {/* Image picker from folder */}
+                {showImagePicker && (
+                  <div className="border border-gray-200 rounded-xl p-3 bg-gray-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-medium text-gray-600">Imagens da pasta:</p>
+                      <button onClick={() => setShowImagePicker(false)} className="text-xs text-gray-400 hover:text-gray-600">✕ Fechar</button>
+                    </div>
+                    {loadingImages && <p className="text-xs text-gray-400 text-center py-4">Buscando imagens...</p>}
+                    {!loadingImages && folderImages.length === 0 && <p className="text-xs text-gray-400 text-center py-4">Nenhuma imagem encontrada</p>}
+                    {!loadingImages && folderImages.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2 max-h-[150px] overflow-y-auto">
+                        {folderImages.map(img => (
+                          <button key={img.id} onClick={async () => {
+                            setUploading(true)
+                            try {
+                              const dl = await downloadDropbox(img.pathLower || img.path, 'view')
+                              if (dl.url) {
+                                const resp = await fetch(dl.url)
+                                if (resp.ok) {
+                                  const blob = await resp.blob()
+                                  const { uploadUrl, fileUrl } = await getUploadPresignedUrl(`ft-${Date.now()}-${img.name}`, blob.type || 'image/jpeg')
+                                  await fetch(uploadUrl, { method: 'PUT', body: blob, headers: { 'Content-Type': blob.type || 'image/jpeg' } })
+                                  await saveFolderThumbnail(editingFolder.path, fileUrl)
+                                  setFolderThumbs(prev => ({ ...prev, [editingFolder.path]: fileUrl }))
+                                  setShowImagePicker(false)
+                                }
+                              }
+                            } catch { /* ignore */ }
+                            finally { setUploading(false) }
+                          }}
+                            className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 hover:border-green-500 hover:bg-green-50 transition text-left">
+                            <Image size={14} className="text-green-600 shrink-0" />
+                            <span className="text-[10px] text-gray-700 truncate">{img.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               {/* Tags */}
               <div>
