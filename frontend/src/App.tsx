@@ -29,6 +29,9 @@ import PreviewEditorial from './pages/PreviewEditorial'
 import PreviewPlanA from './pages/PreviewPlanA'
 import PreviewPlanB from './pages/PreviewPlanB'
 import PreviewPlanC from './pages/PreviewPlanC'
+import PreviewMatA from './pages/PreviewMatA'
+import PreviewMatB from './pages/PreviewMatB'
+import PreviewMatC from './pages/PreviewMatC'
 
 function Protected({ children }: { children: React.ReactNode }) {
   return (
@@ -70,6 +73,9 @@ export default function App() {
             <Route path="/preview-plan-a" element={<Protected><PreviewPlanA /></Protected>} />
             <Route path="/preview-plan-b" element={<Protected><PreviewPlanB /></Protected>} />
             <Route path="/preview-plan-c" element={<Protected><PreviewPlanC /></Protected>} />
+            <Route path="/preview-mat-a" element={<Protected><PreviewMatA /></Protected>} />
+            <Route path="/preview-mat-b" element={<Protected><PreviewMatB /></Protected>} />
+            <Route path="/preview-mat-c" element={<Protected><PreviewMatC /></Protected>} />
           </Routes>
         </div>
       </DataProvider>
