@@ -189,14 +189,36 @@ export default function MaterialsPage() {
     setLoading(true); setIsSearching(true)
     try {
       const result = await smartSearchDropbox(q) as any
-      setSearchResults(result.entries || [])
-      setSearchKeywords(result.keywords || [])
-      // Merge folder results into entries for card display
+      const fileResults = result.entries || []
       const folderResults = result.folders || []
-      setEntries([...folderResults, ...(result.entries || [])])
+
+      // Also browse inside found folders to get their files (for type filtering)
+      const folderFiles: any[] = []
+      const foldersToCheck = folderResults.slice(0, 10)
+      await Promise.all(foldersToCheck.map(async (folder: any) => {
+        try {
+          const contents = await browseDropbox(folder.path || folder.pathLower)
+          const files = (contents.entries || []).filter((e: any) => e.tag === 'file')
+          files.forEach((f: any) => folderFiles.push(f))
+        } catch { /* ignore */ }
+      }))
+
+      // Merge: direct file results + files from found folders (deduplicate by path)
+      const allFiles = [...fileResults]
+      const existingPaths = new Set(fileResults.map((f: any) => f.pathLower || f.path))
+      for (const f of folderFiles) {
+        if (!existingPaths.has(f.pathLower || f.path)) {
+          allFiles.push(f)
+          existingPaths.add(f.pathLower || f.path)
+        }
+      }
+
+      setSearchResults(allFiles)
+      setSearchKeywords(result.keywords || [])
+      setEntries([...folderResults, ...allFiles])
     } catch { /* ignore */ }
     finally { setLoading(false) }
-  }, [smartSearchDropbox, loadFolder, path])
+  }, [smartSearchDropbox, browseDropbox, loadFolder, path])
 
   useEffect(() => { loadFolder('') }, [loadFolder])
   // Load thumbnails from localStorage cache INSTANTLY, then refresh from API in background
