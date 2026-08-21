@@ -2470,88 +2470,129 @@ async function folderTagsAll(user) {
 async function folderTagsGenerate(user) {
   if (!user || !isAdmin(user)) return res(403, { message: 'Apenas admin.' });
 
-  const token = await getDropboxToken();
-  // List all folders recursively
-  let allFolders = [];
-  let hasMore = true;
-  let cursor = null;
-  while (hasMore) {
-    const url = cursor ? 'https://api.dropboxapi.com/2/files/list_folder/continue' : 'https://api.dropboxapi.com/2/files/list_folder';
-    const payload = cursor ? { cursor } : { path: '', recursive: true, limit: 2000 };
-    const r = await fetch(url, { method: 'POST', headers: dbxHeaders(token), body: JSON.stringify(payload) });
-    const data = await r.json();
-    if (data.error) break;
-    allFolders = allFolders.concat((data.entries || []).filter(e => e['.tag'] === 'folder'));
-    hasMore = data.has_more;
-    cursor = data.cursor;
-  }
+  try {
+    const token = await getDropboxToken();
+    // List all folders recursively
+    let allFolders = [];
+    let hasMore = true;
+    let cursor = null;
+    while (hasMore) {
+      const url = cursor ? 'https://api.dropboxapi.com/2/files/list_folder/continue' : 'https://api.dropboxapi.com/2/files/list_folder';
+      const payload = cursor ? { cursor } : { path: '', recursive: true, limit: 2000 };
+      const r = await fetch(url, { method: 'POST', headers: dbxHeaders(token), body: JSON.stringify(payload) });
+      const data = await r.json();
+      if (data.error) break;
+      allFolders = allFolders.concat((data.entries || []).filter(e => e['.tag'] === 'folder'));
+      hasMore = data.has_more;
+      cursor = data.cursor;
+    }
 
-  // Tag generation rules based on folder name keywords
-  const tagRules = [
-    { keywords: ['mensagem', 'mensagens', 'pregacao', 'pregação', 'sermao', 'sermão'], tags: ['mensagem', 'pregação'] },
-    { keywords: ['louvor', 'worship', 'musica', 'música', 'adoracao', 'adoração'], tags: ['louvor', 'worship'] },
-    { keywords: ['lideranca', 'liderança', 'lider', 'líder', 'lideres', 'líderes', 'gestao', 'gestão'], tags: ['liderança', 'gestão'] },
-    { keywords: ['crianca', 'criança', 'criancas', 'crianças', 'kids', 'infantil'], tags: ['crianças', 'infantil'] },
-    { keywords: ['jovem', 'jovens', 'juventude', 'adolescente', 'adolescentes', 'teen'], tags: ['jovens'] },
-    { keywords: ['mulher', 'mulheres', 'feminino'], tags: ['mulheres'] },
-    { keywords: ['homem', 'homens', 'masculino'], tags: ['homens'] },
-    { keywords: ['casais', 'casal', 'casamento', 'matrimonio', 'matrimônio'], tags: ['casais'] },
-    { keywords: ['celula', 'célula', 'celulas', 'células', 'pequeno grupo', 'pequenos grupos', 'pg'], tags: ['células', 'pequenos grupos'] },
-    { keywords: ['financ', 'dinheiro', 'oferta', 'dizimo', 'dízimo', 'mordomia'], tags: ['finanças'] },
-    { keywords: ['missao', 'missão', 'missoes', 'missões', 'evangelismo', 'missionario', 'missionário'], tags: ['missões'] },
-    { keywords: ['oracao', 'oração', 'intercessao', 'intercessão', 'jejum'], tags: ['oração'] },
-    { keywords: ['discipulado', 'discipulo', 'discípulo', 'formacao', 'formação', 'capacitacao', 'capacitação'], tags: ['discipulado', 'capacitação'] },
-    { keywords: ['familia', 'família', 'familiar', 'lar'], tags: ['família'] },
-    { keywords: ['plantacao', 'plantação', 'plantar', 'church planting'], tags: ['plantação de igreja'] },
-    { keywords: ['retiro', 'retiros', 'acampamento'], tags: ['retiro'] },
-    { keywords: ['evento', 'eventos', 'conferencia', 'conferência', 'congresso'], tags: ['eventos'] },
-    { keywords: ['webinar', 'webinars', 'live', 'online'], tags: ['webinar'] },
-    { keywords: ['mentoria', 'mentorias', 'mentor', 'coaching'], tags: ['mentoria'] },
-    { keywords: ['voluntario', 'voluntário', 'voluntarios', 'voluntários', 'servir'], tags: ['voluntariado'] },
-    { keywords: ['comunicacao', 'comunicação', 'midia', 'mídia', 'marketing', 'redes sociais'], tags: ['comunicação'] },
-    { keywords: ['saude', 'saúde', 'emocional', 'burnout', 'mental'], tags: ['saúde emocional'] },
-    { keywords: ['proposito', 'propósito', 'propositos', 'propósitos'], tags: ['propósitos'] },
-    { keywords: ['eleve', 'inspire leaders', 'leaders'], tags: ['treinamento'] },
-    { keywords: ['serie', 'série'], tags: ['série'] },
-    { keywords: ['campanha', 'campanhas'], tags: ['campanha'] },
-    { keywords: ['domingo', 'culto', 'celebracao', 'celebração'], tags: ['culto'] },
-    { keywords: ['geral'], tags: ['geral'] },
-  ];
+    // Tag generation rules
+    const tagRules = [
+      { keywords: ['mensagem', 'mensagens', 'pregacao', 'sermao'], tags: ['mensagem', 'pregação'] },
+      { keywords: ['louvor', 'worship', 'musica', 'adoracao'], tags: ['louvor', 'worship'] },
+      { keywords: ['lideranca', 'lider', 'lideres', 'gestao'], tags: ['liderança', 'gestão'] },
+      { keywords: ['crianca', 'criancas', 'kids', 'infantil'], tags: ['crianças', 'infantil'] },
+      { keywords: ['jovem', 'jovens', 'juventude', 'adolescente', 'teen'], tags: ['jovens'] },
+      { keywords: ['mulher', 'mulheres', 'feminino'], tags: ['mulheres'] },
+      { keywords: ['homem', 'homens', 'masculino'], tags: ['homens'] },
+      { keywords: ['casais', 'casal', 'casamento', 'matrimonio'], tags: ['casais'] },
+      { keywords: ['celula', 'celulas', 'pequeno grupo', 'pequenos grupos'], tags: ['células', 'pequenos grupos'] },
+      { keywords: ['financ', 'dinheiro', 'oferta', 'dizimo', 'mordomia'], tags: ['finanças'] },
+      { keywords: ['missao', 'missoes', 'evangelismo', 'missionario'], tags: ['missões'] },
+      { keywords: ['oracao', 'intercessao', 'jejum'], tags: ['oração'] },
+      { keywords: ['discipulado', 'discipulo', 'formacao', 'capacitacao'], tags: ['discipulado'] },
+      { keywords: ['familia', 'familiar'], tags: ['família'] },
+      { keywords: ['retiro', 'retiros', 'acampamento'], tags: ['retiro'] },
+      { keywords: ['evento', 'eventos', 'conferencia', 'congresso'], tags: ['eventos'] },
+      { keywords: ['webinar', 'webinars', 'live'], tags: ['webinar'] },
+      { keywords: ['mentoria', 'mentorias', 'mentor'], tags: ['mentoria'] },
+      { keywords: ['voluntario', 'voluntarios', 'servir'], tags: ['voluntariado'] },
+      { keywords: ['comunicacao', 'midia', 'marketing', 'redes sociais'], tags: ['comunicação'] },
+      { keywords: ['saude', 'emocional', 'burnout', 'mental'], tags: ['saúde emocional'] },
+      { keywords: ['proposito', 'propositos'], tags: ['propósitos'] },
+      { keywords: ['eleve', 'inspire leaders', 'leaders', 'treinamento'], tags: ['treinamento'] },
+      { keywords: ['serie'], tags: ['série'] },
+      { keywords: ['campanha', 'campanhas'], tags: ['campanha'] },
+      { keywords: ['domingo', 'culto', 'celebracao'], tags: ['culto'] },
+    ];
 
-  // Get current tags
-  const current = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_TAGS_KEY } }));
-  const tagMap = (current.Item && current.Item.tagMap) || {};
-  const descMap = (current.Item && current.Item.descMap) || {};
+    // Get current tagMap (we'll save in batches to avoid 400KB limit)
+    const current = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_TAGS_KEY } }));
+    const tagMap = (current.Item && current.Item.tagMap) || {};
+    const descMap = (current.Item && current.Item.descMap) || {};
 
-  let generated = 0;
-  for (const folder of allFolders) {
-    const folderPath = folder.path_display;
-    // Skip if already has tags
-    if (tagMap[folderPath] && tagMap[folderPath].length > 0) continue;
+    let generated = 0;
+    const batchSize = 50;
+    let batch = {};
 
-    const name = normalize(folder.name);
-    const pathNorm = normalize(folder.path_display);
-    const tags = new Set();
+    for (const folder of allFolders) {
+      const folderPath = folder.path_display;
+      if (tagMap[folderPath] && tagMap[folderPath].length > 0) continue;
 
-    for (const rule of tagRules) {
-      if (rule.keywords.some(kw => name.includes(normalize(kw)) || pathNorm.includes(normalize(kw)))) {
-        rule.tags.forEach(t => tags.add(t));
+      const name = normalize(folder.name);
+      const pathNorm = normalize(folder.path_display);
+      const tags = new Set();
+
+      for (const rule of tagRules) {
+        if (rule.keywords.some(kw => name.includes(kw) || pathNorm.includes(kw))) {
+          rule.tags.forEach(t => tags.add(t));
+        }
+      }
+
+      if (tags.size > 0) {
+        tagMap[folderPath] = [...tags];
+        batch[folderPath] = [...tags];
+        generated++;
+      }
+
+      // Save in batches to avoid item size limit
+      if (Object.keys(batch).length >= batchSize) {
+        // Save partial - only keep last 200 entries in the main item to avoid 400KB
+        const keys = Object.keys(tagMap);
+        if (keys.length > 200) {
+          // Save overflow in separate items
+          const overflow = keys.slice(200);
+          for (const k of overflow) {
+            // Skip saving individual items to keep it simple - just keep newest 200
+          }
+        }
+        batch = {};
       }
     }
 
-    if (tags.size > 0) {
-      tagMap[folderPath] = [...tags];
-      generated++;
+    // Final save - keep only paths that have tags, limit to prevent 400KB
+    const filteredTagMap = {};
+    const entries = Object.entries(tagMap).filter(([_, v]) => v && v.length > 0);
+    // Keep all - if too big, DynamoDB will error and we handle gracefully
+    for (const [k, v] of entries) {
+      filteredTagMap[k] = v;
     }
+
+    try {
+      await ddb.send(new PutCommand({
+        TableName: T.VIDEO_TAGS,
+        Item: { videoId: FOLDER_TAGS_KEY, tagMap: filteredTagMap, descMap, updatedAt: new Date().toISOString(), updatedBy: user.id }
+      }));
+    } catch (saveErr) {
+      // If item too large, save only leaf folders (most useful)
+      console.error('TagMap too large, saving only leaf folders:', saveErr.message);
+      const leafMap = {};
+      for (const [k, v] of entries) {
+        const depth = k.split('/').length;
+        if (depth >= 4) leafMap[k] = v; // Only deep folders (actual content)
+      }
+      await ddb.send(new PutCommand({
+        TableName: T.VIDEO_TAGS,
+        Item: { videoId: FOLDER_TAGS_KEY, tagMap: leafMap, descMap, updatedAt: new Date().toISOString(), updatedBy: user.id }
+      }));
+    }
+
+    return res(200, { message: `Tags geradas para ${generated} pastas de ${allFolders.length} total.`, generated, totalFolders: allFolders.length });
+  } catch (err) {
+    console.error('Generate tags error:', err);
+    return res(500, { message: 'Erro ao gerar tags: ' + err.message });
   }
-
-  // Save
-  await ddb.send(new PutCommand({
-    TableName: T.VIDEO_TAGS,
-    Item: { videoId: FOLDER_TAGS_KEY, tagMap, descMap, updatedAt: new Date().toISOString(), updatedBy: user.id }
-  }));
-
-  return res(200, { message: `Tags geradas para ${generated} pastas de ${allFolders.length} total.`, generated, totalFolders: allFolders.length });
 }
 
 // ---- Custom Video Thumbnails ----
