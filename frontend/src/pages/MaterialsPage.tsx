@@ -60,6 +60,8 @@ export default function MaterialsPage() {
   const [folderImages, setFolderImages] = useState<any[]>([])
   const [loadingImages, setLoadingImages] = useState(false)
   const [showImagePicker, setShowImagePicker] = useState(false)
+  const [editThumbUrl, setEditThumbUrl] = useState('')
+  const [originalThumbUrl, setOriginalThumbUrl] = useState('')
 
   // File preview states
   const [selectedFile, setSelectedFile] = useState<any | null>(null)
@@ -343,7 +345,7 @@ export default function MaterialsPage() {
                   </button>
                   {/* Admin edit */}
                   {isAdmin && (
-                    <button onClick={() => { setEditingFolder(folder); setEditTags(getTags(folder.path)); setEditDesc(getDesc(folder.path)) }}
+                    <button onClick={() => { setEditingFolder(folder); setEditTags(getTags(folder.path)); setEditDesc(getDesc(folder.path)); setEditThumbUrl(folderThumbs[folder.path] || ''); setOriginalThumbUrl(folderThumbs[folder.path] || ''); setShowImagePicker(false) }}
                       className="mt-1 text-[10px] text-gray-400 hover:text-green-600 transition opacity-0 group-hover:opacity-100">
                       ✏️ Editar card
                     </button>
@@ -528,7 +530,7 @@ export default function MaterialsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Thumbnail</label>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-20 h-20 rounded-lg overflow-hidden border shrink-0">
-                    <img src={getThumb(editingFolder.path, editingFolder.name)} alt="" className="w-full h-full object-cover" />
+                    <img src={editThumbUrl || getThumb(editingFolder.path, editingFolder.name)} alt="" className="w-full h-full object-cover" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="inline-flex items-center gap-1.5 text-xs text-green-600 hover:text-green-800 cursor-pointer font-medium">
@@ -539,8 +541,7 @@ export default function MaterialsPage() {
                         try {
                           const { uploadUrl, fileUrl } = await getUploadPresignedUrl(file.name, file.type)
                           await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
-                          await saveFolderThumbnail(editingFolder.path, fileUrl)
-                          setFolderThumbs(prev => ({ ...prev, [editingFolder.path]: fileUrl }))
+                          setEditThumbUrl(fileUrl)
                         } catch { /* ignore */ }
                         finally { setUploading(false) }
                       }} />
@@ -568,11 +569,9 @@ export default function MaterialsPage() {
                       finally { setLoadingImages(false) }
                     }}
                       className="block text-xs text-blue-600 hover:text-blue-800 font-medium">🔍 Escolher da pasta</button>
-                    {folderThumbs[editingFolder.path] && (
-                      <button onClick={async () => {
-                        await saveFolderThumbnail(editingFolder.path, '')
-                        setFolderThumbs(prev => { const n = { ...prev }; delete n[editingFolder.path]; return n })
-                      }} className="block text-[10px] text-red-500 hover:text-red-700">Remover thumb</button>
+                    {(editThumbUrl || folderThumbs[editingFolder.path]) && (
+                      <button onClick={() => { setEditThumbUrl('__REMOVE__') }}
+                        className="block text-[10px] text-red-500 hover:text-red-700">Remover thumb</button>
                     )}
                   </div>
                 </div>
@@ -598,8 +597,7 @@ export default function MaterialsPage() {
                                   const blob = await resp.blob()
                                   const { uploadUrl, fileUrl } = await getUploadPresignedUrl(`ft-${Date.now()}-${img.name}`, blob.type || 'image/jpeg')
                                   await fetch(uploadUrl, { method: 'PUT', body: blob, headers: { 'Content-Type': blob.type || 'image/jpeg' } })
-                                  await saveFolderThumbnail(editingFolder.path, fileUrl)
-                                  setFolderThumbs(prev => ({ ...prev, [editingFolder.path]: fileUrl }))
+                                  setEditThumbUrl(fileUrl)
                                   setShowImagePicker(false)
                                 }
                               }
@@ -645,12 +643,21 @@ export default function MaterialsPage() {
               </div>
             </div>
             <div className="p-5 border-t flex gap-3">
-              <button onClick={() => setEditingFolder(null)} className="flex-1 border rounded-lg py-2.5 text-sm text-gray-700 hover:bg-gray-50">Cancelar</button>
+              <button onClick={() => { setEditingFolder(null); setShowImagePicker(false) }} className="flex-1 border rounded-lg py-2.5 text-sm text-gray-700 hover:bg-gray-50">Cancelar</button>
               <button onClick={async () => {
+                // Save thumb if changed
+                if (editThumbUrl === '__REMOVE__') {
+                  await saveFolderThumbnail(editingFolder.path, '')
+                  setFolderThumbs(prev => { const n = { ...prev }; delete n[editingFolder.path]; return n })
+                } else if (editThumbUrl && editThumbUrl !== originalThumbUrl) {
+                  await saveFolderThumbnail(editingFolder.path, editThumbUrl)
+                  setFolderThumbs(prev => ({ ...prev, [editingFolder.path]: editThumbUrl }))
+                }
+                // Save tags + description
                 await saveFolderTags(editingFolder.path, editTags, editDesc)
                 setFolderTagMap(prev => ({ ...prev, [editingFolder.path]: editTags }))
                 setFolderDescMap(prev => ({ ...prev, [editingFolder.path]: editDesc }))
-                setEditingFolder(null)
+                setEditingFolder(null); setShowImagePicker(false)
               }}
                 className="flex-1 bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700">
                 Salvar
