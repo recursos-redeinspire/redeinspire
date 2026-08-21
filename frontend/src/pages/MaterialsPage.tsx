@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import {
@@ -50,7 +50,10 @@ export default function MaterialsPage() {
   const [isSearching, setIsSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [searchKeywords, setSearchKeywords] = useState<string[]>([])
-
+  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<any[]>([])
+  const [showAutocomplete, setShowAutocomplete] = useState(false)
+  const [autocompleteCache, setAutocompleteCache] = useState<any[]>([])
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Admin edit state
   const [editingFolder, setEditingFolder] = useState<any | null>(null)
   const [editDesc, setEditDesc] = useState('')
@@ -106,6 +109,53 @@ export default function MaterialsPage() {
     finally { setLoading(false) }
   }, [browseDropbox, getFolderVideos, getFileText])
 
+  // Build autocomplete cache from all visible folders (current + visited)
+  useEffect(() => {
+    if (entries.length > 0) {
+      const allItems = entries.map(e => ({ name: e.name, path: e.path || e.pathLower, tag: e.tag, id: e.id }))
+      setAutocompleteCache(prev => {
+        const existing = new Set(prev.map(p => p.path))
+        const newItems = allItems.filter(i => !existing.has(i.path))
+        return [...prev, ...newItems]
+      })
+    }
+  }, [entries])
+
+  // Local autocomplete (instant, no API call)
+  const handleSearchInput = (value: string) => {
+    setSearchQuery(value)
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+
+    if (!value.trim() || value.length < 2) {
+      setAutocompleteSuggestions([])
+      setShowAutocomplete(false)
+      return
+    }
+
+    // Instant local filter
+    const query = value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    const words = query.split(/\s+/).filter(w => w.length >= 2)
+
+    const matches = autocompleteCache
+      .filter(item => {
+        const name = (item.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        return words.every(w => name.includes(w) || name.split(/[\s\-_]+/).some((nw: string) => nw.startsWith(w)))
+      })
+      .slice(0, 8)
+
+    if (matches.length > 0) {
+      setAutocompleteSuggestions(matches)
+      setShowAutocomplete(true)
+    } else {
+      setShowAutocomplete(false)
+    }
+
+    // Debounce: after 500ms, also trigger backend search for more results
+    searchTimerRef.current = setTimeout(() => {
+      doSearch(value)
+    }, 600)
+  }
+
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) { loadFolder(path); return }
     setLoading(true); setIsSearching(true)
@@ -125,6 +175,20 @@ export default function MaterialsPage() {
     getFolderThumbnails().then(d => setFolderThumbs(d.thumbnails || {})).catch(() => {})
     getAllFolderTags().then(d => { setFolderTagMap(d.tagMap || {}); setFolderDescMap((d as any).descMap || {}) }).catch(() => {})
     getTopDownloads().then(setTopDownloads).catch(() => {})
+    // Pre-load folder names for instant autocomplete
+    browseDropbox('').then(root => {
+      const rootItems = (root.entries || []).map((e: any) => ({ name: e.name, path: e.path, tag: e.tag, id: e.id }))
+      setAutocompleteCache(rootItems)
+      // Also load first level subfolders
+      const rootFolders = (root.entries || []).filter((e: any) => e.tag === 'folder').slice(0, 10)
+      Promise.all(rootFolders.map((f: any) => browseDropbox(f.path).catch(() => ({ entries: [] })))).then(results => {
+        const subItems: any[] = []
+        results.forEach(r => {
+          (r.entries || []).forEach((e: any) => subItems.push({ name: e.name, path: e.path, tag: e.tag, id: e.id }))
+        })
+        setAutocompleteCache(prev => [...prev, ...subItems])
+      })
+    }).catch(() => {})
   }, [])
 
   const folders = entries.filter(e => e.tag === 'folder')
@@ -172,16 +236,39 @@ export default function MaterialsPage() {
         <div className="flex-1 relative">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
           <input type="text" value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && doSearch(searchQuery)}
+            onChange={e => handleSearchInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { setShowAutocomplete(false); doSearch(searchQuery) } }}
+            onFocus={() => { if (autocompleteSuggestions.length > 0) setShowAutocomplete(true) }}
+            onBlur={() => setTimeout(() => setShowAutocomplete(false), 200)}
             placeholder="Buscar materiais, mensagens, apresentações..."
             className="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
           {searchQuery && (
-            <button onClick={() => { setSearchQuery(''); if (isSearching) loadFolder(path) }}
+            <button onClick={() => { setSearchQuery(''); setShowAutocomplete(false); if (isSearching) loadFolder(path) }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X size={14} /></button>
           )}
+          {/* Autocomplete dropdown */}
+          {showAutocomplete && autocompleteSuggestions.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden">
+              {autocompleteSuggestions.map(item => (
+                <button key={item.id || item.path} onClick={() => {
+                  setShowAutocomplete(false); setSearchQuery('')
+                  if (item.tag === 'folder') loadFolder(item.path)
+                  else { const folderPath = item.path.substring(0, item.path.lastIndexOf('/')); loadFolder(folderPath) }
+                }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition text-left border-b last:border-b-0">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${item.tag === 'folder' ? 'bg-amber-50' : 'bg-gray-100'}`}>
+                    {item.tag === 'folder' ? <Folder size={13} className="text-amber-500" /> : <File size={13} className="text-gray-400" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900 truncate">{item.name}</p>
+                    <p className="text-[9px] text-gray-400 truncate">{item.path}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        <button onClick={() => doSearch(searchQuery)}
+        <button onClick={() => { setShowAutocomplete(false); doSearch(searchQuery) }}
           className="bg-green-600 text-white px-5 py-3 rounded-xl text-sm font-medium hover:bg-green-700 transition">
           Buscar
         </button>
