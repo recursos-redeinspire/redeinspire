@@ -2003,6 +2003,27 @@ function normalize(text) {
     .trim();
 }
 
+// Gera variantes plural/singular de uma palavra em português
+function getStemVariants(word) {
+  const variants = new Set([word]);
+  // Plural → singular
+  if (word.endsWith('oes')) variants.add(word.slice(0, -3) + 'ao'); // mensagoes→mensagao (não comum mas seguro)
+  if (word.endsWith('aes')) variants.add(word.slice(0, -3) + 'ao');
+  if (word.endsWith('ais')) variants.add(word.slice(0, -2) + 'l'); // ministeriais→ministerial
+  if (word.endsWith('eis')) variants.add(word.slice(0, -2) + 'l'); // possiveis→possivel
+  if (word.endsWith('is') && !word.endsWith('ais') && !word.endsWith('eis')) variants.add(word.slice(0, -2) + 'l'); // jovens→jovel (edge case ok)
+  if (word.endsWith('ns')) variants.add(word.slice(0, -2) + 'm'); // jovens→jovem, mensagens→mensagem
+  if (word.endsWith('es') && !word.endsWith('oes') && !word.endsWith('aes')) variants.add(word.slice(0, -2)); // lideres→lider
+  if (word.endsWith('s') && !word.endsWith('ns') && !word.endsWith('es')) variants.add(word.slice(0, -1)); // campanhas→campanha
+  // Singular → plural
+  if (word.endsWith('ao')) { variants.add(word.slice(0, -2) + 'oes'); variants.add(word.slice(0, -2) + 'aes'); } // mensagao→mensagoes
+  if (word.endsWith('l')) variants.add(word.slice(0, -1) + 'is'); // ministerial→ministeriais
+  if (word.endsWith('m')) variants.add(word.slice(0, -1) + 'ns'); // mensagem→mensagens, jovem→jovens
+  if (word.endsWith('r') || word.endsWith('z')) variants.add(word + 'es'); // lider→lideres
+  if (!word.endsWith('s') && !word.endsWith('l') && !word.endsWith('m') && !word.endsWith('r') && !word.endsWith('z')) variants.add(word + 's'); // campanha→campanhas
+  return [...variants];
+}
+
 function extractKeywords(query) {
   const stopwords = new Set(['de','do','da','dos','das','em','no','na','nos','nas','um','uma','uns','umas',
     'o','a','os','as','e','ou','que','para','por','com','como','eu','me','meu','minha',
@@ -2010,9 +2031,12 @@ function extractKeywords(query) {
     'muito','mais','menos','bem','bom','boa','qual','quais','onde','quando','porque']);
   const words = normalize(query).split(' ').filter(w => w.length > 2 && !stopwords.has(w));
   
-  // Expand with synonyms
+  // Expand with plural/singular variants + synonyms
   const expanded = new Set(words);
   for (const word of words) {
+    // Add plural/singular variants
+    getStemVariants(word).forEach(v => expanded.add(v));
+    // Add synonyms
     const syns = SYNONYMS[word];
     if (syns) syns.forEach(s => expanded.add(normalize(s)));
     // Also check if word is part of a synonym value
@@ -2021,6 +2045,11 @@ function extractKeywords(query) {
         expanded.add(normalize(key));
         vals.forEach(v => expanded.add(normalize(v)));
       }
+    }
+    // Check stem variants against synonyms too
+    for (const variant of getStemVariants(word)) {
+      const varSyns = SYNONYMS[variant];
+      if (varSyns) varSyns.forEach(s => expanded.add(normalize(s)));
     }
   }
   return [...expanded];
