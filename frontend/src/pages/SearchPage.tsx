@@ -25,10 +25,13 @@ export default function SearchPage() {
     try {
       const [videosResult, materialsResult] = await Promise.all([
         smartSearchYoutube(q).catch(() => ({ videos: [], keywords: [] })),
-        smartSearchDropbox(q).catch(() => ({ entries: [], keywords: [] })),
+        smartSearchDropbox(q).catch(() => ({ entries: [], keywords: [], folders: [] })),
       ])
       setVideoResults(videosResult.videos || [])
-      setMaterialResults(materialsResult.entries || [])
+      // Combine files + folders from materials search
+      const matFolders = ((materialsResult as any).folders || []).map((f: any) => ({ ...f, _isFolder: true }))
+      const matFiles = (materialsResult.entries || [])
+      setMaterialResults([...matFolders, ...matFiles])
       setKeywords([...new Set([...(videosResult.keywords || []), ...(materialsResult.keywords || [])])])
     } catch {
       setVideoResults([])
@@ -153,22 +156,32 @@ export default function SearchPage() {
         <div>
           {tab === 'all' && <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><FolderOpen size={18} /> Materiais ({materialResults.length})</h2>}
           <div className="space-y-2">
-            {materialResults.map((file: any) => (
-              <div key={file.id || file.pathLower} className="bg-white border rounded-xl p-3 flex items-center gap-3 hover:shadow-sm transition">
-                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center">
-                  <FileText size={20} className="text-gray-500" />
-                </div>
-                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => {
-                  const folderPath = file.path ? file.path.split('/').slice(0, -1).join('/') : ''
-                  navigate(`/materiais?path=${encodeURIComponent(folderPath)}`)
+            {materialResults.map((file: any, idx: number) => (
+              <div key={file.id || file.pathLower || idx} className="bg-white border rounded-xl p-3 flex items-center gap-3 hover:shadow-sm transition cursor-pointer"
+                onClick={() => {
+                  if (file._isFolder || file.tag === 'folder') {
+                    navigate(`/materiais?path=${encodeURIComponent(file.path || file.pathLower || '')}`)
+                  } else {
+                    const folderPath = file.path ? file.path.split('/').slice(0, -1).join('/') : ''
+                    navigate(`/materiais?path=${encodeURIComponent(folderPath)}`)
+                  }
                 }}>
-                  <p className="font-medium text-sm text-gray-900 truncate">{file.name}</p>
-                  <p className="text-xs text-gray-400 truncate">{file.folder || ''}</p>
+                <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${file._isFolder || file.tag === 'folder' ? 'bg-amber-50' : 'bg-gray-50'}`}>
+                  {file._isFolder || file.tag === 'folder'
+                    ? <FolderOpen size={18} className="text-amber-500" />
+                    : <FileText size={18} className="text-gray-500" />
+                  }
                 </div>
-                <button onClick={() => handleDownload(file)}
-                  className="flex-shrink-0 text-gray-400 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition">
-                  <Download size={16} />
-                </button>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm text-gray-900 truncate">{file.name}</p>
+                  <p className="text-xs text-gray-400 truncate">{file._isFolder || file.tag === 'folder' ? 'Pasta' : (file.folder || file.ext?.toUpperCase() || '')}</p>
+                </div>
+                {!(file._isFolder || file.tag === 'folder') && (
+                  <button onClick={(e) => { e.stopPropagation(); handleDownload(file) }}
+                    className="flex-shrink-0 text-gray-400 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition">
+                    <Download size={16} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
