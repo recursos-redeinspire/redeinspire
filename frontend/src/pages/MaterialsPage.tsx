@@ -285,8 +285,14 @@ export default function MaterialsPage() {
 
   const isRoot = !path
   const getThumb = (folderPath: string, name: string) => {
+    // Try exact match first
     const saved = folderThumbs[folderPath]
     if (saved && !saved.includes('dropboxusercontent.com')) return saved
+    // Try case-insensitive match
+    const pathLower = folderPath.toLowerCase()
+    for (const [key, url] of Object.entries(folderThumbs)) {
+      if (key.toLowerCase() === pathLower && url && !url.includes('dropboxusercontent.com')) return url
+    }
     return generateCover(name)
   }
   const getTags = (folderPath: string) => folderTagMap[folderPath] || []
