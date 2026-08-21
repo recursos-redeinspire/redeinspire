@@ -2373,18 +2373,26 @@ const FOLDER_THUMBNAILS_KEY = '__FOLDER_THUMBNAILS__';
 
 async function folderThumbnailsGet(user) {
   if (!user) return res(401, { message: 'Nao autenticado' });
-  // Scan FTHUMB# items with minimal projection for speed
-  const data = await ddb.send(new ScanCommand({
-    TableName: T.VIDEO_TAGS,
-    FilterExpression: 'begins_with(videoId, :prefix)',
-    ExpressionAttributeValues: { ':prefix': 'FTHUMB#' },
-    ProjectionExpression: 'videoId, thumbnailUrl'
-  }));
   const thumbnails = {};
-  for (const item of (data.Items || [])) {
-    const folderPath = item.videoId.replace('FTHUMB#', '');
-    if (item.thumbnailUrl) thumbnails[folderPath] = item.thumbnailUrl;
-  }
+
+  // Paginated scan for FTHUMB# items
+  let lastKey = undefined;
+  do {
+    const params = {
+      TableName: T.VIDEO_TAGS,
+      FilterExpression: 'begins_with(videoId, :prefix)',
+      ExpressionAttributeValues: { ':prefix': 'FTHUMB#' },
+      ProjectionExpression: 'videoId, thumbnailUrl',
+      ExclusiveStartKey: lastKey,
+    };
+    const data = await ddb.send(new ScanCommand(params));
+    for (const item of (data.Items || [])) {
+      const folderPath = item.videoId.replace('FTHUMB#', '');
+      if (item.thumbnailUrl) thumbnails[folderPath] = item.thumbnailUrl;
+    }
+    lastKey = data.LastEvaluatedKey;
+  } while (lastKey);
+
   // Also check legacy single-item format
   const legacy = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_THUMBNAILS_KEY } }));
   if (legacy.Item && legacy.Item.thumbnails) {
@@ -2464,19 +2472,26 @@ async function folderTagsAll(user) {
   const tagMap = (data.Item && data.Item.tagMap) || {};
   const descMap = (data.Item && data.Item.descMap) || {};
 
-  // Also read individual FTAG# items
-  const scan = await ddb.send(new ScanCommand({
-    TableName: T.VIDEO_TAGS,
-    FilterExpression: 'begins_with(videoId, :prefix)',
-    ExpressionAttributeValues: { ':prefix': 'FTAG#' }
-  }));
-  for (const item of (scan.Items || [])) {
-    const folderPath = item.videoId.replace('FTAG#', '');
-    if (!tagMap[folderPath] || tagMap[folderPath].length === 0) {
-      tagMap[folderPath] = item.tags || [];
+  // Paginated scan for individual FTAG# items
+  let lastKey = undefined;
+  do {
+    const params = {
+      TableName: T.VIDEO_TAGS,
+      FilterExpression: 'begins_with(videoId, :prefix)',
+      ExpressionAttributeValues: { ':prefix': 'FTAG#' },
+      ProjectionExpression: 'videoId, tags, description',
+      ExclusiveStartKey: lastKey,
+    };
+    const scan = await ddb.send(new ScanCommand(params));
+    for (const item of (scan.Items || [])) {
+      const folderPath = item.videoId.replace('FTAG#', '');
+      if (!tagMap[folderPath] || tagMap[folderPath].length === 0) {
+        tagMap[folderPath] = item.tags || [];
+      }
+      if (item.description && !descMap[folderPath]) descMap[folderPath] = item.description;
     }
-    if (item.description && !descMap[folderPath]) descMap[folderPath] = item.description;
-  }
+    lastKey = scan.LastEvaluatedKey;
+  } while (lastKey);
 
   const allTags = new Set();
   Object.values(tagMap).forEach(tags => (tags || []).forEach(t => allTags.add(t)));

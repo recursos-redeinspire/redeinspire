@@ -202,15 +202,21 @@ export default function MaterialsPage() {
   // Load thumbnails from localStorage cache INSTANTLY, then refresh from API in background
   useEffect(() => {
     // 1. Load from cache immediately (instant)
+    let cachedThumbs: Record<string, string> = {}
     try {
       const cached = localStorage.getItem('ri_folder_thumbs')
-      if (cached) setFolderThumbs(JSON.parse(cached))
+      if (cached) { cachedThumbs = JSON.parse(cached); setFolderThumbs(cachedThumbs) }
     } catch { /* ignore */ }
-    // 2. Refresh from API in background
+    // 2. Refresh from API in background — MERGE with cache (never lose data)
     getFolderThumbnails().then(d => {
-      const thumbs = d.thumbnails || {}
-      setFolderThumbs(thumbs)
-      localStorage.setItem('ri_folder_thumbs', JSON.stringify(thumbs))
+      const apiThumbs = d.thumbnails || {}
+      // Merge: keep cached thumbs + add/update from API
+      const merged = { ...cachedThumbs }
+      for (const [path, url] of Object.entries(apiThumbs)) {
+        if (url && !url.includes('dropboxusercontent.com')) merged[path] = url as string
+      }
+      setFolderThumbs(merged)
+      localStorage.setItem('ri_folder_thumbs', JSON.stringify(merged))
     }).catch(() => {})
   }, [])
   useEffect(() => {
