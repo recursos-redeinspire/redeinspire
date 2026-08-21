@@ -80,7 +80,7 @@ export default function MaterialsPage() {
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<any[]>([])
   const [showAutocomplete, setShowAutocomplete] = useState(false)
   const [autocompleteCache, setAutocompleteCache] = useState<any[]>([])
-  const [searchFilter, setSearchFilter] = useState<'pastas' | 'arquivos'>('pastas')
+  const [searchFilter, setSearchFilter] = useState<'pastas' | 'arquivos' | 'pdf' | 'ppt' | 'doc' | 'imagens' | 'videos'>('pastas')
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Admin edit state
   const [editingFolder, setEditingFolder] = useState<any | null>(null)
@@ -344,15 +344,21 @@ export default function MaterialsPage() {
               <button onClick={() => { setSearchQuery(''); setIsSearching(false); loadFolder(path) }} className="ml-2 text-red-500 text-xs hover:text-red-700">✕ Limpar</button>
             </p>
             {/* Filter toggle */}
-            <div className="flex bg-gray-100 rounded-lg p-0.5">
-              <button onClick={() => setSearchFilter('pastas')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${searchFilter === 'pastas' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
-                Pastas
-              </button>
-              <button onClick={() => setSearchFilter('arquivos')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${searchFilter === 'arquivos' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
-                Arquivos
-              </button>
+            <div className="flex flex-wrap gap-1 bg-gray-100 rounded-lg p-0.5">
+              {[
+                { key: 'pastas', label: 'Pastas' },
+                { key: 'arquivos', label: 'Todos' },
+                { key: 'pdf', label: 'PDF' },
+                { key: 'ppt', label: 'PPT' },
+                { key: 'doc', label: 'DOC' },
+                { key: 'imagens', label: 'Imagens' },
+                { key: 'videos', label: 'Vídeos' },
+              ].map(f => (
+                <button key={f.key} onClick={() => setSearchFilter(f.key as any)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${searchFilter === f.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                  {f.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -400,11 +406,24 @@ export default function MaterialsPage() {
             )
           })()}
 
-          {/* File results */}
-          {searchFilter === 'arquivos' && (
-            searchResults.length > 0 ? (
+          {/* File results (filtered by type) */}
+          {searchFilter !== 'pastas' && (() => {
+            const typeFilters: Record<string, string[]> = {
+              arquivos: [], // show all
+              pdf: ['pdf'],
+              ppt: ['ppt', 'pptx', 'presentation'],
+              doc: ['doc', 'docx', 'document'],
+              imagens: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'image'],
+              videos: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'video'],
+            }
+            const allowedTypes = typeFilters[searchFilter] || []
+            const filtered = allowedTypes.length === 0
+              ? searchResults
+              : searchResults.filter((f: any) => allowedTypes.includes(f.ext) || allowedTypes.includes(f.fileType))
+
+            return filtered.length > 0 ? (
               <div className="space-y-2">
-                {searchResults.map((file: any) => {
+                {filtered.map((file: any) => {
                   const folderPath = file.path ? file.path.substring(0, file.path.lastIndexOf('/')) : ''
                   return (
                     <button key={file.id} onClick={() => { setIsSearching(false); setSearchQuery(''); loadFolder(folderPath) }}
@@ -422,9 +441,9 @@ export default function MaterialsPage() {
                 })}
               </div>
             ) : (
-              <p className="text-gray-400 text-center py-8">Nenhum arquivo encontrado</p>
+              <p className="text-gray-400 text-center py-8">Nenhum arquivo encontrado com esse filtro</p>
             )
-          )}
+          })()}
         </div>
       )}
 
