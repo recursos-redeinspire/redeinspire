@@ -2230,6 +2230,50 @@ async function dropboxSmartSearch(query, user) {
     .sort((a, b) => b.score - a.score)
     .slice(0, 15);
 
+    // Also search in saved FTAG# folder names (covers deep folders not reached by Dropbox pagination)
+    const existingFolderPaths = new Set(scoredFolders.map(s => s.folder.path_display));
+    try {
+      let lastKey = undefined;
+      const dbFolders = [];
+      do {
+        const scanParams = {
+          TableName: T.VIDEO_TAGS,
+          FilterExpression: 'begins_with(videoId, :prefix)',
+          ExpressionAttributeValues: { ':prefix': 'FTAG#' },
+          ProjectionExpression: 'videoId, tags',
+          ExclusiveStartKey: lastKey,
+        };
+        const scanResult = await ddb.send(new ScanCommand(scanParams));
+        for (const item of (scanResult.Items || [])) {
+          const folderPath = item.videoId.replace('FTAG#', '');
+          if (existingFolderPaths.has(folderPath)) continue;
+          const pathNorm = normalize(folderPath);
+          const folderName = folderPath.split('/').pop() || '';
+          const nameNorm = normalize(folderName);
+          const itemTags = (item.tags || []).map(t => normalize(typeof t === 'string' ? t : t.S || ''));
+          let score = 0;
+          for (const kw of keywords) {
+            if (nameNorm.includes(kw)) score += 12;
+            if (pathNorm.includes(kw)) score += 5;
+            if (itemTags.some(t => t.includes(kw))) score += 8;
+          }
+          if (score > 0) {
+            dbFolders.push({ folder: { path_display: folderPath, path_lower: folderPath.toLowerCase(), name: folderName, id: 'db-' + folderPath }, score });
+          }
+        }
+        lastKey = scanResult.LastEvaluatedKey;
+      } while (lastKey);
+      // Merge DB results with Dropbox results
+      dbFolders.sort((a, b) => b.score - a.score);
+      for (const df of dbFolders.slice(0, 20)) {
+        if (!existingFolderPaths.has(df.folder.path_display)) {
+          scoredFolders.push(df);
+          existingFolderPaths.add(df.folder.path_display);
+        }
+      }
+      scoredFolders.sort((a, b) => b.score - a.score);
+    } catch { /* ignore DB search errors */ }
+
     // Format results
     const entries = scored.map(s => {
       const f = s.file;
