@@ -2458,21 +2458,36 @@ async function folderTagsSave(data, user) {
 
 async function folderTagsAll(user) {
   if (!user) return res(401, { message: 'Nao autenticado' });
+  // Read from legacy main item
   const data = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_TAGS_KEY } }));
   const tagMap = (data.Item && data.Item.tagMap) || {};
   const descMap = (data.Item && data.Item.descMap) || {};
+
+  // Also read individual FTAG# items
+  const scan = await ddb.send(new ScanCommand({
+    TableName: T.VIDEO_TAGS,
+    FilterExpression: 'begins_with(videoId, :prefix)',
+    ExpressionAttributeValues: { ':prefix': 'FTAG#' }
+  }));
+  for (const item of (scan.Items || [])) {
+    const folderPath = item.videoId.replace('FTAG#', '');
+    if (!tagMap[folderPath] || tagMap[folderPath].length === 0) {
+      tagMap[folderPath] = item.tags || [];
+    }
+    if (item.description && !descMap[folderPath]) descMap[folderPath] = item.description;
+  }
+
   const allTags = new Set();
   Object.values(tagMap).forEach(tags => (tags || []).forEach(t => allTags.add(t)));
   return res(200, { tagMap, descMap, allTags: [...allTags].sort() });
 }
 
-// Generate tags for all folders automatically based on folder names
+// Generate tags for all folders automatically — saves each as individual FTAG# item
 async function folderTagsGenerate(user) {
   if (!user || !isAdmin(user)) return res(403, { message: 'Apenas admin.' });
 
   try {
     const token = await getDropboxToken();
-    // List all folders recursively
     let allFolders = [];
     let hasMore = true;
     let cursor = null;
@@ -2487,7 +2502,6 @@ async function folderTagsGenerate(user) {
       cursor = data.cursor;
     }
 
-    // Tag generation rules
     const tagRules = [
       { keywords: ['mensagem', 'mensagens', 'pregacao', 'sermao'], tags: ['mensagem', 'pregação'] },
       { keywords: ['louvor', 'worship', 'musica', 'adoracao'], tags: ['louvor', 'worship'] },
@@ -2499,7 +2513,7 @@ async function folderTagsGenerate(user) {
       { keywords: ['casais', 'casal', 'casamento', 'matrimonio'], tags: ['casais'] },
       { keywords: ['celula', 'celulas', 'pequeno grupo', 'pequenos grupos'], tags: ['células', 'pequenos grupos'] },
       { keywords: ['financ', 'dinheiro', 'oferta', 'dizimo', 'mordomia'], tags: ['finanças'] },
-      { keywords: ['missao', 'missoes', 'evangelismo', 'missionario'], tags: ['missões'] },
+      { keywords: ['missao', 'missoes', 'evangelismo'], tags: ['missões'] },
       { keywords: ['oracao', 'intercessao', 'jejum'], tags: ['oração'] },
       { keywords: ['discipulado', 'discipulo', 'formacao', 'capacitacao'], tags: ['discipulado'] },
       { keywords: ['familia', 'familiar'], tags: ['família'] },
@@ -2508,7 +2522,7 @@ async function folderTagsGenerate(user) {
       { keywords: ['webinar', 'webinars', 'live'], tags: ['webinar'] },
       { keywords: ['mentoria', 'mentorias', 'mentor'], tags: ['mentoria'] },
       { keywords: ['voluntario', 'voluntarios', 'servir'], tags: ['voluntariado'] },
-      { keywords: ['comunicacao', 'midia', 'marketing', 'redes sociais'], tags: ['comunicação'] },
+      { keywords: ['comunicacao', 'midia', 'marketing'], tags: ['comunicação'] },
       { keywords: ['saude', 'emocional', 'burnout', 'mental'], tags: ['saúde emocional'] },
       { keywords: ['proposito', 'propositos'], tags: ['propósitos'] },
       { keywords: ['eleve', 'inspire leaders', 'leaders', 'treinamento'], tags: ['treinamento'] },
@@ -2517,18 +2531,20 @@ async function folderTagsGenerate(user) {
       { keywords: ['domingo', 'culto', 'celebracao'], tags: ['culto'] },
     ];
 
-    // Get current tagMap (we'll save in batches to avoid 400KB limit)
-    const current = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_TAGS_KEY } }));
-    const tagMap = (current.Item && current.Item.tagMap) || {};
-    const descMap = (current.Item && current.Item.descMap) || {};
+    // Check which folders already have tags (FTAG# items)
+    const existingScan = await ddb.send(new ScanCommand({
+      TableName: T.VIDEO_TAGS,
+      FilterExpression: 'begins_with(videoId, :prefix)',
+      ExpressionAttributeValues: { ':prefix': 'FTAG#' },
+      ProjectionExpression: 'videoId'
+    }));
+    const existingPaths = new Set((existingScan.Items || []).map(i => i.videoId.replace('FTAG#', '')));
 
     let generated = 0;
-    const batchSize = 50;
-    let batch = {};
-
+    // Save each folder's tags as individual item
     for (const folder of allFolders) {
       const folderPath = folder.path_display;
-      if (tagMap[folderPath] && tagMap[folderPath].length > 0) continue;
+      if (existingPaths.has(folderPath)) continue;
 
       const name = normalize(folder.name);
       const pathNorm = normalize(folder.path_display);
@@ -2541,51 +2557,12 @@ async function folderTagsGenerate(user) {
       }
 
       if (tags.size > 0) {
-        tagMap[folderPath] = [...tags];
-        batch[folderPath] = [...tags];
+        await ddb.send(new PutCommand({
+          TableName: T.VIDEO_TAGS,
+          Item: { videoId: `FTAG#${folderPath}`, tags: [...tags], updatedAt: new Date().toISOString() }
+        }));
         generated++;
       }
-
-      // Save in batches to avoid item size limit
-      if (Object.keys(batch).length >= batchSize) {
-        // Save partial - only keep last 200 entries in the main item to avoid 400KB
-        const keys = Object.keys(tagMap);
-        if (keys.length > 200) {
-          // Save overflow in separate items
-          const overflow = keys.slice(200);
-          for (const k of overflow) {
-            // Skip saving individual items to keep it simple - just keep newest 200
-          }
-        }
-        batch = {};
-      }
-    }
-
-    // Final save - keep only paths that have tags, limit to prevent 400KB
-    const filteredTagMap = {};
-    const entries = Object.entries(tagMap).filter(([_, v]) => v && v.length > 0);
-    // Keep all - if too big, DynamoDB will error and we handle gracefully
-    for (const [k, v] of entries) {
-      filteredTagMap[k] = v;
-    }
-
-    try {
-      await ddb.send(new PutCommand({
-        TableName: T.VIDEO_TAGS,
-        Item: { videoId: FOLDER_TAGS_KEY, tagMap: filteredTagMap, descMap, updatedAt: new Date().toISOString(), updatedBy: user.id }
-      }));
-    } catch (saveErr) {
-      // If item too large, save only leaf folders (most useful)
-      console.error('TagMap too large, saving only leaf folders:', saveErr.message);
-      const leafMap = {};
-      for (const [k, v] of entries) {
-        const depth = k.split('/').length;
-        if (depth >= 4) leafMap[k] = v; // Only deep folders (actual content)
-      }
-      await ddb.send(new PutCommand({
-        TableName: T.VIDEO_TAGS,
-        Item: { videoId: FOLDER_TAGS_KEY, tagMap: leafMap, descMap, updatedAt: new Date().toISOString(), updatedBy: user.id }
-      }));
     }
 
     return res(200, { message: `Tags geradas para ${generated} pastas de ${allFolders.length} total.`, generated, totalFolders: allFolders.length });
