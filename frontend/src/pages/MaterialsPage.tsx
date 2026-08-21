@@ -172,12 +172,36 @@ export default function MaterialsPage() {
   }, [smartSearchDropbox, loadFolder, path])
 
   useEffect(() => { loadFolder('') }, [loadFolder])
-  // Load thumbnails FIRST (priority) then tags and downloads
+  // Load thumbnails from localStorage cache INSTANTLY, then refresh from API in background
   useEffect(() => {
-    getFolderThumbnails().then(d => setFolderThumbs(d.thumbnails || {})).catch(() => {})
+    // 1. Load from cache immediately (instant)
+    try {
+      const cached = localStorage.getItem('ri_folder_thumbs')
+      if (cached) setFolderThumbs(JSON.parse(cached))
+    } catch { /* ignore */ }
+    // 2. Refresh from API in background
+    getFolderThumbnails().then(d => {
+      const thumbs = d.thumbnails || {}
+      setFolderThumbs(thumbs)
+      localStorage.setItem('ri_folder_thumbs', JSON.stringify(thumbs))
+    }).catch(() => {})
   }, [])
   useEffect(() => {
-    getAllFolderTags().then(d => { setFolderTagMap(d.tagMap || {}); setFolderDescMap((d as any).descMap || {}) }).catch(() => {})
+    // Load tags from cache instantly
+    try {
+      const cachedTags = localStorage.getItem('ri_folder_tags')
+      if (cachedTags) {
+        const parsed = JSON.parse(cachedTags)
+        setFolderTagMap(parsed.tagMap || {})
+        setFolderDescMap(parsed.descMap || {})
+      }
+    } catch { /* ignore */ }
+    // Refresh from API in background
+    getAllFolderTags().then(d => {
+      setFolderTagMap(d.tagMap || {})
+      setFolderDescMap((d as any).descMap || {})
+      localStorage.setItem('ri_folder_tags', JSON.stringify({ tagMap: d.tagMap, descMap: (d as any).descMap }))
+    }).catch(() => {})
     getTopDownloads().then(setTopDownloads).catch(() => {})
     // Pre-load folder names for instant autocomplete
     browseDropbox('').then(root => {
@@ -761,10 +785,10 @@ export default function MaterialsPage() {
                 // Save thumb if changed
                 if (editThumbUrl === '__REMOVE__') {
                   await saveFolderThumbnail(editingFolder.path, '')
-                  setFolderThumbs(prev => { const n = { ...prev }; delete n[editingFolder.path]; return n })
+                  setFolderThumbs(prev => { const n = { ...prev }; delete n[editingFolder.path]; localStorage.setItem('ri_folder_thumbs', JSON.stringify(n)); return n })
                 } else if (editThumbUrl && editThumbUrl !== originalThumbUrl) {
                   await saveFolderThumbnail(editingFolder.path, editThumbUrl)
-                  setFolderThumbs(prev => ({ ...prev, [editingFolder.path]: editThumbUrl }))
+                  setFolderThumbs(prev => { const n = { ...prev, [editingFolder.path]: editThumbUrl }; localStorage.setItem('ri_folder_thumbs', JSON.stringify(n)); return n })
                 }
                 // Save tags + description
                 await saveFolderTags(editingFolder.path, editTags, editDesc)
