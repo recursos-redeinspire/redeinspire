@@ -496,32 +496,50 @@ export default function MaterialsPage() {
         </div>
       )}
 
-      {/* ═══ TOP DOWNLOADS (root only) ═══ */}
+      {/* ═══ TOP DOWNLOADS — Hero Layout (Opção A) ═══ */}
       {isRoot && !isSearching && topDownloads.length > 0 && (
-        <section className="mb-8">
+        <section className="mb-10">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp size={18} className="text-green-600" />
             <h2 className="text-[15px] font-bold text-gray-900">Mais baixados</h2>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            {topDownloads.slice(0, 5).map(item => {
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Hero - primeiro item grande */}
+            {topDownloads[0] && (() => {
+              const item = topDownloads[0]
               const thumb = getThumb(item.folderPath, item.folderName || '')
               return (
-                <button key={item.folderPath} onClick={() => loadFolder(item.folderPath)} className="text-left group">
-                  <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 mb-2">
-                    {thumb ? (
-                      <img src={thumb} alt={item.folderName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    ) : (
-                      <div className="w-full h-full bg-gray-50 flex items-center justify-center">
-                        <Folder size={24} className="text-gray-300" />
-                      </div>
+                <button key={item.folderPath} onClick={() => loadFolder(item.folderPath)}
+                  className="relative aspect-video rounded-2xl overflow-hidden cursor-pointer group text-left">
+                  <img src={thumb} alt={item.folderName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-6">
+                    <span className="bg-white/20 text-white text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm">#1 Mais baixado</span>
+                    <h3 className="text-xl font-bold text-white mt-2">{item.folderName}</h3>
+                    {getTags(item.folderPath).length > 0 && (
+                      <p className="text-white/60 text-xs mt-1">{getTags(item.folderPath).join(' · ')}</p>
                     )}
-                    <div className="absolute top-2 left-2 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">#{item.rank}</div>
                   </div>
-                  <p className="text-[12px] font-medium text-gray-900 line-clamp-2 leading-snug">{item.folderName}</p>
                 </button>
               )
-            })}
+            })()}
+            {/* Grid 2x2 dos outros */}
+            <div className="grid grid-cols-2 gap-3">
+              {topDownloads.slice(1, 5).map((item, i) => {
+                const thumb = getThumb(item.folderPath, item.folderName || '')
+                return (
+                  <button key={item.folderPath} onClick={() => loadFolder(item.folderPath)}
+                    className="relative aspect-video rounded-xl overflow-hidden cursor-pointer group text-left">
+                    <img src={thumb} alt={item.folderName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-sm">#{i + 2}</div>
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <p className="text-white font-semibold text-[12px] line-clamp-2 leading-snug">{item.folderName}</p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </section>
       )}
