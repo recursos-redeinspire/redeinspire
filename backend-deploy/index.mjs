@@ -28,6 +28,12 @@ const CONEXA_SUBDOMAIN = 'redeinspire';
 const CONEXA_API_TOKEN = '010fda7225ba32f944950e20bf909226975a69880d0d8675bb3a1d8bba867e55';
 const CONEXA_BASE_URL = `https://${CONEXA_SUBDOMAIN}.conexa.app/index.php/api/v2`;
 
+// Notion integration
+const NOTION_API_TOKEN = process.env.NOTION_API_TOKEN || '';
+const NOTION_PARENT_PAGE_ID = process.env.NOTION_PARENT_PAGE_ID || '';
+const NOTION_API_URL = 'https://api.notion.com/v1';
+const NOTION_VERSION = '2022-06-28';
+
 // Table names
 const T = {
   USERS: 'RedeInspire-Users',
@@ -253,6 +259,17 @@ export async function handler(event) {
 
     // ---- AI Assistant ----
     if (path === '/assistant/chat' && method === 'POST') return await assistantChat(body(event), getUserFromToken(event));
+
+    // ---- Notion (workspace/kanban/equipe) ----
+    if (path === '/notion/status' && method === 'GET') return await notionStatus(getUserFromToken(event));
+    if (path === '/notion/spaces' && method === 'POST') return await notionCreateSpace(body(event), getUserFromToken(event));
+    if (path === '/notion/boards' && method === 'POST') return await notionCreateBoard(body(event), getUserFromToken(event));
+    if (path.match(/^\/notion\/boards\/[^/]+\/cards$/) && method === 'GET') return await notionListCards(path.split('/')[3], getUserFromToken(event));
+    if (path.match(/^\/notion\/boards\/[^/]+\/cards$/) && method === 'POST') return await notionCreateCard(path.split('/')[3], body(event), getUserFromToken(event));
+    if (path.match(/^\/notion\/cards\/[^/]+\/move$/) && method === 'POST') return await notionMoveCard(path.split('/')[3], body(event), getUserFromToken(event));
+    if (path.match(/^\/notion\/cards\/[^/]+$/) && method === 'PUT') return await notionUpdateCard(path.split('/')[3], body(event), getUserFromToken(event));
+    if (path.match(/^\/notion\/cards\/[^/]+$/) && method === 'DELETE') return await notionDeleteCard(path.split('/')[3], getUserFromToken(event));
+    if (path === '/notion/team' && method === 'GET') return await notionTeam(getUserFromToken(event));
 
     return res(404, { message: 'Rota não encontrada', path, method });
   } catch (err) {
@@ -3063,6 +3080,208 @@ async function adminReports(query, user) {
   return res(400, { message: 'Relatório não encontrado. Use: active-users, inactive-users, top-downloaders, top-materials, top-trainings, churches-downloads, categories-downloads' });
 }
 
+
+// =============================================================================
+// NOTION (workspace/kanban/equipe)
+// =============================================================================
+// Limitação da API do Notion: não existe endpoint para criar ou administrar
+// workspaces, nem para convidar/remover membros — ambas são operações
+// exclusivas da UI do Notion. `notionCreateSpace` cria uma página dentro de
+// um workspace já existente e conectado à integração, e `notionTeam` apenas
+// lista os usuários que já fazem parte desse workspace.
+
+const NOTION_PROP_TITLE = 'Nome';
+const NOTION_PROP_STATUS = 'Status';
+const NOTION_PROP_ASSIGNEE = 'Responsável';
+const NOTION_PROP_PRIORITY = 'Prioridade';
+const NOTION_PROP_DUE_DATE = 'Prazo';
+const NOTION_PROP_TAGS = 'Tags';
+const NOTION_STATUS_OPTIONS = ['A Fazer', 'Em Andamento', 'Em Revisão', 'Concluído'];
+const NOTION_PRIORITY_OPTIONS = ['Baixa', 'Média', 'Alta', 'Urgente'];
+
+function isTeamManager(user) {
+  return user && ['admin', 'pastor_presidente', 'lider'].includes(user.role);
+}
+
+async function notionRequest(path, method, requestBody) {
+  if (!NOTION_API_TOKEN) throw new Error('NOTION_API_TOKEN não configurado');
+  const response = await fetch(`${NOTION_API_URL}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${NOTION_API_TOKEN}`,
+      'Notion-Version': NOTION_VERSION,
+      'Content-Type': 'application/json',
+    },
+    body: requestBody !== undefined ? JSON.stringify(requestBody) : undefined,
+  });
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.message || `Notion API retornou ${response.status}`);
+  }
+  if (response.status === 204) return undefined;
+  return response.json();
+}
+
+function notionBuildCardProperties(data) {
+  const properties = {};
+  if (data.title !== undefined) properties[NOTION_PROP_TITLE] = { title: [{ text: { content: data.title } }] };
+  if (data.status !== undefined) properties[NOTION_PROP_STATUS] = { select: { name: data.status } };
+  if (data.assignee !== undefined) properties[NOTION_PROP_ASSIGNEE] = { rich_text: [{ text: { content: data.assignee } }] };
+  if (data.priority !== undefined) properties[NOTION_PROP_PRIORITY] = { select: { name: data.priority } };
+  if (data.dueDate !== undefined) properties[NOTION_PROP_DUE_DATE] = { date: { start: data.dueDate } };
+  if (data.tags !== undefined) properties[NOTION_PROP_TAGS] = { multi_select: data.tags.map((name) => ({ name })) };
+  return properties;
+}
+
+function notionMapPageToCard(page) {
+  const props = page.properties || {};
+  return {
+    cardId: page.id,
+    title: props[NOTION_PROP_TITLE]?.title?.[0]?.plain_text || '',
+    status: props[NOTION_PROP_STATUS]?.select?.name || '',
+    assignee: props[NOTION_PROP_ASSIGNEE]?.rich_text?.[0]?.plain_text || '',
+    priority: props[NOTION_PROP_PRIORITY]?.select?.name || '',
+    dueDate: props[NOTION_PROP_DUE_DATE]?.date?.start || null,
+    tags: (props[NOTION_PROP_TAGS]?.multi_select || []).map((t) => t.name),
+    url: page.url,
+    createdAt: page.created_time,
+  };
+}
+
+async function notionStatus(user) {
+  if (!user) return res(401, { message: 'Não autenticado' });
+  try {
+    const me = await notionRequest('/users/me', 'GET');
+    return res(200, { botId: me.id, workspaceName: me.bot?.workspace_name ?? null });
+  } catch (err) {
+    return res(502, { message: err.message });
+  }
+}
+
+async function notionCreateSpace(data, user) {
+  if (!user) return res(401, { message: 'Não autenticado' });
+  if (!isTeamManager(user)) return res(403, { message: 'Apenas administradores, pastores ou líderes podem criar espaços no Notion.' });
+  const parentPageId = data.parentPageId || NOTION_PARENT_PAGE_ID;
+  if (!parentPageId || !data.title) return res(400, { message: 'parentPageId e title são obrigatórios.' });
+  try {
+    const page = await notionRequest('/pages', 'POST', {
+      parent: { page_id: parentPageId },
+      properties: { title: { title: [{ text: { content: data.title } }] } },
+    });
+    return res(201, { pageId: page.id, title: data.title, url: page.url });
+  } catch (err) {
+    return res(502, { message: err.message });
+  }
+}
+
+async function notionCreateBoard(data, user) {
+  if (!user) return res(401, { message: 'Não autenticado' });
+  if (!isTeamManager(user)) return res(403, { message: 'Apenas administradores, pastores ou líderes podem criar boards no Notion.' });
+  const parentPageId = data.parentPageId || NOTION_PARENT_PAGE_ID;
+  if (!parentPageId || !data.title) return res(400, { message: 'parentPageId e title são obrigatórios.' });
+  try {
+    const database = await notionRequest('/databases', 'POST', {
+      parent: { page_id: parentPageId },
+      title: [{ type: 'text', text: { content: data.title } }],
+      properties: {
+        [NOTION_PROP_TITLE]: { title: {} },
+        [NOTION_PROP_STATUS]: { select: { options: NOTION_STATUS_OPTIONS.map((name) => ({ name })) } },
+        [NOTION_PROP_ASSIGNEE]: { rich_text: {} },
+        [NOTION_PROP_PRIORITY]: { select: { options: NOTION_PRIORITY_OPTIONS.map((name) => ({ name })) } },
+        [NOTION_PROP_DUE_DATE]: { date: {} },
+        [NOTION_PROP_TAGS]: { multi_select: {} },
+      },
+    });
+    return res(201, { databaseId: database.id, title: data.title, url: database.url });
+  } catch (err) {
+    return res(502, { message: err.message });
+  }
+}
+
+async function notionListCards(databaseId, user) {
+  if (!user) return res(401, { message: 'Não autenticado' });
+  try {
+    const result = await notionRequest(`/databases/${databaseId}/query`, 'POST', {
+      sorts: [{ timestamp: 'created_time', direction: 'descending' }],
+    });
+    return res(200, { cards: (result.results || []).map(notionMapPageToCard) });
+  } catch (err) {
+    return res(502, { message: err.message });
+  }
+}
+
+async function notionCreateCard(databaseId, data, user) {
+  if (!user) return res(401, { message: 'Não autenticado' });
+  if (!data.title) return res(400, { message: 'title é obrigatório.' });
+  try {
+    const page = await notionRequest('/pages', 'POST', {
+      parent: { database_id: databaseId },
+      properties: notionBuildCardProperties(data),
+    });
+    return res(201, notionMapPageToCard(page));
+  } catch (err) {
+    return res(502, { message: err.message });
+  }
+}
+
+async function notionMoveCard(pageId, data, user) {
+  if (!user) return res(401, { message: 'Não autenticado' });
+  if (!data.status) return res(400, { message: 'status é obrigatório.' });
+  try {
+    const page = await notionRequest(`/pages/${pageId}`, 'PATCH', { properties: notionBuildCardProperties({ status: data.status }) });
+    return res(200, notionMapPageToCard(page));
+  } catch (err) {
+    return res(502, { message: err.message });
+  }
+}
+
+async function notionUpdateCard(pageId, data, user) {
+  if (!user) return res(401, { message: 'Não autenticado' });
+  try {
+    const page = await notionRequest(`/pages/${pageId}`, 'PATCH', { properties: notionBuildCardProperties(data) });
+    return res(200, notionMapPageToCard(page));
+  } catch (err) {
+    return res(502, { message: err.message });
+  }
+}
+
+async function notionDeleteCard(pageId, user) {
+  if (!user) return res(401, { message: 'Não autenticado' });
+  if (!isTeamManager(user)) return res(403, { message: 'Apenas administradores, pastores ou líderes podem excluir cards.' });
+  try {
+    // O Notion não permite excluir páginas via API — apenas arquivar.
+    await notionRequest(`/pages/${pageId}`, 'PATCH', { archived: true });
+    return res(200, { ok: true, archived: pageId });
+  } catch (err) {
+    return res(502, { message: err.message });
+  }
+}
+
+async function notionTeam(user) {
+  if (!user) return res(401, { message: 'Não autenticado' });
+  try {
+    const members = [];
+    let cursor;
+    do {
+      const query = cursor ? `?start_cursor=${cursor}` : '';
+      const result = await notionRequest(`/users${query}`, 'GET');
+      for (const notionUser of result.results || []) {
+        if (notionUser.type === 'person') {
+          members.push({
+            notionUserId: notionUser.id,
+            name: notionUser.name || 'Sem nome',
+            email: notionUser.person?.email,
+            avatarUrl: notionUser.avatar_url || undefined,
+          });
+        }
+      }
+      cursor = result.has_more ? result.next_cursor : undefined;
+    } while (cursor);
+    return res(200, { members });
+  } catch (err) {
+    return res(502, { message: err.message });
+  }
+}
 
 // =============================================================================
 // AI ASSISTANT (Amazon Bedrock) - Search-first approach

@@ -249,6 +249,21 @@ PlataformaRedeInspire/
 | GET | `/admin/reports` | Relatórios |
 | GET/POST | `/banner` | Banner de avisos |
 
+### Notion (kanban interno da equipe)
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/notion/status` | Testa a conexão com o token configurado |
+| POST | `/notion/spaces` | Cria uma página dentro de um workspace já existente (admin/pastor/líder) |
+| POST | `/notion/boards` | Cria um database Kanban (admin/pastor/líder) |
+| GET | `/notion/boards/:databaseId/cards` | Lista os cards do board |
+| POST | `/notion/boards/:databaseId/cards` | Cria um card no board |
+| POST | `/notion/cards/:pageId/move` | Move o card entre colunas (atualiza Status) |
+| PUT | `/notion/cards/:pageId` | Atualiza dados do card |
+| DELETE | `/notion/cards/:pageId` | Arquiva o card (admin/pastor/líder) — Notion não suporta exclusão real via API |
+| GET | `/notion/team` | Lista os membros do workspace conectado |
+
+> A API do Notion não permite criar workspaces nem convidar/remover membros — ambas as operações são exclusivas da UI do Notion. `/notion/spaces` cria uma página dentro de um workspace já conectado à integração, e `/notion/team` apenas lista quem já faz parte dele.
+
 ---
 
 ## 7. Tabelas DynamoDB
@@ -296,6 +311,7 @@ PlataformaRedeInspire/
 | Conexa.app | Verificação de inadimplência |
 | Google Docs Viewer | Preview de PDFs |
 | Microsoft Office Online | Preview de DOC/DOCX/PPT |
+| Notion API | Kanban interno da equipe (páginas, databases, cards) — token em `NOTION_API_TOKEN` |
 
 ---
 
@@ -319,6 +335,15 @@ rm -f function.zip
 zip -r function.zip index.mjs node_modules/ package.json
 aws lambda update-function-code --function-name rede-inspire-api \
   --zip-file fileb://function.zip --region us-east-1 --profile danilo
+```
+
+`update-function-code` não altera variáveis de ambiente, então é seguro para deploys do dia a dia. Para configurar o token do Notion (uma única vez, ou sempre que ele for rotacionado), use `update-function-configuration` **mesclando** as variáveis já existentes (Dropbox, YouTube, JWT_SECRET) com a nova — nunca substitua o mapa inteiro, como faz `deploy-backend.sh`, ou as demais integrações param de funcionar:
+```bash
+aws lambda get-function-configuration --function-name rede-inspire-api --region us-east-1 --profile danilo \
+  --query 'Environment.Variables' > /tmp/env.json
+# edite /tmp/env.json adicionando "NOTION_API_TOKEN": "...", "NOTION_PARENT_PAGE_ID": "..."
+aws lambda update-function-configuration --function-name rede-inspire-api --region us-east-1 --profile danilo \
+  --environment "Variables=$(cat /tmp/env.json)"
 ```
 
 ### Frontend
