@@ -92,6 +92,10 @@ interface DataContextType {
   getYoutubeVideos: (pageToken?: string, limit?: number) => Promise<{ videos: any[]; totalResults: number; nextPageToken: string | null; prevPageToken: string | null }>
   searchYoutube: (q: string, pageToken?: string) => Promise<{ videos: any[]; totalResults: number; nextPageToken: string | null }>
   smartSearchYoutube: (q: string) => Promise<{ videos: any[]; totalResults: number; keywords: string[] }>
+  getYoutubePlaylists: () => Promise<{ playlists: any[] }>
+  getYoutubeCuration: () => Promise<{ selectedPlaylists: string[]; hiddenVideoIds: string[]; featuredVideoId: string | null }>
+  saveYoutubeCuration: (cfg: Partial<{ selectedPlaylists: string[]; hiddenVideoIds: string[]; featuredVideoId: string | null }>) => Promise<any>
+  getYoutubeCuratedSections: (opts?: { includeHidden?: boolean }) => Promise<{ fallback: boolean; sections: any[] }>
   getComments: (videoId: string) => Promise<any[]>
   addComment: (videoId: string, videoTitle: string, text: string) => Promise<any>
   getVideoTags: (videoId: string) => Promise<{ videoId: string; tags: string[] }>
@@ -575,6 +579,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return apiFetch(`/youtube/smart-search?q=${encodeURIComponent(q)}`)
   }, [])
 
+  const getYoutubePlaylists = useCallback(async (): Promise<{ playlists: any[] }> => {
+    return apiFetch('/youtube/playlists')
+  }, [])
+
+  const getYoutubeCuration = useCallback(async (): Promise<{ selectedPlaylists: string[]; hiddenVideoIds: string[]; featuredVideoId: string | null }> => {
+    return apiFetch('/youtube/curation')
+  }, [])
+
+  const saveYoutubeCuration = useCallback(async (cfg: Partial<{ selectedPlaylists: string[]; hiddenVideoIds: string[]; featuredVideoId: string | null }>): Promise<any> => {
+    return apiFetch('/youtube/curation', { method: 'POST', body: JSON.stringify(cfg) })
+  }, [])
+
+  const getYoutubeCuratedSections = useCallback(async (opts?: { includeHidden?: boolean }): Promise<{ fallback: boolean; sections: any[] }> => {
+    return apiFetch(`/youtube/sections${opts?.includeHidden === true ? '?includeHidden=1' : ''}`)
+  }, [])
+
   const getComments = useCallback(async (videoId: string): Promise<any[]> => {
     return apiFetch<any[]>(`/comments?videoId=${encodeURIComponent(videoId)}`)
   }, [])
@@ -805,7 +825,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getMetrics, getLeaderRanking, getTimeline, getRecentAccesses,
     getMessages, getUnreadCount, markAsRead, sendMessage, getMessageRecipients,
     getMinistries, createMinistry, deleteMinistry, updateMinistry, getMyPoints, getPointsRanking,
-    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, getDropboxThumbnailBatch, getFolderCover, smartSearchDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, smartSearchYoutube, getComments, addComment, getVideoTags, saveVideoTags, getAllVideoTags, getVideoCategories, saveVideoCategories, getFolderVideos, saveFolderVideos, getFileText, getFolderThumbnails, saveFolderThumbnail, getFolderTags, saveFolderTags, getAllFolderTags, saveVideoThumbnail, deleteVideoThumbnail, getAllVideoThumbnails, getVideoRecs, addVideoRec, deleteVideoRec, getTopDownloads, getBanner, getUploadPresignedUrl,
+    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, getDropboxThumbnailBatch, getFolderCover, smartSearchDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, smartSearchYoutube, getYoutubePlaylists, getYoutubeCuration, saveYoutubeCuration, getYoutubeCuratedSections, getComments, addComment, getVideoTags, saveVideoTags, getAllVideoTags, getVideoCategories, saveVideoCategories, getFolderVideos, saveFolderVideos, getFileText, getFolderThumbnails, saveFolderThumbnail, getFolderTags, saveFolderTags, getAllFolderTags, saveVideoThumbnail, deleteVideoThumbnail, getAllVideoThumbnails, getVideoRecs, addVideoRec, deleteVideoRec, getTopDownloads, getBanner, getUploadPresignedUrl,
     getChurches, getTopChurches, createChurch, deleteChurch, updateChurch,
     getPlans, savePlan, deletePlan,
     getPodcastEpisodes, createPodcast, updatePodcast, deletePodcast, getPodcastProgress, updatePodcastProgress,

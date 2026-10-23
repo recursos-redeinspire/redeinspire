@@ -1,0 +1,22 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Frontend data bridge: add the four DataContext methods that the pages consume, following the existing *Youtube naming and the useCallback+apiFetch pattern. Depends on FEAT-001 (the endpoints must exist). Small and focused on purpose: it isolates the client/server contract so FEAT-003 (the pages) can be built against stable method signatures.",
+  "status": "completed",
+  "steps": [
+    "In frontend/src/contexts/DataContext.tsx, declare in the DataContextType interface (near lines 90-92, beside getYoutubeVideos/searchYoutube/smartSearchYoutube): getYoutubePlaylists: () => Promise<{ playlists: any[] }>; getYoutubeCuration: () => Promise<{ selectedPlaylists: string[]; hiddenVideoIds: string[]; featuredVideoId: string | null }>; saveYoutubeCuration: (cfg: Partial<{ selectedPlaylists: string[]; hiddenVideoIds: string[]; featuredVideoId: string | null }>) => Promise<any>; getYoutubeCuratedSections: (opts?: { includeHidden?: boolean }) => Promise<{ fallback: boolean; sections: any[] }>.",
+    "Implement the four methods near lines 543-557 with useCallback+apiFetch: getYoutubePlaylists -> apiFetch('/youtube/playlists'); getYoutubeCuration -> apiFetch('/youtube/curation'); saveYoutubeCuration(cfg) -> apiFetch('/youtube/curation', { method: 'POST', body: JSON.stringify(cfg) }); getYoutubeCuratedSections(opts) -> apiFetch(`/youtube/sections${opts?.includeHidden === true ? '?includeHidden=1' : ''}`). Append EXACTLY '?includeHidden=1' (string literal '1' the backend accepts), never includeHidden=true.",
+    "Add all four method names to the provider value object (the big return object at line ~789) so they are exposed through useData()."
+  ],
+  "acceptance_criteria": [
+    "getYoutubePlaylists, getYoutubeCuration, saveYoutubeCuration, getYoutubeCuratedSections are declared in DataContextType, implemented with useCallback+apiFetch, and included in the provider value object.",
+    "getYoutubeCuratedSections appends exactly '?includeHidden=1' only when opts.includeHidden === true, and nothing otherwise.",
+    "cd frontend && npx tsc -b exits 0 (types line up)."
+  ],
+  "verification": [
+    "cd frontend && npx tsc -b  (exit 0)",
+    "cd frontend && npm run build  (exit 0)"
+  ],
+  "blocked_reason": null,
+  "findings": "FEAT-002 implemented in frontend/src/contexts/DataContext.tsx. Added the four DataContext methods consuming the FEAT-001 endpoints, following the existing useCallback+apiFetch *Youtube pattern.\n\n1) Declared in DataContextType (right after smartSearchYoutube):\n- getYoutubePlaylists: () => Promise<{ playlists: any[] }>\n- getYoutubeCuration: () => Promise<{ selectedPlaylists: string[]; hiddenVideoIds: string[]; featuredVideoId: string | null }>\n- saveYoutubeCuration: (cfg: Partial<{ selectedPlaylists: string[]; hiddenVideoIds: string[]; featuredVideoId: string | null }>) => Promise<any>\n- getYoutubeCuratedSections: (opts?: { includeHidden?: boolean }) => Promise<{ fallback: boolean; sections: any[] }>\n\n2) Implemented right after smartSearchYoutube with useCallback([]) + apiFetch:\n- getYoutubePlaylists -> apiFetch('/youtube/playlists')\n- getYoutubeCuration -> apiFetch('/youtube/curation')\n- saveYoutubeCuration(cfg) -> apiFetch('/youtube/curation', { method: 'POST', body: JSON.stringify(cfg) })\n- getYoutubeCuratedSections(opts) -> apiFetch(`/youtube/sections${opts?.includeHidden === true ? '?includeHidden=1' : ''}`). Appends exactly '?includeHidden=1' (string literal '1') only when opts.includeHidden === true; nothing otherwise.\n\n3) Added all four names to the provider value object (after smartSearchYoutube) so they are exposed via useData().\n\nVERIFICATION: cd frontend && npx tsc -b exits 0; npm run build exits 0 (vite build green). No other files touched.\n\nFor FEAT-003 (pages): import these via useData(). getYoutubeCuratedSections({ includeHidden: true }) is admin-only server-side (backend honors it only when isAdmin(user)); each section video gains hidden:boolean and likelyShort:boolean when includeHidden. saveYoutubeCuration accepts a partial { selectedPlaylists?, hiddenVideoIds?, featuredVideoId? } and returns the normalized resulting config."
+}
