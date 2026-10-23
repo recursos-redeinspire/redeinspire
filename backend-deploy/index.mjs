@@ -213,11 +213,17 @@ export async function handler(event) {
     if (path === '/dropbox/smart-search' && method === 'GET') return await dropboxSmartSearch(qs(event), getUserFromToken(event));
     if (path === '/dropbox/track-download' && method === 'POST') return await dropboxTrackDownload(body(event), getUserFromToken(event));
     if (path === '/dropbox/top-downloads' && method === 'GET') return await dropboxTopDownloads(getUserFromToken(event));
+    if (path === '/dropbox/thumbnail-batch' && method === 'POST') return await dropboxThumbnailBatch(body(event), getUserFromToken(event));
+    if (path === '/dropbox/folder-cover' && method === 'GET') return await dropboxFolderCover(qs(event), getUserFromToken(event));
 
     // ---- YouTube ----
     if (path === '/youtube/videos' && method === 'GET') return await youtubeListVideos(qs(event), getUserFromToken(event));
     if (path === '/youtube/search' && method === 'GET') return await youtubeSearch(qs(event), getUserFromToken(event));
     if (path === '/youtube/smart-search' && method === 'GET') return await youtubeSmartSearch(qs(event), getUserFromToken(event));
+    if (path === '/youtube/playlists' && method === 'GET') return await youtubeListChannelPlaylists(qs(event), getUserFromToken(event));
+    if (path === '/youtube/curation' && method === 'GET') return await ytCurationGet(getUserFromToken(event));
+    if (path === '/youtube/curation' && method === 'POST') return await ytCurationSave(body(event), getUserFromToken(event));
+    if (path === '/youtube/sections' && method === 'GET') return await youtubeCuratedSections(qs(event), getUserFromToken(event));
 
     // ---- Comments ----
     if (path === '/comments' && method === 'GET') return await commentsList(qs(event), getUserFromToken(event));
@@ -2034,6 +2040,77 @@ async function ytGetAccessToken() {
   return data.access_token;
 }
 
+// ---- Curation config (single item in VIDEO_TAGS keyed __YT_CURATION__) ----
+const YT_CURATION_KEY = '__YT_CURATION__';
+
+async function getCurationConfig() {
+  const defaults = { selectedPlaylists: [], hiddenVideoIds: [], featuredVideoId: null };
+  try {
+    const data = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: YT_CURATION_KEY } }));
+    const item = data.Item || {};
+    const selectedPlaylists = Array.isArray(item.selectedPlaylists)
+      ? item.selectedPlaylists.filter(x => typeof x === 'string')
+      : [];
+    const hiddenVideoIds = Array.isArray(item.hiddenVideoIds)
+      ? item.hiddenVideoIds.filter(x => typeof x === 'string')
+      : [];
+    const featuredVideoId = typeof item.featuredVideoId === 'string' ? item.featuredVideoId : null;
+    return { selectedPlaylists, hiddenVideoIds, featuredVideoId };
+  } catch (err) {
+    console.error('getCurationConfig error:', err);
+    return defaults;
+  }
+}
+
+// Projection shared by uploads/playlist listing handlers
+function mapPlaylistItems(items) {
+  return (items || []).map(item => {
+    const s = item.snippet;
+    const st = item.status || {};
+    return {
+      id: s.resourceId?.videoId || item.id,
+      title: s.title,
+      description: s.description || '',
+      thumbnail: s.thumbnails?.maxres?.url || s.thumbnails?.standard?.url || s.thumbnails?.high?.url || s.thumbnails?.medium?.url || s.thumbnails?.default?.url || '',
+      publishedAt: s.publishedAt,
+      privacy: st.privacyStatus || 'unknown',
+      channelTitle: s.channelTitle,
+    };
+  }).filter(v => v.title !== 'Deleted video' && v.title !== 'Private video');
+}
+
+// Paginate the channel uploads playlist and return mapped videos (no res envelope, no auth)
+async function fetchUploadsPool(token, { maxPages = 2, maxResults = 50 } = {}) {
+  let pool = [];
+  let pageToken = '';
+  for (let page = 0; page < maxPages; page++) {
+    let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,status,contentDetails&playlistId=${YT_UPLOADS_PLAYLIST}&maxResults=${maxResults}`;
+    if (pageToken) url += `&pageToken=${pageToken}`;
+    const r = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error.message);
+    pool = pool.concat(mapPlaylistItems(data.items));
+    pageToken = data.nextPageToken || '';
+    if (!pageToken) break;
+  }
+  return pool;
+}
+
+function parseIsoDurationToSeconds(iso) {
+  const m = String(iso || '').match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 0;
+  const hours = parseInt(m[1] || '0', 10);
+  const minutes = parseInt(m[2] || '0', 10);
+  const seconds = parseInt(m[3] || '0', 10);
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+function resolveFeatured(config, pool) {
+  return pool.find(v => v.id === config.featuredVideoId)
+    ?? [...pool].sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)))[0]
+    ?? null;
+}
+
 async function youtubeListVideos(query, user) {
   if (!user) return res(401, { message: 'Nao autenticado' });
   if (!YT_REFRESH_TOKEN) return res(500, { message: 'YouTube nao configurado.' });
@@ -2050,19 +2127,7 @@ async function youtubeListVideos(query, user) {
     const data = await r.json();
     if (data.error) return res(400, { message: 'Erro YouTube', error: data.error.message });
 
-    const videos = (data.items || []).map(item => {
-      const s = item.snippet;
-      const st = item.status || {};
-      return {
-        id: s.resourceId?.videoId || item.id,
-        title: s.title,
-        description: s.description || '',
-        thumbnail: s.thumbnails?.maxres?.url || s.thumbnails?.standard?.url || s.thumbnails?.high?.url || s.thumbnails?.medium?.url || s.thumbnails?.default?.url || '',
-        publishedAt: s.publishedAt,
-        privacy: st.privacyStatus || 'unknown',
-        channelTitle: s.channelTitle,
-      };
-    }).filter(v => v.title !== 'Deleted video' && v.title !== 'Private video');
+    const videos = mapPlaylistItems(data.items);
 
     return res(200, {
       videos,
@@ -2387,6 +2452,208 @@ async function youtubeSmartSearch(query, user) {
   } catch (err) {
     console.error('Smart search error:', err);
     return res(500, { message: 'Erro na busca', error: err.message });
+  }
+}
+
+// ---- YouTube curation handlers ----
+async function youtubeListChannelPlaylists(query, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!YT_REFRESH_TOKEN) return res(500, { message: 'YouTube nao configurado.' });
+
+  try {
+    const token = await ytGetAccessToken();
+    const config = await getCurationConfig();
+
+    let playlists = [];
+    let pageToken = '';
+    while (true) {
+      let url = `https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&channelId=${YT_CHANNEL_ID}&maxResults=50`;
+      if (pageToken) url += `&pageToken=${pageToken}`;
+      const r = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await r.json();
+      if (data.error) return res(400, { message: 'Erro YouTube', error: data.error.message });
+      playlists = playlists.concat(data.items || []);
+      pageToken = data.nextPageToken || '';
+      if (!pageToken) break;
+    }
+
+    const result = playlists.map(p => {
+      const s = p.snippet || {};
+      const orderIndex = config.selectedPlaylists.indexOf(p.id);
+      return {
+        id: p.id,
+        title: s.title,
+        description: s.description || '',
+        thumbnail: s.thumbnails?.maxres?.url || s.thumbnails?.standard?.url || s.thumbnails?.high?.url || s.thumbnails?.medium?.url || s.thumbnails?.default?.url || '',
+        itemCount: p.contentDetails?.itemCount || 0,
+        selected: orderIndex !== -1,
+        order: orderIndex !== -1 ? orderIndex : null,
+      };
+    });
+
+    return res(200, { playlists: result });
+  } catch (err) {
+    console.error('YouTube playlists error:', err);
+    return res(500, { message: 'Erro YouTube', error: err.message });
+  }
+}
+
+async function ytCurationGet(user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  return res(200, await getCurationConfig());
+}
+
+async function ytCurationSave(data, user) {
+  if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores podem gerenciar a curadoria de vídeos.' });
+
+  const current = await getCurationConfig();
+  let selectedPlaylists = current.selectedPlaylists;
+  let hiddenVideoIds = current.hiddenVideoIds;
+  let featuredVideoId = current.featuredVideoId;
+
+  if (data.selectedPlaylists !== undefined) {
+    if (!Array.isArray(data.selectedPlaylists)) return res(400, { message: 'selectedPlaylists deve ser uma lista.' });
+    selectedPlaylists = data.selectedPlaylists.filter(x => typeof x === 'string' && x !== '');
+    if (selectedPlaylists.length > 200) return res(400, { message: 'Número de playlists selecionadas excede o limite (200).' });
+  }
+
+  if (data.hiddenVideoIds !== undefined) {
+    if (!Array.isArray(data.hiddenVideoIds)) return res(400, { message: 'hiddenVideoIds deve ser uma lista.' });
+    hiddenVideoIds = data.hiddenVideoIds.filter(x => typeof x === 'string' && x !== '').slice(0, 5000);
+  }
+
+  if (data.featuredVideoId !== undefined) {
+    if (data.featuredVideoId === null || data.featuredVideoId === '') {
+      featuredVideoId = null;
+    } else if (typeof data.featuredVideoId === 'string') {
+      featuredVideoId = data.featuredVideoId;
+    } else {
+      return res(400, { message: 'featuredVideoId deve ser uma string ou null.' });
+    }
+  }
+
+  try {
+    await ddb.send(new PutCommand({
+      TableName: T.VIDEO_TAGS,
+      Item: {
+        videoId: YT_CURATION_KEY,
+        selectedPlaylists,
+        hiddenVideoIds,
+        featuredVideoId,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user.id,
+      },
+    }));
+  } catch (err) {
+    console.error('ytCurationSave error:', err);
+    return res(500, { message: 'Erro ao salvar curadoria', error: err.message });
+  }
+
+  return res(200, { selectedPlaylists, hiddenVideoIds, featuredVideoId });
+}
+
+async function youtubeCuratedSections(query, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!YT_REFRESH_TOKEN) return res(500, { message: 'YouTube nao configurado.' });
+
+  try {
+    const token = await ytGetAccessToken();
+    const config = await getCurationConfig();
+    const includeHidden = isAdmin(user) && query.includeHidden === '1';
+    const hiddenSet = new Set(config.hiddenVideoIds);
+
+    const sections = [];
+
+    if (!config.selectedPlaylists.length) {
+      // Fallback: channel uploads
+      let videos = await fetchUploadsPool(token, { maxPages: 2, maxResults: 50 });
+      if (includeHidden) {
+        videos = videos.map(v => ({ ...v, hidden: hiddenSet.has(v.id) }));
+      } else {
+        videos = videos.filter(v => !hiddenSet.has(v.id));
+      }
+      sections.push({ playlistId: null, title: null, videos });
+      if (includeHidden) await annotateLikelyShorts(token, sections);
+      return res(200, { fallback: true, sections });
+    }
+
+    // Curated: fetch titles for selected playlists
+    const titleMap = {};
+    try {
+      const idsCsv = config.selectedPlaylists.join(',');
+      const tr = await fetch(`https://www.googleapis.com/youtube/v3/playlists?part=snippet&id=${idsCsv}&maxResults=50`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const tdata = await tr.json();
+      if (!tdata.error) {
+        for (const p of (tdata.items || [])) titleMap[p.id] = p.snippet?.title || p.id;
+      }
+    } catch (e) {
+      console.error('youtubeCuratedSections titles error:', e);
+    }
+
+    for (const playlistId of config.selectedPlaylists) {
+      let videos = [];
+      let pageToken = '';
+      let errored = false;
+      for (let page = 0; page < 4; page++) {
+        let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,status,contentDetails&playlistId=${playlistId}&maxResults=50`;
+        if (pageToken) url += `&pageToken=${pageToken}`;
+        const r = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await r.json();
+        if (data.error) {
+          console.error(`youtubeCuratedSections playlist ${playlistId} error:`, data.error.message);
+          errored = true;
+          break;
+        }
+        videos = videos.concat(mapPlaylistItems(data.items));
+        pageToken = data.nextPageToken || '';
+        if (!pageToken) break;
+      }
+      if (errored) continue;
+
+      if (includeHidden) {
+        videos = videos.map(v => ({ ...v, hidden: hiddenSet.has(v.id) }));
+      } else {
+        videos = videos.filter(v => !hiddenSet.has(v.id));
+      }
+      sections.push({ playlistId, title: titleMap[playlistId] || playlistId, videos });
+    }
+
+    if (includeHidden) await annotateLikelyShorts(token, sections);
+    return res(200, { fallback: false, sections });
+  } catch (err) {
+    console.error('youtubeCuratedSections error:', err);
+    return res(500, { message: 'Erro YouTube', error: err.message });
+  }
+}
+
+// Annotate videos in sections with likelyShort via videos?part=contentDetails batches (<=50 ids)
+async function annotateLikelyShorts(token, sections) {
+  const allVideos = [];
+  for (const sec of sections) for (const v of sec.videos) allVideos.push(v);
+  const ids = allVideos.map(v => v.id).filter(Boolean);
+  const durationById = {};
+
+  for (let i = 0; i < ids.length; i += 50) {
+    const csv = ids.slice(i, i + 50).join(',');
+    try {
+      const r = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${csv}`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await r.json();
+      if (data.error) {
+        console.error('annotateLikelyShorts batch error:', data.error.message);
+        continue;
+      }
+      for (const it of (data.items || [])) {
+        const secs = parseIsoDurationToSeconds(it.contentDetails?.duration);
+        durationById[it.id] = secs;
+      }
+    } catch (e) {
+      console.error('annotateLikelyShorts batch error:', e);
+    }
+  }
+
+  for (const v of allVideos) {
+    const secs = durationById[v.id] || 0;
+    v.likelyShort = secs > 0 && secs <= 60;
   }
 }
 

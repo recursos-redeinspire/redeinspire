@@ -732,11 +732,12 @@ function buildCategories(
 
 // ── Main Catalog Page (Prime Video style) ──
 export default function CatalogPage() {
-  const { getYoutubeVideos, smartSearchYoutube, getAllVideoTags, getAllVideoThumbnails, getVideoCategories, saveVideoCategories } = useData()
+  const { getYoutubeCuratedSections, smartSearchYoutube, getAllVideoTags, getAllVideoThumbnails, getVideoCategories, saveVideoCategories } = useData()
   const { user } = useAuth()
   const { t } = useI18n()
 
   const [allVideos, setAllVideos] = useState<any[]>([])
+  const [curatedSections, setCuratedSections] = useState<{ title: string; videos: any[] }[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -763,19 +764,26 @@ export default function CatalogPage() {
   // Load all data
   useEffect(() => {
     Promise.all([
-      getYoutubeVideos(undefined, 100).then(d => d.videos),
+      getYoutubeCuratedSections(),
       getAllVideoTags().then(d => ({ tagMap: d.tagMap, allTags: d.allTags })),
       getAllVideoThumbnails().then(d => d.thumbnails || {}),
       getVideoCategories().then(d => d.assignments || {}).catch(() => ({})),
-    ]).then(([vids, tags, thumbs, catAssign]) => {
-      setAllVideos(vids)
+    ]).then(([data, tags, thumbs, catAssign]) => {
+      if (data.fallback) {
+        setAllVideos(data.sections[0]?.videos || [])
+        setCuratedSections([])
+      } else {
+        const sections = data.sections.map((s: any) => ({ title: s.title || '', videos: s.videos || [] }))
+        setCuratedSections(sections)
+        setAllVideos(sections.flatMap((s: { videos: any[] }) => s.videos))
+      }
       setTagMap(tags.tagMap)
       setAllTags(tags.allTags)
       setCustomThumbnails(thumbs)
       setCategoryAssignments(catAssign)
       setLoading(false)
     }).catch(e => { setError(e.message || 'Erro ao carregar'); setLoading(false) })
-  }, [getYoutubeVideos, getAllVideoTags, getAllVideoThumbnails, getVideoCategories])
+  }, [getYoutubeCuratedSections, getAllVideoTags, getAllVideoThumbnails, getVideoCategories])
 
   // Auto-select video from URL param
   useEffect(() => {
@@ -1000,17 +1008,31 @@ export default function CatalogPage() {
                 <button onClick={() => setFilterTag('')} className="mt-2 text-sm text-white/50 hover:text-white underline">Ver todos</button>
               </div>
             )}
-            {categories.map(cat => (
-              <CategoryRow
-                key={cat.label}
-                label={cat.label}
-                videos={cat.videos}
-                thumb={thumb}
-                onPlay={(v) => setSelectedVideo(v)}
-                isAdmin={isAdmin}
-                onCategorize={(v) => setShowCatEditor(v.id)}
-              />
-            ))}
+            {curatedSections.length > 0 ? (
+              curatedSections.map((section, i) => (
+                <CategoryRow
+                  key={`${section.title}-${i}`}
+                  label={section.title}
+                  videos={filterTag ? section.videos.filter(v => (tagMap[v.id] || []).includes(filterTag)) : section.videos}
+                  thumb={thumb}
+                  onPlay={(v) => setSelectedVideo(v)}
+                  isAdmin={isAdmin}
+                  onCategorize={(v) => setShowCatEditor(v.id)}
+                />
+              ))
+            ) : (
+              categories.map(cat => (
+                <CategoryRow
+                  key={cat.label}
+                  label={cat.label}
+                  videos={cat.videos}
+                  thumb={thumb}
+                  onPlay={(v) => setSelectedVideo(v)}
+                  isAdmin={isAdmin}
+                  onCategorize={(v) => setShowCatEditor(v.id)}
+                />
+              ))
+            )}
           </div>
         </>
       )}

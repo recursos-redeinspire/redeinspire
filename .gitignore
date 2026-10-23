@@ -37,3 +37,6 @@ frontend/ios/
 
 # Git worktrees (temporary feature workspaces)
 .worktrees/
+
+# Agent workflow artifacts
+.agents/

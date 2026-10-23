@@ -3,15 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
-import { CheckCircle, Megaphone, PathArrow, Settings, NavArrowLeft, StatsReport, Group, Download, Trophy, RefreshDouble, Link, Eye, Clock, User, Book, WarningTriangle, Check, Xmark } from 'iconoir-react'
+import { CheckCircle, Megaphone, PathArrow, Settings, NavArrowLeft, StatsReport, Group, Download, Trophy, RefreshDouble, Link, Eye, Clock, User, Book, WarningTriangle, Check, Xmark, MediaVideoList, NavArrowUp, NavArrowDown, Star, EyeClosed } from 'iconoir-react'
 
 export default function AdminPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { t: _t } = useI18n()
-  const { getTrails, getBanner } = useData()
+  const { getTrails, getBanner, getYoutubePlaylists, getYoutubeCuration, saveYoutubeCuration, getYoutubeCuratedSections } = useData()
 
-  const [tab, setTab] = useState<'analytics' | 'trails' | 'banner' | 'reports' | 'conexa'>('analytics')
+  const [tab, setTab] = useState<'analytics' | 'trails' | 'banner' | 'reports' | 'conexa' | 'videos'>('analytics')
   const [pendingTrails, setPendingTrails] = useState<any[]>([])
   const [bannerMessage, setBannerMessage] = useState('')
   const [bannerType, setBannerType] = useState('info')
@@ -28,6 +28,16 @@ export default function AdminPage() {
   const [conexaStatus, setConexaStatus] = useState<any>(null)
   const [conexaSyncing, setConexaSyncing] = useState(false)
   const [conexaSyncResult, setConexaSyncResult] = useState<any>(null)
+
+  // Vídeos / curadoria
+  const [playlists, setPlaylists] = useState<any[]>([])
+  const [curationSections, setCurationSections] = useState<any[]>([])
+  const [selectedPlaylists, setSelectedPlaylists] = useState<string[]>([])
+  const [hiddenVideoIds, setHiddenVideoIds] = useState<string[]>([])
+  const [featuredVideoId, setFeaturedVideoId] = useState<string | null>(null)
+  const [videosLoading, setVideosLoading] = useState(false)
+  const [videosLoaded, setVideosLoaded] = useState(false)
+  const [savingCuration, setSavingCuration] = useState(false)
 
   // Redirect non-admin
   useEffect(() => {
@@ -50,6 +60,24 @@ export default function AdminPage() {
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(r => r.json()).then(setAnalytics).catch(() => {}).finally(() => setAnalyticsLoading(false))
   }, [getTrails, getBanner])
+
+  // Carrega curadoria de vídeos ao abrir a aba (uma vez)
+  useEffect(() => {
+    if (tab !== 'videos' || videosLoaded || videosLoading) return
+    setVideosLoading(true)
+    Promise.all([
+      getYoutubePlaylists().then(d => d.playlists || []).catch(() => []),
+      getYoutubeCuration().catch(() => ({ selectedPlaylists: [], hiddenVideoIds: [], featuredVideoId: null })),
+      getYoutubeCuratedSections({ includeHidden: true }).then(d => d.sections || []).catch(() => []),
+    ]).then(([pls, curation, sections]) => {
+      setPlaylists(pls)
+      setSelectedPlaylists(curation.selectedPlaylists || [])
+      setHiddenVideoIds(curation.hiddenVideoIds || [])
+      setFeaturedVideoId(curation.featuredVideoId ?? null)
+      setCurationSections(sections)
+      setVideosLoaded(true)
+    }).finally(() => setVideosLoading(false))
+  }, [tab, videosLoaded, videosLoading, getYoutubePlaylists, getYoutubeCuration, getYoutubeCuratedSections])
 
   const handleApproveTrail = async (trailId: string) => {
     try {
@@ -78,6 +106,42 @@ export default function AdminPage() {
     } catch { /* ignore */ }
     finally { setSaving(false) }
   }
+
+  // ── Curadoria de vídeos ──
+  const togglePlaylist = (id: string) => {
+    setSelectedPlaylists(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id])
+  }
+
+  const movePlaylist = (index: number, dir: -1 | 1) => {
+    setSelectedPlaylists(prev => {
+      const next = [...prev]
+      const target = index + dir
+      if (target < 0 || target >= next.length) return prev
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    })
+  }
+
+  const toggleHidden = (videoId: string) => {
+    setHiddenVideoIds(prev => prev.includes(videoId) ? prev.filter(v => v !== videoId) : [...prev, videoId])
+  }
+
+  const handleSaveCuration = async () => {
+    setSavingCuration(true)
+    try {
+      await saveYoutubeCuration({ selectedPlaylists, hiddenVideoIds, featuredVideoId })
+      setSuccessMsg('Curadoria de vídeos salva!')
+      setTimeout(() => setSuccessMsg(''), 3000)
+      // Recarrega as seções para refletir a nova seleção/ordem
+      try {
+        const d = await getYoutubeCuratedSections({ includeHidden: true })
+        setCurationSections(d.sections || [])
+      } catch { /* mantém seções atuais */ }
+    } catch { /* ignore */ }
+    finally { setSavingCuration(false) }
+  }
+
+  const playlistTitle = (id: string) => playlists.find(p => p.id === id)?.title || id
 
   if (!user || user.role !== 'admin') return null
 
@@ -118,6 +182,10 @@ export default function AdminPage() {
         <button onClick={() => setTab('conexa')}
           className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'conexa' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
           <Link width={16} height={16} strokeWidth={1.5} /> Conexa
+        </button>
+        <button onClick={() => setTab('videos')}
+          className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'videos' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
+          <MediaVideoList width={16} height={16} strokeWidth={1.5} /> Vídeos
         </button>
       </div>
 
@@ -596,6 +664,129 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Curadoria de Vídeos */}
+      {tab === 'videos' && (
+        videosLoading && !videosLoaded ? (
+          <div className="flex justify-center py-20"><RefreshDouble width={32} height={32} strokeWidth={1.5} className="animate-spin text-gray-400" /></div>
+        ) : (
+          <div className="space-y-6">
+            {/* Parte 1: Playlists disponíveis */}
+            <div className="bg-white border rounded-xl p-5">
+              <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2"><MediaVideoList width={18} height={18} strokeWidth={1.5} /> Playlists do canal</h3>
+              <p className="text-sm text-gray-500 mb-4">Escolha quais playlists aparecem na plataforma. Apenas as marcadas como visíveis serão exibidas.</p>
+              {playlists.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">Nenhuma playlist encontrada</p>
+              ) : (
+                <div className="space-y-2">
+                  {playlists.map(pl => {
+                    const checked = selectedPlaylists.includes(pl.id)
+                    return (
+                      <label key={pl.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition">
+                        <input type="checkbox" checked={checked} onChange={() => togglePlaylist(pl.id)} className="rounded" />
+                        {pl.thumbnail ? (
+                          <img src={pl.thumbnail} alt="" className="w-16 h-10 rounded object-cover shrink-0" />
+                        ) : (
+                          <span className="w-16 h-10 rounded bg-gray-100 flex items-center justify-center shrink-0"><MediaVideoList width={16} height={16} strokeWidth={1.5} className="text-gray-300" /></span>
+                        )}
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-sm font-medium text-gray-800 truncate">{pl.title}</span>
+                          <span className="block text-xs text-gray-400">{pl.itemCount || 0} vídeo(s)</span>
+                        </span>
+                        <span className={`text-xs font-medium ${checked ? 'text-blue-600' : 'text-gray-400'}`}>{checked ? 'visível' : 'oculta'}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Parte 2: Ordem das playlists selecionadas */}
+            {selectedPlaylists.length > 0 && (
+              <div className="bg-white border rounded-xl p-5">
+                <h3 className="font-semibold text-gray-900 mb-1">Ordem de exibição</h3>
+                <p className="text-sm text-gray-500 mb-4">Defina a ordem em que as playlists aparecem no catálogo.</p>
+                <div className="space-y-2">
+                  {selectedPlaylists.map((id, i) => (
+                    <div key={id} className="flex items-center gap-3 p-2 rounded-lg border border-gray-100">
+                      <span className="text-xs font-bold text-gray-400 w-5 text-center">{i + 1}</span>
+                      <span className="flex-1 min-w-0 text-sm text-gray-800 truncate">{playlistTitle(id)}</span>
+                      <button onClick={() => movePlaylist(i, -1)} disabled={i === 0}
+                        className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition" aria-label="Mover para cima">
+                        <NavArrowUp width={16} height={16} strokeWidth={1.5} />
+                      </button>
+                      <button onClick={() => movePlaylist(i, 1)} disabled={i === selectedPlaylists.length - 1}
+                        className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition" aria-label="Mover para baixo">
+                        <NavArrowDown width={16} height={16} strokeWidth={1.5} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Parte 3: Grade de vídeos */}
+            <div className="bg-white border rounded-xl p-5">
+              <h3 className="font-semibold text-gray-900 mb-1">Vídeos</h3>
+              <p className="text-sm text-gray-500 mb-4">Oculte vídeos individuais e escolha o destaque da home. Vídeos marcados como "possível short" estão em formato vertical.</p>
+              {curationSections.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">Nenhum vídeo para exibir</p>
+              ) : (
+                <div className="space-y-6">
+                  {curationSections.map((section, si) => (
+                    <div key={section.playlistId || si}>
+                      {section.title && <p className="text-xs font-semibold text-gray-400 uppercase mb-3">{section.title}</p>}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {(section.videos || []).map((v: any) => {
+                          const hidden = hiddenVideoIds.includes(v.id)
+                          const isFeatured = featuredVideoId === v.id
+                          return (
+                            <div key={v.id} className="border border-gray-100 rounded-xl overflow-hidden">
+                              <div className="relative aspect-video bg-gray-100">
+                                <img src={v.thumbnail} alt="" className={`w-full h-full object-cover transition ${hidden ? 'opacity-30' : ''}`} />
+                                {hidden && (
+                                  <span className="absolute top-2 left-2 text-[10px] font-semibold bg-slate-700 text-white px-2 py-0.5 rounded-full">oculto</span>
+                                )}
+                                {v.likelyShort && (
+                                  <span className="absolute top-2 right-2 text-[10px] font-semibold bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">possível short</span>
+                                )}
+                                {isFeatured && (
+                                  <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 text-[10px] font-semibold bg-blue-600 text-white px-2 py-0.5 rounded-full"><Star width={11} height={11} strokeWidth={1.5} /> destaque da home</span>
+                                )}
+                              </div>
+                              <div className="p-3">
+                                <p className="text-sm font-medium text-gray-800 line-clamp-2 leading-snug">{v.title}</p>
+                                <div className="flex items-center gap-2 mt-3">
+                                  <button onClick={() => toggleHidden(v.id)}
+                                    className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+                                    {hidden ? <><Eye width={13} height={13} strokeWidth={1.5} /> Mostrar</> : <><EyeClosed width={13} height={13} strokeWidth={1.5} /> Ocultar</>}
+                                  </button>
+                                  <button onClick={() => setFeaturedVideoId(isFeatured ? null : v.id)} disabled={hidden}
+                                    className={`inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed ${isFeatured ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                    <Star width={13} height={13} strokeWidth={1.5} /> {isFeatured ? 'Destaque' : 'Definir como destaque'}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Salvar */}
+            <div className="flex justify-end">
+              <button onClick={handleSaveCuration} disabled={savingCuration}
+                className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition inline-flex items-center gap-2">
+                {savingCuration && <RefreshDouble width={14} height={14} strokeWidth={1.5} className="animate-spin" />} Salvar alterações
+              </button>
+            </div>
+          </div>
+        )
       )}
     </div>
   )
