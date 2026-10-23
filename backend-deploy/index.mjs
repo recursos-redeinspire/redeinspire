@@ -49,8 +49,31 @@ const T = {
   VIDEO_TAGS: 'RedeInspire-VideoTags',
   VIDEO_RECS: 'RedeInspire-VideoRecommendations',
   DOWNLOADS: 'RedeInspire-Downloads',
+  DOWNLOAD_EVENTS: 'RedeInspire-DownloadEvents',
   CONEXA_CACHE: 'RedeInspire-ConexaCache',
 };
+
+// B5 (2026-10-22) — registra UM evento de download/visualização POR USUÁRIO (do JWT), além do
+// contador agregado em RedeInspire-Downloads. O CII (Bloco B6) lê esses eventos para derivar
+// "downloads por igreja". NUNCA pode quebrar o download: qualquer falha ao gravar o evento é só
+// logada. Chave: userId (HASH) + occurredAt (RANGE, ISO). Campos: filePath, kind, email.
+async function recordDownloadEvent(user, filePath, kind) {
+  try {
+    if (!user || !user.id || !filePath) return; // sem usuário/arquivo não há evento a gravar
+    await ddb.send(new PutCommand({
+      TableName: T.DOWNLOAD_EVENTS,
+      Item: {
+        userId: String(user.id),
+        occurredAt: new Date().toISOString(),
+        filePath: String(filePath),
+        kind: kind === 'download' ? 'download' : 'view',
+        email: user.email ? String(user.email).toLowerCase() : null,
+      },
+    }));
+  } catch (evErr) {
+    console.error('recordDownloadEvent error (ignored):', evErr.message);
+  }
+}
 
 function res(statusCode, body) {
   return { statusCode, headers: { ...CORS, 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
@@ -1936,6 +1959,9 @@ async function dropboxDownload(data, user) {
       }
     } catch (trackErr) { console.error('Track error:', trackErr.message); }
 
+    // B5 — evento POR USUÁRIO (além do contador agregado acima). Nunca quebra o download.
+    await recordDownloadEvent(user, data.path, action);
+
     return res(200, { url: result.link, name: fileName });
   } catch (err) {
     console.error('Dropbox download error:', err);
@@ -3704,6 +3730,8 @@ async function dropboxTrackDownload(data, user) {
     UpdateExpression: 'SET downloads = if_not_exists(downloads, :zero) + :one, fileName = :name, lastDownloadAt = :now',
     ExpressionAttributeValues: { ':zero': 0, ':one': 1, ':name': fileName, ':now': new Date().toISOString() },
   }));
+  // B5 — evento POR USUÁRIO (além do contador agregado). Nunca quebra o track (erro só logado).
+  await recordDownloadEvent(user, data.path, 'download');
   return res(200, { ok: true });
 }
 
