@@ -9,9 +9,10 @@ export default function HomePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { t } = useI18n()
-  const { getYoutubeVideos, getTrails, getWebinars, getPointsRanking, getMyPoints, getMentoringSessions, getTopDownloads, getBanner, getAllVideoThumbnails, getFolderThumbnails, getFolderCover, getDropboxThumbnailBatch } = useData()
+  const { getYoutubeCuratedSections, getYoutubeCuration, getTrails, getWebinars, getPointsRanking, getMyPoints, getMentoringSessions, getTopDownloads, getBanner, getAllVideoThumbnails, getFolderThumbnails, getFolderCover, getDropboxThumbnailBatch } = useData()
 
   const [videos, setVideos] = useState<any[]>([])
+  const [featuredVideoId, setFeaturedVideoId] = useState<string | null>(null)
   const [trails, setTrails] = useState<any[]>([])
   const [nextWebinar, setNextWebinar] = useState<any>(null)
   const [upcomingWebinars, setUpcomingWebinars] = useState<any[]>([])
@@ -28,7 +29,11 @@ export default function HomePage() {
   const [resourceCovers, setResourceCovers] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    getYoutubeVideos(undefined, 12).then(d => setVideos(d.videos))
+    getYoutubeCuratedSections().then(d => {
+      const pool = d.fallback ? (d.sections[0]?.videos || []) : d.sections.flatMap((s: any) => s.videos || [])
+      setVideos(pool)
+    }).catch(() => {})
+    getYoutubeCuration().then(c => setFeaturedVideoId(c.featuredVideoId)).catch(() => {})
     getAllVideoThumbnails().then(data => setCustomThumbnails(data.thumbnails || {})).catch(() => {})
     getTrails().then(setTrails)
     getPointsRanking().then(setPointsRanking)
@@ -57,7 +62,9 @@ export default function HomePage() {
   const isAdmin = user?.role === 'admin'
   const inProgressTrails = trails.filter(tr => tr.progress && !tr.progress.completedAt)
   const thumb = (v: any) => customThumbnails[v.id] || v.thumbnail
-  const featured = videos[0]
+  const resolveFeatured = (pool: any[], id: string | null) =>
+    pool.find(v => v.id === id) ?? [...pool].sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)))[0] ?? null
+  const featured = resolveFeatured(videos, featuredVideoId)
   const secondary = videos.slice(1, 3)
   const moreVideos = videos.slice(3, 7)
 

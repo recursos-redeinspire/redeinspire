@@ -4,14 +4,15 @@ import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
 import { CheckCircle, Megaphone, Route, Settings, ArrowLeft, BarChart3, Users, Download, Trophy, Loader2, Link2 } from 'lucide-react'
+import { MediaVideoList, NavArrowUp, NavArrowDown, Star, Check, Xmark, EyeClosed, Eye, ArrowDown, Clock, User as UserIcon, BookStack, Trophy as TrophyIcon, WarningTriangle } from 'iconoir-react'
 
 export default function AdminPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { t: _t } = useI18n()
-  const { getTrails, getBanner } = useData()
+  const { getTrails, getBanner, getYoutubePlaylists, getYoutubeCuration, saveYoutubeCuration, getYoutubeCuratedSections } = useData()
 
-  const [tab, setTab] = useState<'analytics' | 'trails' | 'banner' | 'reports' | 'conexa'>('analytics')
+  const [tab, setTab] = useState<'analytics' | 'trails' | 'banner' | 'reports' | 'conexa' | 'videos'>('analytics')
   const [pendingTrails, setPendingTrails] = useState<any[]>([])
   const [bannerMessage, setBannerMessage] = useState('')
   const [bannerType, setBannerType] = useState('info')
@@ -28,6 +29,16 @@ export default function AdminPage() {
   const [conexaStatus, setConexaStatus] = useState<any>(null)
   const [conexaSyncing, setConexaSyncing] = useState(false)
   const [conexaSyncResult, setConexaSyncResult] = useState<any>(null)
+
+  // Vídeos / curadoria
+  const [playlists, setPlaylists] = useState<any[]>([])
+  const [curationSections, setCurationSections] = useState<any[]>([])
+  const [selectedPlaylists, setSelectedPlaylists] = useState<string[]>([])
+  const [hiddenVideoIds, setHiddenVideoIds] = useState<string[]>([])
+  const [featuredVideoId, setFeaturedVideoId] = useState<string | null>(null)
+  const [videosLoading, setVideosLoading] = useState(false)
+  const [videosLoaded, setVideosLoaded] = useState(false)
+  const [savingCuration, setSavingCuration] = useState(false)
 
   // Redirect non-admin
   useEffect(() => {
@@ -50,6 +61,24 @@ export default function AdminPage() {
       headers: { 'Authorization': `Bearer ${token}` }
     }).then(r => r.json()).then(setAnalytics).catch(() => {}).finally(() => setAnalyticsLoading(false))
   }, [getTrails, getBanner])
+
+  // Carrega curadoria de vídeos ao abrir a aba (uma vez)
+  useEffect(() => {
+    if (tab !== 'videos' || videosLoaded || videosLoading) return
+    setVideosLoading(true)
+    Promise.all([
+      getYoutubePlaylists().then(d => d.playlists || []).catch(() => []),
+      getYoutubeCuration().catch(() => ({ selectedPlaylists: [], hiddenVideoIds: [], featuredVideoId: null })),
+      getYoutubeCuratedSections({ includeHidden: true }).then(d => d.sections || []).catch(() => []),
+    ]).then(([pls, curation, sections]) => {
+      setPlaylists(pls)
+      setSelectedPlaylists(curation.selectedPlaylists || [])
+      setHiddenVideoIds(curation.hiddenVideoIds || [])
+      setFeaturedVideoId(curation.featuredVideoId ?? null)
+      setCurationSections(sections)
+      setVideosLoaded(true)
+    }).finally(() => setVideosLoading(false))
+  }, [tab, videosLoaded, videosLoading, getYoutubePlaylists, getYoutubeCuration, getYoutubeCuratedSections])
 
   const handleApproveTrail = async (trailId: string) => {
     try {
@@ -79,6 +108,42 @@ export default function AdminPage() {
     finally { setSaving(false) }
   }
 
+  // ── Curadoria de vídeos ──
+  const togglePlaylist = (id: string) => {
+    setSelectedPlaylists(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id])
+  }
+
+  const movePlaylist = (index: number, dir: -1 | 1) => {
+    setSelectedPlaylists(prev => {
+      const next = [...prev]
+      const target = index + dir
+      if (target < 0 || target >= next.length) return prev
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    })
+  }
+
+  const toggleHidden = (videoId: string) => {
+    setHiddenVideoIds(prev => prev.includes(videoId) ? prev.filter(v => v !== videoId) : [...prev, videoId])
+  }
+
+  const handleSaveCuration = async () => {
+    setSavingCuration(true)
+    try {
+      await saveYoutubeCuration({ selectedPlaylists, hiddenVideoIds, featuredVideoId })
+      setSuccessMsg('Curadoria de vídeos salva!')
+      setTimeout(() => setSuccessMsg(''), 3000)
+      // Recarrega as seções para refletir a nova seleção/ordem
+      try {
+        const d = await getYoutubeCuratedSections({ includeHidden: true })
+        setCurationSections(d.sections || [])
+      } catch { /* mantém seções atuais */ }
+    } catch { /* ignore */ }
+    finally { setSavingCuration(false) }
+  }
+
+  const playlistTitle = (id: string) => playlists.find(p => p.id === id)?.title || id
+
   if (!user || user.role !== 'admin') return null
 
   return (
@@ -94,7 +159,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {successMsg && <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">{successMsg}</div>}
+      {successMsg && <div className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{successMsg}</div>}
 
       {/* Tabs */}
       <div className="flex gap-4 mb-6 border-b">
@@ -119,6 +184,10 @@ export default function AdminPage() {
           className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'conexa' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
           <Link2 size={16} /> Conexa
         </button>
+        <button onClick={() => setTab('videos')}
+          className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'videos' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
+          <MediaVideoList width={16} height={16} strokeWidth={1.5} /> Vídeos
+        </button>
       </div>
 
       {/* Analytics */}
@@ -135,7 +204,7 @@ export default function AdminPage() {
                 <p className="text-xs text-gray-500">Total usuários</p>
               </div>
               <div className="bg-white border rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-green-600">{analytics.users.active}</p>
+                <p className="text-2xl font-bold text-blue-600">{analytics.users.active}</p>
                 <p className="text-xs text-gray-500">Ativos</p>
               </div>
               <div className="bg-white border rounded-xl p-4 text-center">
@@ -175,12 +244,12 @@ export default function AdminPage() {
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2"><Download size={18} /> Top Materiais</h3>
                   <div className="flex bg-gray-100 rounded-lg p-0.5">
                     <button onClick={() => setMaterialsFilter('downloads')}
-                      className={`px-3 py-1 rounded-md text-xs font-medium transition ${materialsFilter === 'downloads' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
-                      ↓ Baixados
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition inline-flex items-center gap-1 ${materialsFilter === 'downloads' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
+                      <ArrowDown width={12} height={12} strokeWidth={1.5} /> Baixados
                     </button>
                     <button onClick={() => setMaterialsFilter('views')}
-                      className={`px-3 py-1 rounded-md text-xs font-medium transition ${materialsFilter === 'views' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
-                      👁 Visualizados
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition inline-flex items-center gap-1 ${materialsFilter === 'views' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
+                      <Eye width={12} height={12} strokeWidth={1.5} /> Visualizados
                     </button>
                   </div>
                 </div>
@@ -194,8 +263,8 @@ export default function AdminPage() {
                         <div key={d.fileName} className="flex items-center gap-3">
                           <span className="text-xs font-bold text-gray-400 w-5">{d.rank}º</span>
                           <span className="flex-1 text-sm text-gray-700 truncate">{d.fileName?.replace(/\.[^/.]+$/, '')}</span>
-                          <span className="text-xs font-semibold text-gray-500">
-                            {materialsFilter === 'downloads' ? `${d.downloads} ↓` : `${d.views} 👁`}
+                          <span className="text-xs font-semibold text-gray-500 inline-flex items-center gap-1">
+                            {materialsFilter === 'downloads' ? <>{d.downloads} <ArrowDown width={11} height={11} strokeWidth={1.5} /></> : <>{d.views} <Eye width={11} height={11} strokeWidth={1.5} /></>}
                           </span>
                         </div>
                       ))}
@@ -232,7 +301,7 @@ export default function AdminPage() {
                   <p className="text-xs text-gray-500">Inscrições</p>
                 </div>
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <p className="text-xl font-bold text-green-600">{analytics.trails.completed}</p>
+                  <p className="text-xl font-bold text-blue-600">{analytics.trails.completed}</p>
                   <p className="text-xs text-gray-500">Concluídas</p>
                 </div>
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
@@ -252,7 +321,7 @@ export default function AdminPage() {
                       <div key={tr.trailId} className="flex items-center gap-3">
                         <span className="flex-1 text-sm text-gray-700 truncate">{tr.title}</span>
                         <span className="text-xs text-gray-500">{tr.enrolled} inscritos</span>
-                        <span className="text-xs text-green-600">{tr.completed} concluídos</span>
+                        <span className="text-xs text-blue-600">{tr.completed} concluídos</span>
                       </div>
                     ))}
                   </div>
@@ -297,14 +366,14 @@ export default function AdminPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-semibold text-lg text-gray-900">{trail.title}</h3>
-                        <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full">⏳ Pendente</span>
+                        <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full inline-flex items-center gap-1"><Clock width={11} height={11} strokeWidth={1.5} /> Pendente</span>
                       </div>
                       {trail.description && <p className="text-sm text-gray-600 mb-2">{trail.description}</p>}
                       <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>👤 Criada por: <strong>{trail.createdByName || 'Pastor'}</strong></span>
-                        <span>📚 {trail.modules?.length || 0} módulos</span>
-                        <span>🏆 {trail.points} pontos</span>
-                        {trail.isMandatory && <span className="text-red-600">⚠ Obrigatória</span>}
+                        <span className="inline-flex items-center gap-1"><UserIcon width={12} height={12} strokeWidth={1.5} /> Criada por: <strong>{trail.createdByName || 'Pastor'}</strong></span>
+                        <span className="inline-flex items-center gap-1"><BookStack width={12} height={12} strokeWidth={1.5} /> {trail.modules?.length || 0} módulos</span>
+                        <span className="inline-flex items-center gap-1"><TrophyIcon width={12} height={12} strokeWidth={1.5} /> {trail.points} pontos</span>
+                        {trail.isMandatory && <span className="text-red-600 inline-flex items-center gap-1"><WarningTriangle width={12} height={12} strokeWidth={1.5} /> Obrigatória</span>}
                       </div>
                       {trail.modules?.length > 0 && (
                         <div className="mt-3 bg-gray-50 rounded-lg p-3">
@@ -319,7 +388,7 @@ export default function AdminPage() {
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
                       <button onClick={() => handleApproveTrail(trail.id)}
-                        className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition flex items-center gap-1">
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition flex items-center gap-1">
                         <CheckCircle size={16} /> Aprovar
                       </button>
                     </div>
@@ -434,7 +503,7 @@ export default function AdminPage() {
                     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
                     const url = URL.createObjectURL(blob)
                     const a = document.createElement('a'); a.href = url; a.download = `${reportData.title}.csv`; a.click()
-                  }} className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-700 flex items-center gap-1">
+                  }} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700 flex items-center gap-1">
                     <Download size={14} /> CSV
                   </button>
                   <button onClick={() => {
@@ -516,7 +585,7 @@ export default function AdminPage() {
               {conexaStatus ? (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="text-center">
-                    <p className="text-lg font-bold text-green-600">{conexaStatus.connected ? '✓' : '✗'}</p>
+                    <p className={`text-lg font-bold flex items-center justify-center ${conexaStatus.connected ? 'text-blue-600' : 'text-red-600'}`}>{conexaStatus.connected ? <Check width={18} height={18} strokeWidth={2} /> : <Xmark width={18} height={18} strokeWidth={2} />}</p>
                     <p className="text-xs text-gray-500">Conectado</p>
                   </div>
                   <div className="text-center">
@@ -562,20 +631,20 @@ export default function AdminPage() {
                     setConexaSyncing(false)
                   }}
                   disabled={conexaSyncing}
-                  className="text-xs bg-green-50 text-green-600 px-3 py-1 rounded-lg hover:bg-green-100 disabled:opacity-50"
+                  className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-lg hover:bg-blue-100 disabled:opacity-50"
                 >
                   {conexaSyncing ? <Loader2 size={14} className="animate-spin" /> : 'Sincronizar'}
                 </button>
               </div>
               {conexaSyncResult && (
-                <div className={`text-sm p-3 rounded-lg ${conexaSyncResult.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                <div className={`text-sm p-3 rounded-lg ${conexaSyncResult.ok ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'}`}>
                   <p className="font-medium">{conexaSyncResult.message}</p>
                   {conexaSyncResult.ok && (
                     <div className="mt-1 text-xs space-y-0.5">
                       <p>Emails sincronizados: {conexaSyncResult.emailsSynced}</p>
                       <p>Clientes bloqueados neste lote: {conexaSyncResult.blockedCustomers}</p>
                       {!conexaSyncResult.completed && (
-                        <p className="text-yellow-600 font-medium mt-1">⚠️ Sincronização parcial — clique novamente para continuar</p>
+                        <p className="text-yellow-600 font-medium mt-1 flex items-center gap-1"><WarningTriangle width={12} height={12} strokeWidth={1.5} /> Sincronização parcial — clique novamente para continuar</p>
                       )}
                     </div>
                   )}
@@ -596,6 +665,129 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Curadoria de Vídeos */}
+      {tab === 'videos' && (
+        videosLoading && !videosLoaded ? (
+          <div className="flex justify-center py-20"><Loader2 size={32} className="animate-spin text-gray-400" /></div>
+        ) : (
+          <div className="space-y-6">
+            {/* Parte 1: Playlists disponíveis */}
+            <div className="bg-white border rounded-xl p-5">
+              <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2"><MediaVideoList width={18} height={18} strokeWidth={1.5} /> Playlists do canal</h3>
+              <p className="text-sm text-gray-500 mb-4">Escolha quais playlists aparecem na plataforma. Apenas as marcadas como visíveis serão exibidas.</p>
+              {playlists.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">Nenhuma playlist encontrada</p>
+              ) : (
+                <div className="space-y-2">
+                  {playlists.map(pl => {
+                    const checked = selectedPlaylists.includes(pl.id)
+                    return (
+                      <label key={pl.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition">
+                        <input type="checkbox" checked={checked} onChange={() => togglePlaylist(pl.id)} className="rounded" />
+                        {pl.thumbnail ? (
+                          <img src={pl.thumbnail} alt="" className="w-16 h-10 rounded object-cover shrink-0" />
+                        ) : (
+                          <span className="w-16 h-10 rounded bg-gray-100 flex items-center justify-center shrink-0"><MediaVideoList width={16} height={16} strokeWidth={1.5} className="text-gray-300" /></span>
+                        )}
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-sm font-medium text-gray-800 truncate">{pl.title}</span>
+                          <span className="block text-xs text-gray-400">{pl.itemCount || 0} vídeo(s)</span>
+                        </span>
+                        <span className={`text-xs font-medium ${checked ? 'text-blue-600' : 'text-gray-400'}`}>{checked ? 'visível' : 'oculta'}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Parte 2: Ordem das playlists selecionadas */}
+            {selectedPlaylists.length > 0 && (
+              <div className="bg-white border rounded-xl p-5">
+                <h3 className="font-semibold text-gray-900 mb-1">Ordem de exibição</h3>
+                <p className="text-sm text-gray-500 mb-4">Defina a ordem em que as playlists aparecem no catálogo.</p>
+                <div className="space-y-2">
+                  {selectedPlaylists.map((id, i) => (
+                    <div key={id} className="flex items-center gap-3 p-2 rounded-lg border border-gray-100">
+                      <span className="text-xs font-bold text-gray-400 w-5 text-center">{i + 1}</span>
+                      <span className="flex-1 min-w-0 text-sm text-gray-800 truncate">{playlistTitle(id)}</span>
+                      <button onClick={() => movePlaylist(i, -1)} disabled={i === 0}
+                        className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition" aria-label="Mover para cima">
+                        <NavArrowUp width={16} height={16} strokeWidth={1.5} />
+                      </button>
+                      <button onClick={() => movePlaylist(i, 1)} disabled={i === selectedPlaylists.length - 1}
+                        className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition" aria-label="Mover para baixo">
+                        <NavArrowDown width={16} height={16} strokeWidth={1.5} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Parte 3: Grade de vídeos */}
+            <div className="bg-white border rounded-xl p-5">
+              <h3 className="font-semibold text-gray-900 mb-1">Vídeos</h3>
+              <p className="text-sm text-gray-500 mb-4">Oculte vídeos individuais e escolha o destaque da home. Vídeos marcados como "possível short" estão em formato vertical.</p>
+              {curationSections.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">Nenhum vídeo para exibir</p>
+              ) : (
+                <div className="space-y-6">
+                  {curationSections.map((section, si) => (
+                    <div key={section.playlistId || si}>
+                      {section.title && <p className="text-xs font-semibold text-gray-400 uppercase mb-3">{section.title}</p>}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {(section.videos || []).map((v: any) => {
+                          const hidden = hiddenVideoIds.includes(v.id)
+                          const isFeatured = featuredVideoId === v.id
+                          return (
+                            <div key={v.id} className="border border-gray-100 rounded-xl overflow-hidden">
+                              <div className="relative aspect-video bg-gray-100">
+                                <img src={v.thumbnail} alt="" className={`w-full h-full object-cover transition ${hidden ? 'opacity-30' : ''}`} />
+                                {hidden && (
+                                  <span className="absolute top-2 left-2 text-[10px] font-semibold bg-slate-700 text-white px-2 py-0.5 rounded-full">oculto</span>
+                                )}
+                                {v.likelyShort && (
+                                  <span className="absolute top-2 right-2 text-[10px] font-semibold bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">possível short</span>
+                                )}
+                                {isFeatured && (
+                                  <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 text-[10px] font-semibold bg-blue-600 text-white px-2 py-0.5 rounded-full"><Star width={11} height={11} strokeWidth={1.5} /> destaque da home</span>
+                                )}
+                              </div>
+                              <div className="p-3">
+                                <p className="text-sm font-medium text-gray-800 line-clamp-2 leading-snug">{v.title}</p>
+                                <div className="flex items-center gap-2 mt-3">
+                                  <button onClick={() => toggleHidden(v.id)}
+                                    className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+                                    {hidden ? <><Eye width={13} height={13} strokeWidth={1.5} /> Mostrar</> : <><EyeClosed width={13} height={13} strokeWidth={1.5} /> Ocultar</>}
+                                  </button>
+                                  <button onClick={() => setFeaturedVideoId(isFeatured ? null : v.id)} disabled={hidden}
+                                    className={`inline-flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed ${isFeatured ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                    <Star width={13} height={13} strokeWidth={1.5} /> {isFeatured ? 'Destaque' : 'Definir como destaque'}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Salvar */}
+            <div className="flex justify-end">
+              <button onClick={handleSaveCuration} disabled={savingCuration}
+                className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition inline-flex items-center gap-2">
+                {savingCuration && <Loader2 size={14} className="animate-spin" />} Salvar alterações
+              </button>
+            </div>
+          </div>
+        )
       )}
     </div>
   )

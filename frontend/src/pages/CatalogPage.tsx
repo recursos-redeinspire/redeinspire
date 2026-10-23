@@ -7,6 +7,7 @@ import {
   Search, Loader2, Play, ChevronLeft, ChevronRight, X, Calendar, Video,
   ArrowLeft, Send, MessageSquare, Tag, Plus, Info
 } from 'lucide-react'
+import { Link as LinkIcon, Play as PlayIcon, Folder as FolderIcon, Check } from 'iconoir-react'
 import YouTubePlayer from '../components/YouTubePlayer'
 
 function formatDate(iso: string) {
@@ -58,7 +59,7 @@ function RecommendationsSection({ videoId }: { videoId: string }) {
   return (
     <div className="mt-8">
       <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-4">
-        📌 Indicações
+        <Tag size={18} className="text-gray-400" /> Indicações
       </h3>
       {items.length > 0 && (
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 mb-4">
@@ -71,20 +72,20 @@ function RecommendationsSection({ videoId }: { videoId: string }) {
                 ) : item.type === 'video' && item.videoId ? (
                   <img src={`https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`} alt={item.title} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="text-gray-300 text-2xl">
-                    {item.type === 'external' ? '🔗' : item.type === 'video' ? '▶' : '📁'}
+                  <div className="text-gray-300">
+                    {item.type === 'external' ? <LinkIcon width={28} height={28} strokeWidth={1.5} /> : item.type === 'video' ? <PlayIcon width={28} height={28} strokeWidth={1.5} /> : <FolderIcon width={28} height={28} strokeWidth={1.5} />}
                   </div>
                 )}
               </div>
               <div className="p-2">
                 <p className="font-medium text-xs text-gray-900 line-clamp-2 leading-tight">{item.title}</p>
                 {item.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{item.description}</p>}
-                <span className={`inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded-full ${
+                <span className={`inline-flex items-center gap-1 mt-1 text-[10px] px-1.5 py-0.5 rounded-full ${
                   item.type === 'external' ? 'bg-blue-50 text-blue-600' :
                   item.type === 'video' ? 'bg-purple-50 text-purple-600' :
                   'bg-amber-50 text-amber-600'
                 }`}>
-                  {item.type === 'external' ? '🔗 Externo' : item.type === 'video' ? '▶ Vídeo' : '📁 Material'}
+                  {item.type === 'external' ? <><LinkIcon width={11} height={11} strokeWidth={1.5} /> Externo</> : item.type === 'video' ? <><PlayIcon width={11} height={11} strokeWidth={1.5} /> Vídeo</> : <><FolderIcon width={11} height={11} strokeWidth={1.5} /> Material</>}
                 </span>
               </div>
               {isAdmin && (
@@ -170,13 +171,13 @@ function AddRecommendationModal({ onClose, onSave }: { onClose: () => void; onSa
             <label className="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
             <div className="flex gap-2">
               {[
-                { value: 'external', label: '🔗 Link Externo' },
-                { value: 'video', label: '▶ Vídeo do Catálogo' },
-                { value: 'material', label: '📁 Material' },
+                { value: 'external', label: 'Link Externo', icon: <LinkIcon width={14} height={14} strokeWidth={1.5} /> },
+                { value: 'video', label: 'Vídeo do Catálogo', icon: <PlayIcon width={14} height={14} strokeWidth={1.5} /> },
+                { value: 'material', label: 'Material', icon: <FolderIcon width={14} height={14} strokeWidth={1.5} /> },
               ].map(opt => (
                 <button key={opt.value} onClick={() => setType(opt.value as any)}
-                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${type === opt.value ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                  {opt.label}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1.5 ${type === opt.value ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                  {opt.icon} {opt.label}
                 </button>
               ))}
             </div>
@@ -471,7 +472,7 @@ function ThumbnailManager({ videoId, currentThumbnail }: { videoId: string; curr
         <div className="flex-1">
           {customThumb ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-green-600 font-medium">✓ Thumbnail customizada ativa</span>
+              <span className="text-xs text-blue-600 font-medium flex items-center gap-1"><Check width={13} height={13} strokeWidth={1.5} /> Thumbnail customizada ativa</span>
               <button onClick={handleRemove} className="text-xs text-red-500 hover:text-red-700 underline">Remover</button>
             </div>
           ) : (
@@ -548,7 +549,7 @@ function CategoryRow({ label, videos, thumb, onPlay, isAdmin, onCategorize }: {
                 <img src={thumb(v)} alt="" loading="lazy" className="w-full h-full object-cover" />
                 {isWatching && (
                   <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
-                    <div className="h-full bg-green-500 rounded-r-full" style={{ width: `${20 + Math.floor(v.id.charCodeAt(0) % 60)}%` }} />
+                    <div className="h-full bg-blue-500 rounded-r-full" style={{ width: `${20 + Math.floor(v.id.charCodeAt(0) % 60)}%` }} />
                   </div>
                 )}
               </div>
@@ -578,14 +579,14 @@ function CategoryRow({ label, videos, thumb, onPlay, isAdmin, onCategorize }: {
               <img src={thumb(hoveredVideo)} alt="" className="w-full h-full object-cover" />
               {isWatching && (
                 <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
-                  <div className="h-full bg-green-500 rounded-r-full" style={{ width: `${20 + Math.floor(hoveredVideo.id.charCodeAt(0) % 60)}%` }} />
+                  <div className="h-full bg-blue-500 rounded-r-full" style={{ width: `${20 + Math.floor(hoveredVideo.id.charCodeAt(0) % 60)}%` }} />
                 </div>
               )}
             </div>
             <div className="p-4">
               <h3 className="text-white font-bold text-[13px] leading-snug line-clamp-2">{hoveredVideo.title}</h3>
-              <p className="text-green-400 text-[10px] font-medium mt-1 flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center text-[7px] text-white">✓</span>
+              <p className="text-blue-400 text-[10px] font-medium mt-1 flex items-center gap-1">
+                <span className="w-3 h-3 rounded-full bg-blue-500 flex items-center justify-center text-white"><Check width={7} height={7} strokeWidth={2} /></span>
                 Incluído na plataforma
               </p>
               <button onClick={() => onPlay(hoveredVideo)}
@@ -732,11 +733,12 @@ function buildCategories(
 
 // ── Main Catalog Page (Prime Video style) ──
 export default function CatalogPage() {
-  const { getYoutubeVideos, smartSearchYoutube, getAllVideoTags, getAllVideoThumbnails, getVideoCategories, saveVideoCategories } = useData()
+  const { getYoutubeCuratedSections, smartSearchYoutube, getAllVideoTags, getAllVideoThumbnails, getVideoCategories, saveVideoCategories } = useData()
   const { user } = useAuth()
   const { t } = useI18n()
 
   const [allVideos, setAllVideos] = useState<any[]>([])
+  const [curatedSections, setCuratedSections] = useState<{ title: string; videos: any[] }[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -763,19 +765,26 @@ export default function CatalogPage() {
   // Load all data
   useEffect(() => {
     Promise.all([
-      getYoutubeVideos(undefined, 100).then(d => d.videos),
+      getYoutubeCuratedSections(),
       getAllVideoTags().then(d => ({ tagMap: d.tagMap, allTags: d.allTags })),
       getAllVideoThumbnails().then(d => d.thumbnails || {}),
       getVideoCategories().then(d => d.assignments || {}).catch(() => ({})),
-    ]).then(([vids, tags, thumbs, catAssign]) => {
-      setAllVideos(vids)
+    ]).then(([data, tags, thumbs, catAssign]) => {
+      if (data.fallback) {
+        setAllVideos(data.sections[0]?.videos || [])
+        setCuratedSections([])
+      } else {
+        const sections = data.sections.map((s: any) => ({ title: s.title || '', videos: s.videos || [] }))
+        setCuratedSections(sections)
+        setAllVideos(sections.flatMap((s: { videos: any[] }) => s.videos))
+      }
       setTagMap(tags.tagMap)
       setAllTags(tags.allTags)
       setCustomThumbnails(thumbs)
       setCategoryAssignments(catAssign)
       setLoading(false)
     }).catch(e => { setError(e.message || 'Erro ao carregar'); setLoading(false) })
-  }, [getYoutubeVideos, getAllVideoTags, getAllVideoThumbnails, getVideoCategories])
+  }, [getYoutubeCuratedSections, getAllVideoTags, getAllVideoThumbnails, getVideoCategories])
 
   // Auto-select video from URL param
   useEffect(() => {
@@ -877,7 +886,7 @@ export default function CatalogPage() {
             )}
           </div>
           <button onClick={handleSearch}
-            className="bg-green-600 text-white px-5 py-3 rounded-lg text-sm font-medium hover:bg-green-700 transition">
+            className="bg-blue-600 text-white px-5 py-3 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
             {t('catalog.searchBtn')}
           </button>
         </div>
@@ -1000,17 +1009,31 @@ export default function CatalogPage() {
                 <button onClick={() => setFilterTag('')} className="mt-2 text-sm text-white/50 hover:text-white underline">Ver todos</button>
               </div>
             )}
-            {categories.map(cat => (
-              <CategoryRow
-                key={cat.label}
-                label={cat.label}
-                videos={cat.videos}
-                thumb={thumb}
-                onPlay={(v) => setSelectedVideo(v)}
-                isAdmin={isAdmin}
-                onCategorize={(v) => setShowCatEditor(v.id)}
-              />
-            ))}
+            {curatedSections.length > 0 ? (
+              curatedSections.map((section, i) => (
+                <CategoryRow
+                  key={`${section.title}-${i}`}
+                  label={section.title}
+                  videos={filterTag ? section.videos.filter(v => (tagMap[v.id] || []).includes(filterTag)) : section.videos}
+                  thumb={thumb}
+                  onPlay={(v) => setSelectedVideo(v)}
+                  isAdmin={isAdmin}
+                  onCategorize={(v) => setShowCatEditor(v.id)}
+                />
+              ))
+            ) : (
+              categories.map(cat => (
+                <CategoryRow
+                  key={cat.label}
+                  label={cat.label}
+                  videos={cat.videos}
+                  thumb={thumb}
+                  onPlay={(v) => setSelectedVideo(v)}
+                  isAdmin={isAdmin}
+                  onCategorize={(v) => setShowCatEditor(v.id)}
+                />
+              ))
+            )}
           </div>
         </>
       )}
@@ -1089,18 +1112,18 @@ function CategoryEditorModal({ videoId: _videoId, videoTitle, currentCategories,
             <button key={cat} onClick={() => toggle(cat)}
               className={`w-full text-left px-4 py-3 rounded-lg text-sm transition flex items-center justify-between ${
                 selected.includes(cat)
-                  ? 'bg-green-600/20 text-green-400 border border-green-500/30'
+                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
                   : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
               }`}>
               <span>{cat}</span>
-              {selected.includes(cat) && <span className="text-green-400 text-xs font-bold">✓</span>}
+              {selected.includes(cat) && <Check width={14} height={14} strokeWidth={2} className="text-blue-400" />}
             </button>
           ))}
         </div>
         <div className="p-5 border-t border-white/10 flex gap-3">
           <button onClick={onClose} className="flex-1 border border-white/20 rounded-lg py-2.5 text-sm text-white/70 hover:bg-white/10 transition">Cancelar</button>
           <button onClick={handleSave} disabled={saving}
-            className="flex-1 bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700 transition disabled:opacity-50">
+            className="flex-1 bg-blue-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50">
             {saving ? 'Salvando...' : 'Salvar'}
           </button>
         </div>
