@@ -9,6 +9,7 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 import jwt from 'jsonwebtoken';
 import { v4 as uuid } from 'uuid';
 import JSZip from 'jszip';
+import { createHash } from 'node:crypto';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -209,6 +210,8 @@ export async function handler(event) {
     if (path === '/dropbox/smart-search' && method === 'GET') return await dropboxSmartSearch(qs(event), getUserFromToken(event));
     if (path === '/dropbox/track-download' && method === 'POST') return await dropboxTrackDownload(body(event), getUserFromToken(event));
     if (path === '/dropbox/top-downloads' && method === 'GET') return await dropboxTopDownloads(getUserFromToken(event));
+    if (path === '/dropbox/thumbnail-batch' && method === 'POST') return await dropboxThumbnailBatch(body(event), getUserFromToken(event));
+    if (path === '/dropbox/folder-cover' && method === 'GET') return await dropboxFolderCover(qs(event), getUserFromToken(event));
 
     // ---- YouTube ----
     if (path === '/youtube/videos' && method === 'GET') return await youtubeListVideos(qs(event), getUserFromToken(event));
@@ -1643,6 +1646,179 @@ async function dropboxDownload(data, user) {
   } catch (err) {
     console.error('Dropbox download error:', err);
     return res(500, { message: 'Erro ao gerar link', error: err.message });
+  }
+}
+
+// --- Dropbox Thumbnails (S3-cached) ---
+const THUMB_IMAGE_EXTS = ['jpg','jpeg','png','gif','bmp','tiff','tif','webp'];
+// Dropbox accepts these size buckets for get_thumbnail_v2.
+const THUMB_SIZES = {
+  w32h32: 'w32h32', w64h64: 'w64h64', w128h128: 'w128h128', w256h256: 'w256h256',
+  w480h320: 'w480h320', w640h480: 'w640h480', w960h640: 'w960h640',
+  w1024h768: 'w1024h768', w2048h1536: 'w2048h1536',
+};
+
+// Optional CDN in front of the uploads bucket. If set (e.g. the CloudFront
+// domain that serves rede-inspire-uploads-*), cached thumbnails are returned as
+// CDN URLs. If not set, we fall back to a presigned S3 URL. Works either way.
+const THUMBS_CDN_URL = (process.env.THUMBS_CDN_URL || '').replace(/\/+$/, '');
+const THUMBS_PREFIX = 'thumb-cache';
+
+// Stable cache key for a thumbnail. Includes the file version (rev/content_hash)
+// so that replacing the image in Dropbox produces a NEW key automatically —
+// no manual cache invalidation needed.
+function thumbS3Key(dropboxPathLower, size, format, version) {
+  const h = createHash('sha1').update(`${dropboxPathLower}|${size}|${version || ''}`).digest('hex');
+  return `${THUMBS_PREFIX}/${h}.${format === 'png' ? 'png' : 'jpg'}`;
+}
+
+// Build the public URL for a cached thumbnail (CDN if configured, else presigned S3).
+async function thumbUrlForKey(key) {
+  if (THUMBS_CDN_URL) return `${THUMBS_CDN_URL}/${key}`;
+  const getCmd = new GetObjectCommand({ Bucket: UPLOAD_BUCKET, Key: key });
+  return await getSignedUrl(s3, getCmd, { expiresIn: 86400 });
+}
+
+// Returns true quickly if the object is already cached in S3.
+async function thumbExistsInS3(key) {
+  try {
+    await s3.send(new GetObjectCommand({ Bucket: UPLOAD_BUCKET, Key: key, Range: 'bytes=0-0' }));
+    return true;
+  } catch { return false; }
+}
+
+// Store a thumbnail buffer in S3 with a long cache lifetime.
+async function storeThumbInS3(key, buffer, format) {
+  await s3.send(new PutObjectCommand({
+    Bucket: UPLOAD_BUCKET,
+    Key: key,
+    Body: buffer,
+    ContentType: format === 'png' ? 'image/png' : 'image/jpeg',
+    CacheControl: 'public, max-age=31536000, immutable',
+  }));
+}
+
+// --- Dropbox Thumbnail Batch (resolve many thumbnails in one request) ---
+// Body: { paths: [{ path, v? }], size? }. Returns { thumbs: { <path>: url } }.
+// For each path we serve the S3 cache when available; the rest are generated in
+// one Dropbox get_thumbnail_batch call (up to 25) and stored in S3. This cuts a
+// gallery of 20+ folders from ~40 requests down to 1.
+async function dropboxThumbnailBatch(data, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!DROPBOX_REFRESH_TOKEN) return res(500, { message: 'Dropbox nao configurado.' });
+
+  const rawPaths = Array.isArray(data.paths) ? data.paths : [];
+  if (rawPaths.length === 0) return res(400, { message: 'paths obrigatorio.' });
+
+  const size = THUMB_SIZES[data.size] || 'w640h480';
+
+  // Normalize + keep only supported image formats. Dropbox batch caps at 25.
+  const items = rawPaths
+    .map(p => (typeof p === 'string' ? { path: p } : p))
+    .filter(p => p && p.path)
+    .map(p => {
+      const ext = (p.path.split('.').pop() || '').toLowerCase();
+      const format = ext === 'png' ? 'png' : 'jpeg';
+      return { path: p.path, version: p.v || '', ext, format, ok: THUMB_IMAGE_EXTS.includes(ext) };
+    })
+    .filter(p => p.ok)
+    .slice(0, 25);
+
+  const thumbs = {};
+
+  try {
+    // 1. Resolve from S3 cache first.
+    const misses = [];
+    await Promise.all(items.map(async (it) => {
+      const key = thumbS3Key(it.path.toLowerCase(), size, it.format, it.version);
+      it.key = key;
+      if (await thumbExistsInS3(key)) {
+        thumbs[it.path] = await thumbUrlForKey(key);
+      } else {
+        misses.push(it);
+      }
+    }));
+
+    if (misses.length === 0) return res(200, { thumbs, cached: true });
+
+    // 2. Generate the misses in a single Dropbox batch call.
+    const token = await getDropboxToken();
+    const entries = misses.map(it => ({
+      path: it.path,
+      format: { '.tag': it.format },
+      size: { '.tag': size },
+      mode: { '.tag': 'strict' },
+    }));
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+    if (DROPBOX_NAMESPACE_ID) {
+      headers['Dropbox-API-Path-Root'] = JSON.stringify({ '.tag': 'namespace_id', namespace_id: DROPBOX_NAMESPACE_ID });
+    }
+    const r = await fetch('https://content.dropboxapi.com/2/files/get_thumbnail_batch', {
+      method: 'POST', headers, body: JSON.stringify({ entries }),
+    });
+    const result = await r.json();
+    if (!r.ok || result.error) {
+      console.error('Dropbox thumbnail batch error:', r.status, result.error_summary || '');
+      // Return whatever we resolved from cache; misses just fall back client-side.
+      return res(200, { thumbs, partial: true });
+    }
+
+    // 3. Store each generated thumbnail in S3 and map its URL.
+    await Promise.all((result.entries || []).map(async (entry, i) => {
+      const it = misses[i];
+      if (!it) return;
+      if (entry['.tag'] === 'success' && entry.thumbnail) {
+        const buffer = Buffer.from(entry.thumbnail, 'base64');
+        try {
+          await storeThumbInS3(it.key, buffer, it.format);
+          thumbs[it.path] = await thumbUrlForKey(it.key);
+        } catch (e) { console.error('store thumb error:', it.path, e.message); }
+      }
+    }));
+
+    return res(200, { thumbs });
+  } catch (err) {
+    console.error('Dropbox thumbnail batch error:', err);
+    // Degrade gracefully: return whatever was cached.
+    return res(200, { thumbs, error: err.message });
+  }
+}
+
+// --- Dropbox Folder Cover (fallback cover = first image found in the folder) ---
+// Used when an admin has NOT set a custom cover for a folder. Instead of relying
+// on a naming convention (like "thumb" in the file name, which wasn't applied
+// consistently), we just pick the first image in the folder. Works regardless
+// of file name.
+async function dropboxFolderCover(query, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!DROPBOX_REFRESH_TOKEN) return res(500, { message: 'Dropbox nao configurado.' });
+
+  const folderPath = query.path || '';
+
+  try {
+    const r = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
+      method: 'POST',
+      headers: dbxHeaders(await getDropboxToken()),
+      body: JSON.stringify({ path: folderPath, recursive: false, limit: 2000 }),
+    });
+    const data = await r.json();
+    if (data.error) return res(400, { message: 'Erro Dropbox', error: data.error_summary });
+
+    const images = (data.entries || [])
+      .filter(e => e['.tag'] === 'file')
+      .filter(e => THUMB_IMAGE_EXTS.includes((e.name.split('.').pop() || '').toLowerCase()))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    if (images.length === 0) {
+      return res(200, { path: folderPath, cover: null });
+    }
+
+    // Prefer an image whose name hints it is a cover, else just the first one.
+    const preferred = images.find(e => /thumb|capa|cover/i.test(e.name)) || images[0];
+    return res(200, { path: folderPath, cover: preferred.path_display, coverLower: preferred.path_lower });
+  } catch (err) {
+    console.error('Dropbox folder cover error:', err);
+    return res(500, { message: 'Erro ao buscar capa da pasta', error: err.message });
   }
 }
 
