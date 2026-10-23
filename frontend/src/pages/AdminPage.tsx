@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
-import { CheckCircle, Megaphone, Route, Settings, ArrowLeft, BarChart3, Users, Download, Trophy, Loader2, Link2 } from 'lucide-react'
+import { CheckCircle, Megaphone, PathArrow, Settings, NavArrowLeft, StatsReport, Group, Download, Trophy, RefreshDouble, Link, Eye, Clock, User, Book, WarningTriangle, Check, Xmark } from 'iconoir-react'
 
 export default function AdminPage() {
   const { user } = useAuth()
@@ -86,60 +86,60 @@ export default function AdminPage() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => navigate('/')} className="text-gray-400 hover:text-gray-700">
-          <ArrowLeft size={20} />
+          <NavArrowLeft width={20} height={20} strokeWidth={1.5} />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Settings size={22} /> Administração</h1>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Settings width={22} height={22} strokeWidth={1.5} /> Administração</h1>
           <p className="text-sm text-gray-500">Gerencie trilhas pendentes, banners e configurações</p>
         </div>
       </div>
 
-      {successMsg && <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">{successMsg}</div>}
+      {successMsg && <div className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{successMsg}</div>}
 
       {/* Tabs */}
       <div className="flex gap-4 mb-6 border-b">
         <button onClick={() => setTab('analytics')}
           className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'analytics' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
-          <BarChart3 size={16} /> Analytics
+          <StatsReport width={16} height={16} strokeWidth={1.5} /> Analytics
         </button>
         <button onClick={() => setTab('trails')}
           className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'trails' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
-          <Route size={16} /> Aprovar Trilhas
+          <PathArrow width={16} height={16} strokeWidth={1.5} /> Aprovar Trilhas
           {pendingTrails.length > 0 && <span className="bg-yellow-500 text-white text-xs px-1.5 py-0.5 rounded-full">{pendingTrails.length}</span>}
         </button>
         <button onClick={() => setTab('banner')}
           className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'banner' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
-          <Megaphone size={16} /> Banner
+          <Megaphone width={16} height={16} strokeWidth={1.5} /> Banner
         </button>
         <button onClick={() => setTab('reports')}
           className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'reports' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
-          <Download size={16} /> Relatórios
+          <Download width={16} height={16} strokeWidth={1.5} /> Relatórios
         </button>
         <button onClick={() => setTab('conexa')}
           className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === 'conexa' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
-          <Link2 size={16} /> Conexa
+          <Link width={16} height={16} strokeWidth={1.5} /> Conexa
         </button>
       </div>
 
       {/* Analytics */}
       {tab === 'analytics' && (
         analyticsLoading ? (
-          <div className="flex justify-center py-20"><Loader2 size={32} className="animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-20"><RefreshDouble width={32} height={32} strokeWidth={1.5} className="animate-spin text-gray-400" /></div>
         ) : analytics ? (
           <div className="space-y-6">
             {/* Overview cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-white border rounded-xl p-4 text-center">
-                <Users size={20} className="mx-auto text-blue-500 mb-1" />
+                <Group width={20} height={20} strokeWidth={1.5} className="mx-auto text-blue-500 mb-1" />
                 <p className="text-2xl font-bold text-gray-900">{analytics.users.total}</p>
                 <p className="text-xs text-gray-500">Total usuários</p>
               </div>
               <div className="bg-white border rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-green-600">{analytics.users.active}</p>
+                <p className="text-2xl font-bold text-blue-600">{analytics.users.active}</p>
                 <p className="text-xs text-gray-500">Ativos</p>
               </div>
               <div className="bg-white border rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-purple-600">{analytics.totalChurches}</p>
+                <p className="text-2xl font-bold text-slate-600">{analytics.totalChurches}</p>
                 <p className="text-xs text-gray-500">Igrejas</p>
               </div>
               <div className="bg-white border rounded-xl p-4 text-center">
@@ -150,7 +150,7 @@ export default function AdminPage() {
 
             {/* Users breakdown */}
             <div className="bg-white border rounded-xl p-5">
-              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Users size={18} /> Usuários por papel</h3>
+              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Group width={18} height={18} strokeWidth={1.5} /> Usuários por papel</h3>
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
                   <p className="text-xl font-bold text-gray-900">{analytics.users.admins}</p>
@@ -172,15 +172,15 @@ export default function AdminPage() {
               {/* Top Materials - unified with toggle */}
               <div className="bg-white border rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><Download size={18} /> Top Materiais</h3>
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2"><Download width={18} height={18} strokeWidth={1.5} /> Top Materiais</h3>
                   <div className="flex bg-gray-100 rounded-lg p-0.5">
                     <button onClick={() => setMaterialsFilter('downloads')}
-                      className={`px-3 py-1 rounded-md text-xs font-medium transition ${materialsFilter === 'downloads' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
-                      ↓ Baixados
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition flex items-center gap-1 ${materialsFilter === 'downloads' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
+                      <Download width={13} height={13} strokeWidth={1.5} /> Baixados
                     </button>
                     <button onClick={() => setMaterialsFilter('views')}
-                      className={`px-3 py-1 rounded-md text-xs font-medium transition ${materialsFilter === 'views' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
-                      👁 Visualizados
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition flex items-center gap-1 ${materialsFilter === 'views' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
+                      <Eye width={13} height={13} strokeWidth={1.5} /> Visualizados
                     </button>
                   </div>
                 </div>
@@ -194,8 +194,8 @@ export default function AdminPage() {
                         <div key={d.fileName} className="flex items-center gap-3">
                           <span className="text-xs font-bold text-gray-400 w-5">{d.rank}º</span>
                           <span className="flex-1 text-sm text-gray-700 truncate">{d.fileName?.replace(/\.[^/.]+$/, '')}</span>
-                          <span className="text-xs font-semibold text-gray-500">
-                            {materialsFilter === 'downloads' ? `${d.downloads} ↓` : `${d.views} 👁`}
+                          <span className="text-xs font-semibold text-gray-500 flex items-center gap-1">
+                            {materialsFilter === 'downloads' ? <>{d.downloads} <Download width={12} height={12} strokeWidth={1.5} /></> : <>{d.views} <Eye width={12} height={12} strokeWidth={1.5} /></>}
                           </span>
                         </div>
                       ))}
@@ -206,7 +206,7 @@ export default function AdminPage() {
 
               {/* Top Users */}
               <div className="bg-white border rounded-xl p-5">
-                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Trophy size={18} className="text-yellow-500" /> Usuários mais ativos</h3>
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Trophy width={18} height={18} strokeWidth={1.5} className="text-yellow-500" /> Usuários mais ativos</h3>
                 {analytics.topUsers.length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-4">Nenhum dado</p>
                 ) : (
@@ -225,14 +225,14 @@ export default function AdminPage() {
 
             {/* Trails stats */}
             <div className="bg-white border rounded-xl p-5">
-              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Route size={18} /> Trilhas</h3>
+              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><PathArrow width={18} height={18} strokeWidth={1.5} /> Trilhas</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
                   <p className="text-xl font-bold text-gray-900">{analytics.trails.enrollments}</p>
                   <p className="text-xs text-gray-500">Inscrições</p>
                 </div>
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <p className="text-xl font-bold text-green-600">{analytics.trails.completed}</p>
+                  <p className="text-xl font-bold text-blue-600">{analytics.trails.completed}</p>
                   <p className="text-xs text-gray-500">Concluídas</p>
                 </div>
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
@@ -252,7 +252,7 @@ export default function AdminPage() {
                       <div key={tr.trailId} className="flex items-center gap-3">
                         <span className="flex-1 text-sm text-gray-700 truncate">{tr.title}</span>
                         <span className="text-xs text-gray-500">{tr.enrolled} inscritos</span>
-                        <span className="text-xs text-green-600">{tr.completed} concluídos</span>
+                        <span className="text-xs text-blue-600">{tr.completed} concluídos</span>
                       </div>
                     ))}
                   </div>
@@ -286,7 +286,7 @@ export default function AdminPage() {
         <div>
           {pendingTrails.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
-              <CheckCircle size={48} className="mx-auto mb-3 text-gray-300" />
+              <CheckCircle width={48} height={48} strokeWidth={1.5} className="mx-auto mb-3 text-gray-300" />
               <p>Nenhuma trilha pendente de aprovação</p>
             </div>
           ) : (
@@ -297,14 +297,14 @@ export default function AdminPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-semibold text-lg text-gray-900">{trail.title}</h3>
-                        <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full">⏳ Pendente</span>
+                        <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full flex items-center gap-1"><Clock width={12} height={12} strokeWidth={1.5} /> Pendente</span>
                       </div>
                       {trail.description && <p className="text-sm text-gray-600 mb-2">{trail.description}</p>}
                       <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>👤 Criada por: <strong>{trail.createdByName || 'Pastor'}</strong></span>
-                        <span>📚 {trail.modules?.length || 0} módulos</span>
-                        <span>🏆 {trail.points} pontos</span>
-                        {trail.isMandatory && <span className="text-red-600">⚠ Obrigatória</span>}
+                        <span className="flex items-center gap-1"><User width={13} height={13} strokeWidth={1.5} /> Criada por: <strong>{trail.createdByName || 'Pastor'}</strong></span>
+                        <span className="flex items-center gap-1"><Book width={13} height={13} strokeWidth={1.5} /> {trail.modules?.length || 0} módulos</span>
+                        <span className="flex items-center gap-1"><Trophy width={13} height={13} strokeWidth={1.5} /> {trail.points} pontos</span>
+                        {trail.isMandatory && <span className="text-red-600 flex items-center gap-1"><WarningTriangle width={13} height={13} strokeWidth={1.5} /> Obrigatória</span>}
                       </div>
                       {trail.modules?.length > 0 && (
                         <div className="mt-3 bg-gray-50 rounded-lg p-3">
@@ -319,8 +319,8 @@ export default function AdminPage() {
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
                       <button onClick={() => handleApproveTrail(trail.id)}
-                        className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition flex items-center gap-1">
-                        <CheckCircle size={16} /> Aprovar
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition flex items-center gap-1">
+                        <CheckCircle width={16} height={16} strokeWidth={1.5} /> Aprovar
                       </button>
                     </div>
                   </div>
@@ -353,9 +353,9 @@ export default function AdminPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
                 <select value={bannerType} onChange={e => setBannerType(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-sm bg-white">
-                  <option value="info">ℹ️ Informativo (azul)</option>
-                  <option value="warning">⚠️ Atenção (amarelo)</option>
-                  <option value="error">🚨 Urgente (vermelho)</option>
+                  <option value="info">Informativo (azul)</option>
+                  <option value="warning">Atenção (amarelo)</option>
+                  <option value="error">Urgente (vermelho)</option>
                 </select>
               </div>
               <div>
@@ -420,7 +420,7 @@ export default function AdminPage() {
           </div>
 
           {/* Report results */}
-          {reportLoading && <div className="flex justify-center py-12"><Loader2 size={32} className="animate-spin text-gray-400" /></div>}
+          {reportLoading && <div className="flex justify-center py-12"><RefreshDouble width={32} height={32} strokeWidth={1.5} className="animate-spin text-gray-400" /></div>}
 
           {reportData && !reportLoading && (
             <div className="bg-white border rounded-xl p-5">
@@ -434,8 +434,8 @@ export default function AdminPage() {
                     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
                     const url = URL.createObjectURL(blob)
                     const a = document.createElement('a'); a.href = url; a.download = `${reportData.title}.csv`; a.click()
-                  }} className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-700 flex items-center gap-1">
-                    <Download size={14} /> CSV
+                  }} className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700 flex items-center gap-1">
+                    <Download width={14} height={14} strokeWidth={1.5} /> CSV
                   </button>
                   <button onClick={() => {
                     if (!reportData?.data?.length) return
@@ -449,8 +449,8 @@ export default function AdminPage() {
                     printWindow.document.write('</tbody></table></body></html>')
                     printWindow.document.close()
                     setTimeout(() => printWindow.print(), 500)
-                  }} className="bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-700 flex items-center gap-1">
-                    <Download size={14} /> PDF
+                  }} className="bg-slate-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-slate-700 flex items-center gap-1">
+                    <Download width={14} height={14} strokeWidth={1.5} /> PDF
                   </button>
                 </div>
               </div>
@@ -488,7 +488,7 @@ export default function AdminPage() {
         <div className="space-y-6">
           <div className="bg-white border rounded-xl p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
-              <Link2 size={20} className="text-blue-500" /> Integração Conexa.app
+              <Link width={20} height={20} strokeWidth={1.5} className="text-blue-500" /> Integração Conexa.app
             </h3>
             <p className="text-sm text-gray-500 mb-4">
               Controle de acesso baseado no status de pagamento dos clientes no Conexa.
@@ -516,7 +516,7 @@ export default function AdminPage() {
               {conexaStatus ? (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="text-center">
-                    <p className="text-lg font-bold text-green-600">{conexaStatus.connected ? '✓' : '✗'}</p>
+                    <p className={`text-lg font-bold flex items-center justify-center ${conexaStatus.connected ? 'text-blue-600' : 'text-red-600'}`}>{conexaStatus.connected ? <Check width={18} height={18} strokeWidth={1.5} /> : <Xmark width={18} height={18} strokeWidth={1.5} />}</p>
                     <p className="text-xs text-gray-500">Conectado</p>
                   </div>
                   <div className="text-center">
@@ -562,20 +562,20 @@ export default function AdminPage() {
                     setConexaSyncing(false)
                   }}
                   disabled={conexaSyncing}
-                  className="text-xs bg-green-50 text-green-600 px-3 py-1 rounded-lg hover:bg-green-100 disabled:opacity-50"
+                  className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-lg hover:bg-blue-100 disabled:opacity-50"
                 >
-                  {conexaSyncing ? <Loader2 size={14} className="animate-spin" /> : 'Sincronizar'}
+                  {conexaSyncing ? <RefreshDouble width={14} height={14} strokeWidth={1.5} className="animate-spin" /> : 'Sincronizar'}
                 </button>
               </div>
               {conexaSyncResult && (
-                <div className={`text-sm p-3 rounded-lg ${conexaSyncResult.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                <div className={`text-sm p-3 rounded-lg ${conexaSyncResult.ok ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'}`}>
                   <p className="font-medium">{conexaSyncResult.message}</p>
                   {conexaSyncResult.ok && (
                     <div className="mt-1 text-xs space-y-0.5">
                       <p>Emails sincronizados: {conexaSyncResult.emailsSynced}</p>
                       <p>Clientes bloqueados neste lote: {conexaSyncResult.blockedCustomers}</p>
                       {!conexaSyncResult.completed && (
-                        <p className="text-yellow-600 font-medium mt-1">⚠️ Sincronização parcial — clique novamente para continuar</p>
+                        <p className="text-yellow-600 font-medium mt-1 flex items-center gap-1"><WarningTriangle width={13} height={13} strokeWidth={1.5} /> Sincronização parcial — clique novamente para continuar</p>
                       )}
                     </div>
                   )}

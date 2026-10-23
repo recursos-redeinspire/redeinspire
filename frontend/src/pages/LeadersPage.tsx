@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth, type User } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
+import { User as UserIcon, Camera, Lock, LockSlash, Key, Shield, Church, EditPencil, Trash } from 'iconoir-react'
 
 const AVAILABLE_MINISTRIES = ['Louvor', 'Jovens', 'Crianças', 'Casais', 'Missões', 'Ensino', 'Diaconia', 'Intercessão', 'Comunicação', 'Acolhimento']
 
@@ -55,12 +56,12 @@ function EditUserModal({ item, onClose, onSaved, churches, isAdmin }: { item: an
       <div className="bg-white rounded-lg w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <h2 className="text-xl font-bold mb-4">{t('leaders.editUser')}</h2>
         {error && <div className="mb-3 text-sm text-red-600 bg-red-50 p-2 rounded">{error}</div>}
-        {successMsg && <div className="mb-3 text-sm text-green-700 bg-green-50 p-2 rounded">{successMsg}</div>}
+        {successMsg && <div className="mb-3 text-sm text-blue-700 bg-blue-50 p-2 rounded">{successMsg}</div>}
         <div className="space-y-4">
           <div className="flex items-center gap-4">
-            {photoUrl ? <img src={photoUrl} alt="" className="w-14 h-14 rounded-full object-cover border" /> : <div className="w-14 h-14 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-xl">👤</div>}
+            {photoUrl ? <img src={photoUrl} alt="" className="w-14 h-14 rounded-full object-cover border" /> : <div className="w-14 h-14 rounded-full bg-gray-200 flex items-center justify-center text-gray-400"><UserIcon width={24} height={24} strokeWidth={1.5} /></div>}
             <div>
-              <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded text-sm text-gray-700 inline-block">📷 {photoUrl ? 'Trocar foto' : 'Enviar foto'}<input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" /></label>
+              <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded text-sm text-gray-700 inline-flex items-center gap-1.5"><Camera width={14} height={14} strokeWidth={1.5} /> {photoUrl ? 'Trocar foto' : 'Enviar foto'}<input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" /></label>
               <p className="text-xs text-gray-400 mt-1">JPG/PNG, máx 200KB</p>
               {photoUrl && <button onClick={() => setPhotoUrl('')} className="text-xs text-red-500 hover:text-red-700">Remover</button>}
             </div>
@@ -74,17 +75,17 @@ function EditUserModal({ item, onClose, onSaved, churches, isAdmin }: { item: an
           {/* Permissions (only for lider role) */}
           {role === 'lider' && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-sm font-medium text-blue-800 mb-2">🔒 Permissões de acesso</p>
+              <p className="text-sm font-medium text-blue-800 mb-2 flex items-center gap-1.5"><Lock width={14} height={14} strokeWidth={1.5} /> Permissões de acesso</p>
               <p className="text-xs text-blue-600 mb-3">Selecione as seções que este líder pode acessar. Se nenhuma for selecionada, terá acesso total.</p>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { key: 'catalogo', label: 'Catálogo' },
+                  { key: 'catalogo', label: 'Vídeos' },
                   { key: 'busca', label: 'Busca' },
                   { key: 'trilhas', label: 'Trilhas' },
                   { key: 'mentorias', label: 'Mentorias' },
                   { key: 'podcast', label: 'Podcast' },
                   { key: 'planejamento', label: 'Planejamento' },
-                  { key: 'materiais', label: 'Materiais' },
+                  { key: 'materiais', label: 'Recursos' },
                   { key: 'mapa', label: 'Mapa' },
                   { key: 'dashboard', label: 'Dashboard' },
                   { key: 'mensagens', label: 'Mensagens' },
@@ -113,7 +114,7 @@ function EditUserModal({ item, onClose, onSaved, churches, isAdmin }: { item: an
           )}
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
             <div className="flex items-center justify-between">
-              <div><p className="text-sm font-medium text-amber-800">🔑 {t('leaders.resetPassword')}</p><p className="text-xs text-amber-600 mt-0.5">{t('leaders.resetPasswordDesc')}</p></div>
+              <div><p className="text-sm font-medium text-amber-800 flex items-center gap-1.5"><Key width={14} height={14} strokeWidth={1.5} /> {t('leaders.resetPassword')}</p><p className="text-xs text-amber-600 mt-0.5">{t('leaders.resetPasswordDesc')}</p></div>
               <button onClick={handleResetPassword} disabled={resetting} className="bg-amber-600 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-amber-700 disabled:opacity-50">{resetting ? t('leaders.resetting') : t('leaders.resetBtn')}</button>
             </div>
           </div>
@@ -220,7 +221,7 @@ export default function LeadersPage() {
                         {leader.photoUrl ? (
                           <img src={leader.photoUrl} alt="" className="w-8 h-8 rounded-full object-cover border flex-shrink-0" />
                         ) : (
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0 ${isBlocked ? 'bg-red-500' : isAdminUser ? 'bg-red-700' : isPastorUser ? 'bg-purple-700' : 'bg-gray-900'}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0 ${isBlocked ? 'bg-red-500' : isAdminUser ? 'bg-slate-700' : isPastorUser ? 'bg-blue-700' : 'bg-gray-900'}`}>
                             {leader.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                           </div>
                         )}
@@ -233,8 +234,8 @@ export default function LeadersPage() {
                     <td className="px-3 py-3 text-sm text-gray-600 hidden sm:table-cell">{leader.email}</td>
                     <td className="px-3 py-3 text-sm text-gray-600 hidden lg:table-cell">{churches.find(c => c.id === leader.churchId)?.name || '—'}</td>
                     <td className="px-3 py-3">
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${isAdminUser ? 'bg-red-50 text-red-700' : isPastorUser ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700'}`}>
-                        {isAdminUser ? `🛡️ ${t('role.admin')}` : isPastorUser ? `⛪ ${t('role.pastor')}` : `👤 ${t('role.leader')}`}
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium inline-flex items-center gap-1 ${isAdminUser ? 'bg-slate-100 text-slate-700' : isPastorUser ? 'bg-blue-50 text-blue-700' : 'bg-blue-50 text-blue-700'}`}>
+                        {isAdminUser ? <><Shield width={12} height={12} strokeWidth={1.5} /> {t('role.admin')}</> : isPastorUser ? <><Church width={12} height={12} strokeWidth={1.5} /> {t('role.pastor')}</> : <><UserIcon width={12} height={12} strokeWidth={1.5} /> {t('role.leader')}</>}
                       </span>
                     </td>
                     <td className="px-3 py-3 hidden md:table-cell">
@@ -249,7 +250,7 @@ export default function LeadersPage() {
                     </td>
                     <td className="px-3 py-3">
                       <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                        isBlocked ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+                        isBlocked ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'
                       }`}>
                         {isBlocked ? t('leaders.blocked') : t('leaders.active')}
                       </span>
@@ -257,9 +258,9 @@ export default function LeadersPage() {
                     <td className="px-3 py-3">
                       {canManage(leader) && (
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => setEditUser(leader)} className="text-xs px-2 py-1 rounded-lg font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition" title={t('leaders.editUser')}>✏️</button>
-                          <button onClick={() => handleBlock(leader.id, isBlocked)} className={`text-xs px-2 py-1 rounded-lg font-medium transition ${isBlocked ? 'bg-green-50 text-green-700 hover:bg-green-100' : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'}`} title={isBlocked ? t('leaders.unblock') : t('leaders.block')}>{isBlocked ? '🔓' : '🔒'}</button>
-                          <button onClick={() => handleDelete(leader.id, leader.name)} className="text-xs px-2 py-1 rounded-lg font-medium bg-red-50 text-red-700 hover:bg-red-100 transition" title={t('common.cancel')}>🗑</button>
+                          <button onClick={() => setEditUser(leader)} className="text-xs px-2 py-1 rounded-lg font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition inline-flex items-center" title={t('leaders.editUser')}><EditPencil width={14} height={14} strokeWidth={1.5} /></button>
+                          <button onClick={() => handleBlock(leader.id, isBlocked)} className={`text-xs px-2 py-1 rounded-lg font-medium transition inline-flex items-center ${isBlocked ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'}`} title={isBlocked ? t('leaders.unblock') : t('leaders.block')}>{isBlocked ? <LockSlash width={14} height={14} strokeWidth={1.5} /> : <Lock width={14} height={14} strokeWidth={1.5} />}</button>
+                          <button onClick={() => handleDelete(leader.id, leader.name)} className="text-xs px-2 py-1 rounded-lg font-medium bg-red-50 text-red-700 hover:bg-red-100 transition inline-flex items-center" title={t('common.cancel')}><Trash width={14} height={14} strokeWidth={1.5} /></button>
                         </div>
                       )}
                     </td>

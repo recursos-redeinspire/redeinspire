@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from 'lucide-react'
+import { Play, Pause, SoundHigh, SoundOff, Maximize, Collapse } from 'iconoir-react'
 
 declare global {
   interface Window { YT: any; onYouTubeIframeAPIReady?: () => void }
@@ -144,7 +144,7 @@ export default function YouTubePlayer({ videoId, thumbnail, title }: Props) {
         <div className="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition" />
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition">
-            <Play size={28} className="text-gray-900 ml-1" fill="currentColor" />
+            <Play width={28} height={28} strokeWidth={1.5} className="text-gray-900 ml-1" fill="currentColor" />
           </div>
         </div>
       </div>
@@ -177,7 +177,7 @@ export default function YouTubePlayer({ videoId, thumbnail, title }: Props) {
       {phase === 'ready' && paused && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/20 cursor-pointer" onClick={togglePlay}>
           <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-            <Play size={28} className="text-gray-900 ml-1" fill="currentColor" />
+            <Play width={28} height={28} strokeWidth={1.5} className="text-gray-900 ml-1" fill="currentColor" />
           </div>
         </div>
       )}
@@ -199,19 +199,19 @@ export default function YouTubePlayer({ videoId, thumbnail, title }: Props) {
           </div>
           <div className="flex items-center gap-3 px-4 py-2.5 text-white">
             <button onClick={togglePlay} className="hover:scale-110 transition">
-              {paused ? <Play size={22} fill="white" className="ml-0.5" /> : <Pause size={22} fill="white" />}
+              {paused ? <Play width={22} height={22} strokeWidth={1.5} fill="white" className="ml-0.5" /> : <Pause width={22} height={22} strokeWidth={1.5} fill="white" />}
             </button>
             <span className="text-xs font-mono tabular-nums opacity-90">{fmt(time)} / {fmt(dur)}</span>
             <div className="flex items-center gap-1.5 group/v">
               <button onClick={toggleMute} className="hover:scale-110 transition">
-                {muted || vol === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                {muted || vol === 0 ? <SoundOff width={20} height={20} strokeWidth={1.5} /> : <SoundHigh width={20} height={20} strokeWidth={1.5} />}
               </button>
               <input type="range" min={0} max={100} value={muted ? 0 : vol} onChange={changeVol}
                 className="w-0 group-hover/v:w-20 transition-all duration-200 accent-white h-1 cursor-pointer opacity-0 group-hover/v:opacity-100" />
             </div>
             <div className="flex-1" />
             <button onClick={() => setFull(f => !f)} className="hover:scale-110 transition">
-              {full ? <Minimize size={20} /> : <Maximize size={20} />}
+              {full ? <Collapse width={20} height={20} strokeWidth={1.5} /> : <Maximize width={20} height={20} strokeWidth={1.5} />}
             </button>
           </div>
         </div>

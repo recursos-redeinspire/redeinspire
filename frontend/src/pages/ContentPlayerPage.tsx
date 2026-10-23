@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
+import { Headset, MediaVideo, Page, Eye, Calendar } from 'iconoir-react'
 
 export default function ContentPlayerPage() {
   const { id } = useParams<{ id: string }>()
@@ -72,8 +73,8 @@ export default function ContentPlayerPage() {
 
           {content.type === 'audio' && contentUrl && (
             <div className="flex flex-col items-center justify-center py-16 px-8 gap-6">
-              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-6xl shadow-lg">
-                🎧
+              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center shadow-lg">
+                <Headset width={56} height={56} strokeWidth={1.5} className="text-white" />
               </div>
               <audio controls className="w-full max-w-lg" src={contentUrl}>
                 {t('player.audioNotSupported')}
@@ -90,8 +91,12 @@ export default function ContentPlayerPage() {
           {!contentUrl && (
             <div className="aspect-video flex items-center justify-center text-gray-400">
               <div className="text-center">
-                <span className="text-6xl block mb-4">
-                  {content.type === 'video' ? '🎬' : content.type === 'audio' ? '🎧' : '📄'}
+                <span className="flex items-center justify-center mb-4">
+                  {content.type === 'video'
+                    ? <MediaVideo width={56} height={56} strokeWidth={1.5} />
+                    : content.type === 'audio'
+                      ? <Headset width={56} height={56} strokeWidth={1.5} />
+                      : <Page width={56} height={56} strokeWidth={1.5} />}
                 </span>
                 <p className="text-sm">{t('player.noUrl')}</p>
               </div>
@@ -119,8 +124,8 @@ export default function ContentPlayerPage() {
           )}
 
           <div className="mt-4 flex items-center gap-4 text-xs text-gray-400">
-            {content.views > 0 && <span>👁 {content.views} {t('player.views')}</span>}
-            {content.createdAt && <span>📅 {new Date(content.createdAt).toLocaleDateString('pt-BR')}</span>}
+            {content.views > 0 && <span className="inline-flex items-center gap-1"><Eye width={13} height={13} strokeWidth={1.5} /> {content.views} {t('player.views')}</span>}
+            {content.createdAt && <span className="inline-flex items-center gap-1"><Calendar width={13} height={13} strokeWidth={1.5} /> {new Date(content.createdAt).toLocaleDateString('pt-BR')}</span>}
             {content.categorySlug && <span className="bg-gray-50 text-gray-900 px-2 py-0.5 rounded">{content.categorySlug}</span>}
           </div>
 

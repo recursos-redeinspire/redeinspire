@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
-import { Mic, CalendarDays, Users, User, Trash2 } from 'lucide-react'
+import { Microphone, Calendar, Group, User, Trash, Check } from 'iconoir-react'
 
 export default function MentoringPage() {
   const { getWebinars, deleteWebinar, enrollWebinar, getMentoringSessions, deleteMentoringSession, completeMentoringSession } = useData()
@@ -27,7 +27,7 @@ export default function MentoringPage() {
   const formatDate = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   const statusLabel = (s: string) => {
-    if (s === 'completed') return { text: t('mentoring.completed'), cls: 'bg-green-100 text-green-700' }
+    if (s === 'completed') return { text: t('mentoring.completed'), cls: 'bg-blue-100 text-blue-700' }
     if (s === 'in_progress') return { text: t('mentoring.inProgress'), cls: 'bg-yellow-100 text-yellow-700' }
     return { text: t('mentoring.scheduled'), cls: 'bg-blue-100 text-blue-700' }
   }
@@ -78,8 +78,8 @@ export default function MentoringPage() {
       </div>
       <p className="text-gray-600 mb-6">{t('mentoring.subtitle')}</p>
 
-      {enrollMsg && <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">{enrollMsg}</div>}
-      {completeMsg && <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">{completeMsg}</div>}
+      {enrollMsg && <div className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{enrollMsg}</div>}
+      {completeMsg && <div className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{completeMsg}</div>}
 
       <div className="flex gap-4 mb-6 border-b">
         <button onClick={() => setTab('webinars')} className={`pb-2 px-1 font-medium ${tab === 'webinars' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>{t('mentoring.upcomingWebinars')} ({webinars.length})</button>
@@ -95,12 +95,12 @@ export default function MentoringPage() {
                 <div className="flex-1">
                   <h3 className="font-semibold text-lg">{w.title}</h3>
                   <p className="text-gray-600 text-sm mt-1">{w.description}</p>
-                  <p className="text-sm text-gray-500 mt-2 flex items-center gap-1"><Mic size={14} /> {w.hostName} · <CalendarDays size={14} /> {formatDate(w.scheduledAt)}</p>
-                  <p className="text-sm text-gray-500 mt-1 flex items-center gap-1"><Users size={14} /> {(w.enrolledUsers || []).length} {t('mentoring.enrolled')}</p>
+                  <p className="text-sm text-gray-500 mt-2 flex items-center gap-1"><Microphone width={14} height={14} strokeWidth={1.5} /> {w.hostName} · <Calendar width={14} height={14} strokeWidth={1.5} /> {formatDate(w.scheduledAt)}</p>
+                  <p className="text-sm text-gray-500 mt-1 flex items-center gap-1"><Group width={14} height={14} strokeWidth={1.5} /> {(w.enrolledUsers || []).length} {t('mentoring.enrolled')}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {isEnrolled(w) ? (
-                    <span className="text-sm text-green-600 font-medium px-3 py-2">✓ {t('mentoring.enrolled')}</span>
+                    <span className="text-sm text-blue-600 font-medium px-3 py-2 flex items-center gap-1"><Check width={14} height={14} strokeWidth={1.5} /> {t('mentoring.enrolled')}</span>
                   ) : (
                     <button onClick={() => handleEnrollWebinar(w.id, w.title)} className="bg-gray-900 text-white px-4 py-2 rounded text-sm hover:bg-gray-800">{t('mentoring.enroll')}</button>
                   )}
@@ -108,7 +108,7 @@ export default function MentoringPage() {
                     <a href={w.meetingUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">{t('mentoring.access')}</a>
                   )}
                   {canCreateWebinar && (
-                    <button onClick={() => handleDeleteWebinar(w.id, w.title)} className="text-red-500 hover:text-red-700 text-sm" title={t('common.delete')}><Trash2 size={16} /></button>
+                    <button onClick={() => handleDeleteWebinar(w.id, w.title)} className="text-red-500 hover:text-red-700 text-sm" title={t('common.delete')}><Trash width={16} height={16} strokeWidth={1.5} /></button>
                   )}
                 </div>
               </div>
@@ -129,16 +129,16 @@ export default function MentoringPage() {
                     <span className={`text-xs px-2 py-0.5 rounded-full ${st.cls}`}>{st.text}</span>
                   </div>
                   {s.description && <p className="text-gray-600 text-sm mt-1">{s.description}</p>}
-                  <p className="text-sm text-gray-500 mt-1 flex items-center gap-1"><User size={14} /> {t('mentoring.leader')}: {s.mentorName} · {t('mentoring.pastor')}: {s.pastorName}</p>
-                  <p className="text-sm text-gray-500 mt-1 flex items-center gap-1"><CalendarDays size={14} /> {formatDate(s.scheduledAt)}</p>
+                  <p className="text-sm text-gray-500 mt-1 flex items-center gap-1"><User width={14} height={14} strokeWidth={1.5} /> {t('mentoring.leader')}: {s.mentorName} · {t('mentoring.pastor')}: {s.pastorName}</p>
+                  <p className="text-sm text-gray-500 mt-1 flex items-center gap-1"><Calendar width={14} height={14} strokeWidth={1.5} /> {formatDate(s.scheduledAt)}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {s.meetingUrl && s.status !== 'completed' && <a href={s.meetingUrl} target="_blank" rel="noopener noreferrer" className="bg-gray-900 text-white px-4 py-2 rounded text-sm hover:bg-gray-800">{t('mentoring.enter')}</a>}
                   {isPastor && s.status !== 'completed' && (
-                    <button onClick={() => handleCompleteMentoring(s.id, s.title)} className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">✓ {t('mentoring.complete')}</button>
+                    <button onClick={() => handleCompleteMentoring(s.id, s.title)} className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 flex items-center gap-1.5"><Check width={14} height={14} strokeWidth={1.5} /> {t('mentoring.complete')}</button>
                   )}
                   {canCreateMentoring && s.status !== 'completed' && (
-                    <button onClick={() => handleDeleteMentoring(s.id, s.title)} className="text-red-500 hover:text-red-700 text-sm" title={t('common.delete')}><Trash2 size={16} /></button>
+                    <button onClick={() => handleDeleteMentoring(s.id, s.title)} className="text-red-500 hover:text-red-700 text-sm" title={t('common.delete')}><Trash width={16} height={16} strokeWidth={1.5} /></button>
                   )}
                 </div>
               </div>

@@ -85,6 +85,9 @@ interface DataContextType {
   syncDropbox: () => Promise<{ synced: number; total: number; message: string }>
   browseDropbox: (path: string) => Promise<{ path: string; entries: any[] }>
   downloadDropbox: (path: string, action?: 'view' | 'download') => Promise<{ url: string; name: string }>
+  getDropboxThumbnail: (path: string, size?: string) => Promise<string>
+  getDropboxThumbnailBatch: (paths: string[], size?: string) => Promise<Record<string, string>>
+  getFolderCover: (path: string) => Promise<{ path: string; cover: string | null; coverLower?: string }>
   smartSearchDropbox: (q: string) => Promise<{ entries: any[]; totalResults: number; keywords: string[] }>
   getDropboxLink: (dropboxPath: string) => Promise<{ link: string }>
   getYoutubeVideos: (pageToken?: string, limit?: number) => Promise<{ videos: any[]; totalResults: number; nextPageToken: string | null; prevPageToken: string | null }>
@@ -111,7 +114,7 @@ interface DataContextType {
   getVideoRecs: (videoId: string) => Promise<{ videoId: string; items: any[] }>
   addVideoRec: (videoId: string, data: any) => Promise<any>
   deleteVideoRec: (videoId: string, itemId: string) => Promise<any>
-  getTopDownloads: () => Promise<{ rank: number; filePath: string; fileName: string; downloads: number }[]>
+  getTopDownloads: () => Promise<{ rank: number; folderPath: string; folderName: string; downloads: number; views: number }[]>
   getBanner: () => Promise<{ active: boolean; message: string; type: string }>
   getUploadPresignedUrl: (fileName: string, contentType: string) => Promise<{ uploadUrl: string; fileUrl: string }>
   createMinistry: (data: { name: string; description: string; leaderId?: string; leaderName?: string }) => Promise<any>
@@ -532,6 +535,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return apiFetch<{ url: string; name: string }>('/dropbox/download', { method: 'POST', body: JSON.stringify({ path, action: action || 'view' }) })
   }, [])
 
+  // Get a compressed thumbnail URL for a Dropbox image. The backend caches the
+  // thumbnail in S3/CloudFront and returns a plain URL usable directly in <img src>.
+  const getDropboxThumbnail = useCallback(async (path: string, size?: string): Promise<string> => {
+    const params = new URLSearchParams({ path })
+    if (size) params.set('size', size)
+    const { url } = await apiFetch<{ url: string }>(`/dropbox/thumbnail?${params.toString()}`)
+    return url
+  }, [])
+
+  // Resolve many thumbnails in a single request. Returns a map path -> url.
+  const getDropboxThumbnailBatch = useCallback(async (paths: string[], size?: string): Promise<Record<string, string>> => {
+    if (paths.length === 0) return {}
+    const { thumbs } = await apiFetch<{ thumbs: Record<string, string> }>('/dropbox/thumbnail-batch', {
+      method: 'POST',
+      body: JSON.stringify({ paths, size }),
+    })
+    return thumbs || {}
+  }, [])
+
+  // When a folder has no admin-defined cover, ask the backend for the first
+  // image in the folder to use as a fallback cover.
+  const getFolderCover = useCallback(async (path: string): Promise<{ path: string; cover: string | null; coverLower?: string }> => {
+    const encoded = encodeURIComponent(path)
+    return apiFetch<{ path: string; cover: string | null; coverLower?: string }>(`/dropbox/folder-cover?path=${encoded}`)
+  }, [])
+
   const smartSearchDropbox = useCallback(async (q: string): Promise<{ entries: any[]; totalResults: number; keywords: string[] }> => {
     return apiFetch(`/dropbox/smart-search?q=${encodeURIComponent(q)}`)
   }, [])
@@ -640,7 +669,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return apiFetch(`/video-recs/${encodeURIComponent(videoId)}?itemId=${encodeURIComponent(itemId)}`, { method: 'DELETE' })
   }, [])
 
-  const getTopDownloads = useCallback(async (): Promise<{ rank: number; filePath: string; fileName: string; downloads: number }[]> => {
+  const getTopDownloads = useCallback(async (): Promise<{ rank: number; folderPath: string; folderName: string; downloads: number; views: number }[]> => {
     return apiFetch('/dropbox/top-downloads')
   }, [])
 
@@ -786,7 +815,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getMetrics, getLeaderRanking, getTimeline, getRecentAccesses,
     getMessages, getUnreadCount, markAsRead, sendMessage, getMessageRecipients,
     getMinistries, createMinistry, deleteMinistry, updateMinistry, getMyPoints, getPointsRanking,
-    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, smartSearchDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, smartSearchYoutube, getComments, addComment, getVideoTags, saveVideoTags, getAllVideoTags, getVideoCategories, saveVideoCategories, getFolderVideos, saveFolderVideos, getFileText, getFolderThumbnails, saveFolderThumbnail, getFolderTags, saveFolderTags, getAllFolderTags, saveVideoThumbnail, deleteVideoThumbnail, getAllVideoThumbnails, getVideoRecs, addVideoRec, deleteVideoRec, getTopDownloads, getBanner, getUploadPresignedUrl,
+    getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, getDropboxThumbnail, getDropboxThumbnailBatch, getFolderCover, smartSearchDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, smartSearchYoutube, getComments, addComment, getVideoTags, saveVideoTags, getAllVideoTags, getVideoCategories, saveVideoCategories, getFolderVideos, saveFolderVideos, getFileText, getFolderThumbnails, saveFolderThumbnail, getFolderTags, saveFolderTags, getAllFolderTags, saveVideoThumbnail, deleteVideoThumbnail, getAllVideoThumbnails, getVideoRecs, addVideoRec, deleteVideoRec, getTopDownloads, getBanner, getUploadPresignedUrl,
     getChurches, getTopChurches, createChurch, deleteChurch, updateChurch,
     getPlans, savePlan, deletePlan,
     getPodcastEpisodes, createPodcast, updatePodcast, deletePodcast, getPodcastProgress, updatePodcastProgress,

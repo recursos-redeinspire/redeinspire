@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import { Routes, Route } from 'react-router-dom'
-import { AuthProvider } from './contexts/AuthContext'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { DataProvider } from './contexts/DataContext'
 import { I18nProvider } from './i18n/I18nContext'
 import { seedIfNeeded } from './store/seedData'
@@ -23,15 +23,6 @@ import ContentPlayerPage from './pages/ContentPlayerPage'
 import ManagementPage from './pages/ManagementPage'
 import MaterialsPage from './pages/MaterialsPage'
 import AdminPage from './pages/AdminPage'
-import PreviewNewUI from './pages/PreviewNewUI'
-import PreviewDark from './pages/PreviewDark'
-import PreviewEditorial from './pages/PreviewEditorial'
-import PreviewPlanA from './pages/PreviewPlanA'
-import PreviewPlanB from './pages/PreviewPlanB'
-import PreviewPlanC from './pages/PreviewPlanC'
-import PreviewMatA from './pages/PreviewMatA'
-import PreviewMatB from './pages/PreviewMatB'
-import PreviewMatC from './pages/PreviewMatC'
 
 function Protected({ children }: { children: React.ReactNode }) {
   return (
@@ -39,6 +30,12 @@ function Protected({ children }: { children: React.ReactNode }) {
       <Layout>{children}</Layout>
     </ProtectedRoute>
   )
+}
+
+function AdminOnly({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+  if (user?.role !== 'admin') return <Navigate to="/" replace />
+  return <>{children}</>
 }
 
 export default function App() {
@@ -56,26 +53,17 @@ export default function App() {
             <Route path="/catalogo" element={<Protected><CatalogPage /></Protected>} />
             <Route path="/conteudo/:id" element={<Protected><ContentPlayerPage /></Protected>} />
             <Route path="/busca" element={<Protected><SearchPage /></Protected>} />
-            <Route path="/trilhas" element={<Protected><TrailsPage /></Protected>} />
-            <Route path="/mentorias" element={<Protected><MentoringPage /></Protected>} />
+            <Route path="/trilhas" element={<Protected><AdminOnly><TrailsPage /></AdminOnly></Protected>} />
+            <Route path="/mentorias" element={<Protected><AdminOnly><MentoringPage /></AdminOnly></Protected>} />
             <Route path="/dashboard" element={<Protected><DashboardPage /></Protected>} />
             <Route path="/mensagens" element={<Protected><MessagesPage /></Protected>} />
             <Route path="/mapa" element={<Protected><MapPage /></Protected>} />
-            <Route path="/planejamento" element={<Protected><PlanningPage /></Protected>} />
+            <Route path="/planejamento" element={<Protected><AdminOnly><PlanningPage /></AdminOnly></Protected>} />
             <Route path="/podcast" element={<Protected><PodcastPage /></Protected>} />
             <Route path="/lideres" element={<Protected><LeadersPage /></Protected>} />
             <Route path="/gestao" element={<Protected><ManagementPage /></Protected>} />
             <Route path="/materiais" element={<Protected><MaterialsPage /></Protected>} />
             <Route path="/admin" element={<Protected><AdminPage /></Protected>} />
-            <Route path="/preview-new" element={<PreviewNewUI />} />
-            <Route path="/preview-dark" element={<PreviewDark />} />
-            <Route path="/preview-editorial" element={<PreviewEditorial />} />
-            <Route path="/preview-plan-a" element={<Protected><PreviewPlanA /></Protected>} />
-            <Route path="/preview-plan-b" element={<Protected><PreviewPlanB /></Protected>} />
-            <Route path="/preview-plan-c" element={<Protected><PreviewPlanC /></Protected>} />
-            <Route path="/preview-mat-a" element={<Protected><PreviewMatA /></Protected>} />
-            <Route path="/preview-mat-b" element={<Protected><PreviewMatB /></Protected>} />
-            <Route path="/preview-mat-c" element={<Protected><PreviewMatC /></Protected>} />
           </Routes>
         </div>
       </DataProvider>

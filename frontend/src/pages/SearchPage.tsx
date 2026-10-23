@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
-import { Search, Video, FileText, Loader2, Play, Download, FolderOpen } from 'lucide-react'
+import { Search, MediaVideo, Page, RefreshDouble, Play, Download, Folder } from 'iconoir-react'
 
 export default function SearchPage() {
   const { smartSearchYoutube, smartSearchDropbox, downloadDropbox } = useData()
@@ -65,7 +65,7 @@ export default function SearchPage() {
       {/* Search bar */}
       <div className="flex gap-2 mb-4">
         <div className="flex-1 relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search width={16} height={16} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             value={query}
@@ -96,10 +96,10 @@ export default function SearchPage() {
             Todos ({totalResults})
           </button>
           <button onClick={() => setTab('videos')} className={`pb-2 px-1 text-sm font-medium flex items-center gap-1 ${tab === 'videos' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
-            <Video size={14} /> Vídeos ({videoResults.length})
+            <MediaVideo width={14} height={14} strokeWidth={1.5} /> Vídeos ({videoResults.length})
           </button>
           <button onClick={() => setTab('materials')} className={`pb-2 px-1 text-sm font-medium flex items-center gap-1 ${tab === 'materials' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
-            <FolderOpen size={14} /> Materiais ({materialResults.length})
+            <Folder width={14} height={14} strokeWidth={1.5} /> Materiais ({materialResults.length})
           </button>
         </div>
       )}
@@ -107,14 +107,14 @@ export default function SearchPage() {
       {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-20">
-          <Loader2 size={32} className="animate-spin text-gray-400" />
+          <RefreshDouble width={32} height={32} strokeWidth={1.5} className="animate-spin text-gray-400" />
         </div>
       )}
 
       {/* No results */}
       {searched && !loading && totalResults === 0 && (
         <div className="text-center py-16 text-gray-400">
-          <Search size={48} className="mx-auto mb-3 text-gray-300" />
+          <Search width={48} height={48} strokeWidth={1.5} className="mx-auto mb-3 text-gray-300" />
           <p className="text-lg">Nenhum resultado para "{query}"</p>
           <p className="text-sm mt-2">Tente outras palavras-chave</p>
         </div>
@@ -123,7 +123,7 @@ export default function SearchPage() {
       {/* Not searched yet */}
       {!searched && !loading && (
         <div className="text-center py-16 text-gray-400">
-          <Search size={48} className="mx-auto mb-3 text-gray-300" />
+          <Search width={48} height={48} strokeWidth={1.5} className="mx-auto mb-3 text-gray-300" />
           <p className="text-lg">{t('search.typeToSearch')}</p>
         </div>
       )}
@@ -131,7 +131,7 @@ export default function SearchPage() {
       {/* Video results */}
       {!loading && showVideos && videoResults.length > 0 && (
         <div className="mb-8">
-          {tab === 'all' && <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Video size={18} /> Vídeos ({videoResults.length})</h2>}
+          {tab === 'all' && <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><MediaVideo width={18} height={18} strokeWidth={1.5} className="text-slate-400" /> Vídeos ({videoResults.length})</h2>}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {videoResults.map(video => (
               <div key={video.id} onClick={() => navigate(`/catalogo?video=${video.id}`)}
@@ -139,7 +139,7 @@ export default function SearchPage() {
                 <div className="relative aspect-video bg-gray-100">
                   {video.thumbnail && <img src={video.thumbnail} alt="" className="w-full h-full object-cover" />}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center">
-                    <Play size={32} className="text-white opacity-0 group-hover:opacity-100 transition" fill="white" />
+                    <Play width={32} height={32} strokeWidth={1.5} className="text-white opacity-0 group-hover:opacity-100 transition" fill="white" />
                   </div>
                 </div>
                 <div className="p-3">
@@ -154,7 +154,7 @@ export default function SearchPage() {
       {/* Material results */}
       {!loading && showMaterials && materialResults.length > 0 && (
         <div>
-          {tab === 'all' && <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><FolderOpen size={18} /> Materiais ({materialResults.length})</h2>}
+          {tab === 'all' && <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Folder width={18} height={18} strokeWidth={1.5} className="text-slate-400" /> Materiais ({materialResults.length})</h2>}
           <div className="space-y-2">
             {materialResults.map((file: any, idx: number) => (
               <div key={file.id || file.pathLower || idx} className="bg-white border rounded-xl p-3 flex items-center gap-3 hover:shadow-sm transition cursor-pointer"
@@ -166,10 +166,10 @@ export default function SearchPage() {
                     navigate(`/materiais?path=${encodeURIComponent(folderPath)}`)
                   }
                 }}>
-                <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${file._isFolder || file.tag === 'folder' ? 'bg-amber-50' : 'bg-gray-50'}`}>
+                <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${file._isFolder || file.tag === 'folder' ? 'bg-blue-50' : 'bg-gray-50'}`}>
                   {file._isFolder || file.tag === 'folder'
-                    ? <FolderOpen size={18} className="text-amber-500" />
-                    : <FileText size={18} className="text-gray-500" />
+                    ? <Folder width={18} height={18} strokeWidth={1.5} className="text-blue-600" />
+                    : <Page width={18} height={18} strokeWidth={1.5} className="text-slate-500" />
                   }
                 </div>
                 <div className="flex-1 min-w-0">
@@ -179,7 +179,7 @@ export default function SearchPage() {
                 {!(file._isFolder || file.tag === 'folder') && (
                   <button onClick={(e) => { e.stopPropagation(); handleDownload(file) }}
                     className="flex-shrink-0 text-gray-400 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition">
-                    <Download size={16} />
+                    <Download width={16} height={16} strokeWidth={1.5} />
                   </button>
                 )}
               </div>

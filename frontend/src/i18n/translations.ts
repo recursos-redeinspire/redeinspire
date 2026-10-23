@@ -40,13 +40,13 @@ const translations: Translations = {
   'birthday.close': { pt: 'Amém! Obrigado!', en: 'Amen! Thank you!', es: '¡Amén! ¡Gracias!', fr: 'Amen ! Merci !' },
   // ---- Sidebar / Nav ----
   'nav.home': { pt: 'Início', en: 'Home', es: 'Inicio', fr: 'Accueil' },
-  'nav.catalog': { pt: 'Catálogo', en: 'Catalog', es: 'Catálogo', fr: 'Catalogue' },
+  'nav.catalog': { pt: 'Vídeos', en: 'Videos', es: 'Videos', fr: 'Vidéos' },
   'nav.search': { pt: 'Busca', en: 'Search', es: 'Búsqueda', fr: 'Recherche' },
   'nav.trails': { pt: 'Trilhas', en: 'Trails', es: 'Rutas', fr: 'Parcours' },
   'nav.mentoring': { pt: 'Mentorias', en: 'Mentoring', es: 'Mentorías', fr: 'Mentorat' },
   'nav.podcast': { pt: 'Podcast', en: 'Podcast', es: 'Podcast', fr: 'Podcast' },
   'nav.planning': { pt: 'Planejamento', en: 'Planning', es: 'Planificación', fr: 'Planification' },
-  'nav.materials': { pt: 'Materiais', en: 'Materials', es: 'Materiales', fr: 'Matériaux' },
+  'nav.materials': { pt: 'Recursos', en: 'Resources', es: 'Recursos', fr: 'Ressources' },
   'nav.map': { pt: 'Mapa', en: 'Map', es: 'Mapa', fr: 'Carte' },
   'nav.dashboard': { pt: 'Dashboard', en: 'Dashboard', es: 'Panel', fr: 'Tableau de bord' },
   'nav.messages': { pt: 'Mensagens', en: 'Messages', es: 'Mensajes', fr: 'Messages' },
@@ -68,7 +68,7 @@ const translations: Translations = {
   // ---- Home Page ----
   'home.welcome': { pt: 'Bem-vindo,', en: 'Welcome,', es: 'Bienvenido,', fr: 'Bienvenue,' },
   'home.subtitle': { pt: 'Sua plataforma de conteúdo, capacitação e conexão pastoral', en: 'Your platform for content, training and pastoral connection', es: 'Tu plataforma de contenido, capacitación y conexión pastoral', fr: 'Votre plateforme de contenu, formation et connexion pastorale' },
-  'home.exploreCatalog': { pt: 'Explorar Catálogo', en: 'Explore Catalog', es: 'Explorar Catálogo', fr: 'Explorer le Catalogue' },
+  'home.exploreCatalog': { pt: 'Explorar Vídeos', en: 'Explore Videos', es: 'Explorar Videos', fr: 'Explorer les Vidéos' },
   'home.myTrails': { pt: 'Minhas Trilhas', en: 'My Trails', es: 'Mis Rutas', fr: 'Mes Parcours' },
   'home.nextWebinar': { pt: 'Próximo Webinar', en: 'Next Webinar', es: 'Próximo Webinar', fr: 'Prochain Webinaire' },
   'home.accessZoom': { pt: 'Acessar Zoom', en: 'Join Zoom', es: 'Acceder a Zoom', fr: 'Rejoindre Zoom' },
@@ -91,8 +91,8 @@ const translations: Translations = {
   'footer.support': { pt: 'Suporte', en: 'Support', es: 'Soporte', fr: 'Support' },
   'footer.rights': { pt: 'Todos os direitos reservados.', en: 'All rights reserved.', es: 'Todos los derechos reservados.', fr: 'Tous droits réservés.' },
   // ---- Catalog Page ----
-  'catalog.title': { pt: 'Catálogo de Conteúdos', en: 'Content Catalog', es: 'Catálogo de Contenidos', fr: 'Catalogue de Contenus' },
-  'catalog.search': { pt: 'Buscar no catálogo...', en: 'Search catalog...', es: 'Buscar en el catálogo...', fr: 'Rechercher dans le catalogue...' },
+  'catalog.title': { pt: 'Vídeos', en: 'Videos', es: 'Videos', fr: 'Vidéos' },
+  'catalog.search': { pt: 'Buscar nos vídeos...', en: 'Search videos...', es: 'Buscar en los videos...', fr: 'Rechercher dans les vidéos...' },
   'catalog.all': { pt: 'Todos', en: 'All', es: 'Todos', fr: 'Tous' },
   'catalog.video': { pt: 'Vídeos', en: 'Videos', es: 'Videos', fr: 'Vidéos' },
   'catalog.audio': { pt: 'Áudios', en: 'Audio', es: 'Audios', fr: 'Audio' },
@@ -317,7 +317,7 @@ const translations: Translations = {
   'podcast.creating': { pt: 'Criando...', en: 'Creating...', es: 'Creando...', fr: 'Création...' },
   'podcast.confirmDelete': { pt: 'Tem certeza que deseja excluir este episódio?', en: 'Are you sure you want to delete this episode?', es: '¿Está seguro de que desea eliminar este episodio?', fr: 'Êtes-vous sûr de vouloir supprimer cet épisode ?' },
   // ---- Materials Page ----
-  'materials.title': { pt: 'Materiais', en: 'Materials', es: 'Materiales', fr: 'Matériaux' },
+  'materials.title': { pt: 'Recursos', en: 'Resources', es: 'Recursos', fr: 'Ressources' },
   'materials.newMaterial': { pt: 'Novo Material', en: 'New Material', es: 'Nuevo Material', fr: 'Nouveau Matériel' },
   'materials.create': { pt: 'Criar Material', en: 'Create Material', es: 'Crear Material', fr: 'Créer Matériel' },
   'materials.edit': { pt: 'Editar Material', en: 'Edit Material', es: 'Editar Material', fr: 'Modifier Matériel' },
@@ -498,6 +498,7 @@ const translations: Translations = {
   'common.none': { pt: '-- Nenhum --', en: '-- None --', es: '-- Ninguno --', fr: '-- Aucun --' },
   'common.select': { pt: '-- Selecione --', en: '-- Select --', es: '-- Seleccione --', fr: '-- Sélectionnez --' },
   'common.fillRequired': { pt: 'Preencha os campos obrigatórios.', en: 'Fill in the required fields.', es: 'Complete los campos obligatorios.', fr: 'Remplissez les champs obligatoires.' },
+  'common.comingSoon': { pt: ' - em breve', en: ' - coming soon', es: ' - próximamente', fr: ' - bientôt' },
 }
 
 export default translations

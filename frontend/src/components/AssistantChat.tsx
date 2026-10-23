@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, Send, Loader2, User, Zap } from 'lucide-react'
+import { Xmark, Send, RefreshDouble, User, Flash } from 'iconoir-react'
 
 const API = import.meta.env.VITE_API_BASE_URL || 'https://h28wyjr7u7.execute-api.us-east-1.amazonaws.com'
 
@@ -79,7 +79,7 @@ export default function AssistantChat() {
       {!open && (
         <button onClick={() => setOpen(true)}
           className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 rounded-full shadow-lg hover:bg-blue-700 transition flex items-center justify-center z-40 hover:scale-110">
-          <Zap size={24} fill="white" />
+          <Flash width={24} height={24} strokeWidth={1.5} className="text-white" />
         </button>
       )}
 
@@ -89,20 +89,20 @@ export default function AssistantChat() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-gray-900 text-white">
             <div className="flex items-center gap-2">
-              <Zap size={18} fill="white" />
+              <Flash width={18} height={18} strokeWidth={1.5} className="text-white" />
               <div>
                 <p className="font-semibold text-sm">Assistente Inspire</p>
                 <p className="text-xs text-white/60">Pergunte sobre conteúdos da plataforma</p>
               </div>
             </div>
-            <button onClick={() => setOpen(false)} className="text-white/60 hover:text-white"><X size={20} /></button>
+            <button onClick={() => setOpen(false)} className="text-white/60 hover:text-white"><Xmark width={20} height={20} strokeWidth={1.5} /></button>
           </div>
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.length === 0 && (
               <div className="text-center text-gray-400 py-8">
-                <Zap size={40} className="mx-auto mb-3 text-gray-300" />
+                <Flash width={40} height={40} strokeWidth={1.5} className="mx-auto mb-3 text-gray-300" />
                 <p className="text-sm font-medium">Olá! Como posso ajudar?</p>
                 <p className="text-xs mt-1">Pergunte sobre vídeos, materiais ou treinamentos</p>
                 <div className="mt-4 space-y-2">
@@ -119,7 +119,7 @@ export default function AssistantChat() {
               <div key={i} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'assistant' && (
                   <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 flex items-center justify-center">
-                    <Zap size={14} fill="white" />
+                    <Flash width={14} height={14} strokeWidth={1.5} className="text-white" />
                   </div>
                 )}
                 <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm ${
@@ -135,7 +135,7 @@ export default function AssistantChat() {
                 </div>
                 {msg.role === 'user' && (
                   <div className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center">
-                    <User size={14} className="text-white" />
+                    <User width={14} height={14} strokeWidth={1.5} className="text-white" />
                   </div>
                 )}
               </div>
@@ -143,10 +143,10 @@ export default function AssistantChat() {
             {loading && (
               <div className="flex gap-2 justify-start">
                 <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 flex items-center justify-center">
-                  <Zap size={14} fill="white" />
+                  <Flash width={14} height={14} strokeWidth={1.5} className="text-white" />
                 </div>
                 <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl rounded-bl-md px-4 py-3">
-                  <Loader2 size={16} className="animate-spin text-gray-400" />
+                  <RefreshDouble width={16} height={16} strokeWidth={1.5} className="animate-spin text-gray-400" />
                 </div>
               </div>
             )}
@@ -166,7 +166,7 @@ export default function AssistantChat() {
               />
               <button onClick={sendMessage} disabled={!input.trim() || loading}
                 className="bg-gray-900 text-white p-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-50 transition">
-                <Send size={16} />
+                <Send width={16} height={16} strokeWidth={1.5} />
               </button>
             </div>
           </div>

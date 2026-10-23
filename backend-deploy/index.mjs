@@ -9,6 +9,7 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 import jwt from 'jsonwebtoken';
 import { v4 as uuid } from 'uuid';
 import JSZip from 'jszip';
+import { createHash } from 'node:crypto';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -206,6 +207,9 @@ export async function handler(event) {
     if (path === '/dropbox/sync' && method === 'POST') return await dropboxSync(getUserFromToken(event));
     if (path === '/dropbox/browse' && method === 'GET') return await dropboxBrowse(qs(event), getUserFromToken(event));
     if (path === '/dropbox/download' && method === 'POST') return await dropboxDownload(body(event), getUserFromToken(event));
+    if (path === '/dropbox/thumbnail' && method === 'GET') return await dropboxThumbnail(qs(event), getUserFromToken(event));
+    if (path === '/dropbox/thumbnail-batch' && method === 'POST') return await dropboxThumbnailBatch(body(event), getUserFromToken(event));
+    if (path === '/dropbox/folder-cover' && method === 'GET') return await dropboxFolderCover(qs(event), getUserFromToken(event));
     if (path === '/dropbox/smart-search' && method === 'GET') return await dropboxSmartSearch(qs(event), getUserFromToken(event));
     if (path === '/dropbox/track-download' && method === 'POST') return await dropboxTrackDownload(body(event), getUserFromToken(event));
     if (path === '/dropbox/top-downloads' && method === 'GET') return await dropboxTopDownloads(getUserFromToken(event));
@@ -1642,6 +1646,247 @@ async function dropboxDownload(data, user) {
   }
 }
 
+// --- Dropbox Thumbnail (compressed image for fast loading in /materiais) ---
+// Uses Dropbox get_thumbnail_v2, which returns a resized/compressed image
+// regardless of the file name. This is what fixes the slow loading of full-size
+// images: instead of downloading a 4-8MB original just to show a card, we serve
+// a small jpeg (~10-30KB).
+const THUMB_IMAGE_EXTS = ['jpg','jpeg','png','gif','bmp','tiff','tif','webp'];
+// Dropbox accepts these size buckets for get_thumbnail_v2.
+const THUMB_SIZES = {
+  w32h32: 'w32h32', w64h64: 'w64h64', w128h128: 'w128h128', w256h256: 'w256h256',
+  w480h320: 'w480h320', w640h480: 'w640h480', w960h640: 'w960h640',
+  w1024h768: 'w1024h768', w2048h1536: 'w2048h1536',
+};
+
+// Optional CDN in front of the uploads bucket. If set (e.g. the CloudFront
+// domain that serves rede-inspire-uploads-*), cached thumbnails are returned as
+// CDN URLs. If not set, we fall back to a presigned S3 URL. Works either way.
+const THUMBS_CDN_URL = (process.env.THUMBS_CDN_URL || '').replace(/\/+$/, '');
+const THUMBS_PREFIX = 'thumb-cache';
+
+// Stable cache key for a thumbnail. Includes the file version (rev/content_hash)
+// so that replacing the image in Dropbox produces a NEW key automatically —
+// no manual cache invalidation needed.
+function thumbS3Key(dropboxPathLower, size, format, version) {
+  const h = createHash('sha1').update(`${dropboxPathLower}|${size}|${version || ''}`).digest('hex');
+  return `${THUMBS_PREFIX}/${h}.${format === 'png' ? 'png' : 'jpg'}`;
+}
+
+// Build the public URL for a cached thumbnail (CDN if configured, else presigned S3).
+async function thumbUrlForKey(key) {
+  if (THUMBS_CDN_URL) return `${THUMBS_CDN_URL}/${key}`;
+  const getCmd = new GetObjectCommand({ Bucket: UPLOAD_BUCKET, Key: key });
+  return await getSignedUrl(s3, getCmd, { expiresIn: 86400 });
+}
+
+// Returns { exists: true } quickly if the object is already cached in S3.
+async function thumbExistsInS3(key) {
+  try {
+    await s3.send(new GetObjectCommand({ Bucket: UPLOAD_BUCKET, Key: key, Range: 'bytes=0-0' }));
+    return true;
+  } catch { return false; }
+}
+
+// Fetch a single thumbnail from Dropbox (get_thumbnail_v2) as a Buffer.
+async function fetchDropboxThumb(token, dropboxPath, size, format) {
+  const apiArg = {
+    resource: { '.tag': 'path', path: dropboxPath },
+    format: { '.tag': format },
+    size: { '.tag': size },
+    mode: { '.tag': 'strict' },
+  };
+  const headers = { 'Authorization': `Bearer ${token}`, 'Dropbox-API-Arg': JSON.stringify(apiArg) };
+  if (DROPBOX_NAMESPACE_ID) {
+    headers['Dropbox-API-Path-Root'] = JSON.stringify({ '.tag': 'namespace_id', namespace_id: DROPBOX_NAMESPACE_ID });
+  }
+  const r = await fetch('https://content.dropboxapi.com/2/files/get_thumbnail_v2', { method: 'POST', headers });
+  if (!r.ok) {
+    const errText = r.headers.get('dropbox-api-result') || (await r.text());
+    const err = new Error(errText); err.status = r.status; throw err;
+  }
+  return Buffer.from(await r.arrayBuffer());
+}
+
+// Store a thumbnail buffer in S3 with a long cache lifetime.
+async function storeThumbInS3(key, buffer, format) {
+  await s3.send(new PutObjectCommand({
+    Bucket: UPLOAD_BUCKET,
+    Key: key,
+    Body: buffer,
+    ContentType: format === 'png' ? 'image/png' : 'image/jpeg',
+    CacheControl: 'public, max-age=31536000, immutable',
+  }));
+}
+
+async function dropboxThumbnail(query, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!DROPBOX_REFRESH_TOKEN) return res(500, { message: 'Dropbox nao configurado.' });
+
+  const dropboxPath = query.path || '';
+  if (!dropboxPath) return res(400, { message: 'path obrigatorio.' });
+
+  const ext = (dropboxPath.split('.').pop() || '').toLowerCase();
+  if (!THUMB_IMAGE_EXTS.includes(ext)) {
+    return res(400, { message: 'Formato nao suporta thumbnail.', ext });
+  }
+
+  // Default to a card-friendly size; caller can override with ?size=
+  const size = THUMB_SIZES[query.size] || 'w640h480';
+  const format = ext === 'png' ? 'png' : 'jpeg';
+  // Version token for cache-busting when the image changes. Caller may pass ?v=
+  // (e.g. the Dropbox rev or content_hash from a previous browse call).
+  const version = query.v || '';
+
+  try {
+    const key = thumbS3Key(dropboxPath.toLowerCase(), size, format, version);
+
+    // 1. Serve from S3 cache if present (no Dropbox call, no Lambda image work).
+    if (await thumbExistsInS3(key)) {
+      return res(200, { url: await thumbUrlForKey(key), cached: true });
+    }
+
+    // 2. Not cached: generate via Dropbox, store in S3, return the URL.
+    const token = await getDropboxToken();
+    let buffer;
+    try {
+      buffer = await fetchDropboxThumb(token, dropboxPath, size, format);
+    } catch (err) {
+      console.error('Dropbox thumbnail error:', err.status, err.message);
+      return res(err.status === 409 ? 404 : 502, { message: 'Erro ao gerar thumbnail', error: err.message });
+    }
+    await storeThumbInS3(key, buffer, format);
+    return res(200, { url: await thumbUrlForKey(key), cached: false });
+  } catch (err) {
+    console.error('Dropbox thumbnail error:', err);
+    return res(500, { message: 'Erro ao gerar thumbnail', error: err.message });
+  }
+}
+
+// --- Dropbox Thumbnail Batch (resolve many thumbnails in one request) ---
+// Body: { paths: [{ path, v? }], size? }. Returns { thumbs: { <path>: url } }.
+// For each path we serve the S3 cache when available; the rest are generated in
+// one Dropbox get_thumbnail_batch call (up to 25) and stored in S3. This cuts a
+// gallery of 20+ folders from ~40 requests down to 1.
+async function dropboxThumbnailBatch(data, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!DROPBOX_REFRESH_TOKEN) return res(500, { message: 'Dropbox nao configurado.' });
+
+  const rawPaths = Array.isArray(data.paths) ? data.paths : [];
+  if (rawPaths.length === 0) return res(400, { message: 'paths obrigatorio.' });
+
+  const size = THUMB_SIZES[data.size] || 'w640h480';
+
+  // Normalize + keep only supported image formats. Dropbox batch caps at 25.
+  const items = rawPaths
+    .map(p => (typeof p === 'string' ? { path: p } : p))
+    .filter(p => p && p.path)
+    .map(p => {
+      const ext = (p.path.split('.').pop() || '').toLowerCase();
+      const format = ext === 'png' ? 'png' : 'jpeg';
+      return { path: p.path, version: p.v || '', ext, format, ok: THUMB_IMAGE_EXTS.includes(ext) };
+    })
+    .filter(p => p.ok)
+    .slice(0, 25);
+
+  const thumbs = {};
+
+  try {
+    // 1. Resolve from S3 cache first.
+    const misses = [];
+    await Promise.all(items.map(async (it) => {
+      const key = thumbS3Key(it.path.toLowerCase(), size, it.format, it.version);
+      it.key = key;
+      if (await thumbExistsInS3(key)) {
+        thumbs[it.path] = await thumbUrlForKey(key);
+      } else {
+        misses.push(it);
+      }
+    }));
+
+    if (misses.length === 0) return res(200, { thumbs, cached: true });
+
+    // 2. Generate the misses in a single Dropbox batch call.
+    const token = await getDropboxToken();
+    const entries = misses.map(it => ({
+      path: it.path,
+      format: { '.tag': it.format },
+      size: { '.tag': size },
+      mode: { '.tag': 'strict' },
+    }));
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+    if (DROPBOX_NAMESPACE_ID) {
+      headers['Dropbox-API-Path-Root'] = JSON.stringify({ '.tag': 'namespace_id', namespace_id: DROPBOX_NAMESPACE_ID });
+    }
+    const r = await fetch('https://content.dropboxapi.com/2/files/get_thumbnail_batch', {
+      method: 'POST', headers, body: JSON.stringify({ entries }),
+    });
+    const result = await r.json();
+    if (!r.ok || result.error) {
+      console.error('Dropbox thumbnail batch error:', r.status, result.error_summary || '');
+      // Return whatever we resolved from cache; misses just fall back client-side.
+      return res(200, { thumbs, partial: true });
+    }
+
+    // 3. Store each generated thumbnail in S3 and map its URL.
+    await Promise.all((result.entries || []).map(async (entry, i) => {
+      const it = misses[i];
+      if (!it) return;
+      if (entry['.tag'] === 'success' && entry.thumbnail) {
+        const buffer = Buffer.from(entry.thumbnail, 'base64');
+        try {
+          await storeThumbInS3(it.key, buffer, it.format);
+          thumbs[it.path] = await thumbUrlForKey(it.key);
+        } catch (e) { console.error('store thumb error:', it.path, e.message); }
+      }
+    }));
+
+    return res(200, { thumbs });
+  } catch (err) {
+    console.error('Dropbox thumbnail batch error:', err);
+    // Degrade gracefully: return whatever was cached.
+    return res(200, { thumbs, error: err.message });
+  }
+}
+
+// --- Dropbox Folder Cover (fallback cover = first image found in the folder) ---
+// Used when an admin has NOT set a custom cover for a folder. Instead of relying
+// on a naming convention (like "thumb" in the file name, which wasn't applied
+// consistently), we just pick the first image in the folder. Works regardless
+// of file name.
+async function dropboxFolderCover(query, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!DROPBOX_REFRESH_TOKEN) return res(500, { message: 'Dropbox nao configurado.' });
+
+  const folderPath = query.path || '';
+
+  try {
+    const r = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
+      method: 'POST',
+      headers: dbxHeaders(await getDropboxToken()),
+      body: JSON.stringify({ path: folderPath, recursive: false, limit: 2000 }),
+    });
+    const data = await r.json();
+    if (data.error) return res(400, { message: 'Erro Dropbox', error: data.error_summary });
+
+    const images = (data.entries || [])
+      .filter(e => e['.tag'] === 'file')
+      .filter(e => THUMB_IMAGE_EXTS.includes((e.name.split('.').pop() || '').toLowerCase()))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    if (images.length === 0) {
+      return res(200, { path: folderPath, cover: null });
+    }
+
+    // Prefer an image whose name hints it is a cover, else just the first one.
+    const preferred = images.find(e => /thumb|capa|cover/i.test(e.name)) || images[0];
+    return res(200, { path: folderPath, cover: preferred.path_display, coverLower: preferred.path_lower });
+  } catch (err) {
+    console.error('Dropbox folder cover error:', err);
+    return res(500, { message: 'Erro ao buscar capa da pasta', error: err.message });
+  }
+}
+
 // --- Dropbox File Text (extract text from .doc/.docx) ---
 async function dropboxFileText(data, user) {
   if (!user) return res(401, { message: 'Nao autenticado' });
@@ -2784,27 +3029,37 @@ async function dropboxTopDownloads(user) {
   if (!user) return res(401, { message: 'Nao autenticado' });
   const data = await ddb.send(new ScanCommand({ TableName: T.DOWNLOADS }));
 
-  // Aggregate downloads by parent folder
+  // Aggregate engagement by parent folder.
+  // Most access is tracked as "views" (preview opens); "downloads" counts actual file downloads.
+  // We rank by total engagement (views + downloads) so the list reflects real usage.
   const folderDownloads = {};
   for (const item of (data.Items || [])) {
-    const parts = (item.filePath || '').split('/');
-    if (parts.length < 2) continue;
-    const folderPath = parts.slice(0, -1).join('/');
-    const folderName = parts[parts.length - 2] || folderPath;
+    if (!item.filePath) continue;
+    const parts = item.filePath.split('/').filter(Boolean);
+    if (parts.length === 0) continue;
+    // Group by parent folder when there is one; otherwise group by the file itself (root files).
+    const hasFolder = parts.length >= 2;
+    const folderPath = hasFolder ? '/' + parts.slice(0, -1).join('/') : item.filePath;
+    // Display name: parent folder name, falling back to the file name so it is never empty.
+    const label = (hasFolder ? parts[parts.length - 2] : '') || item.fileName || parts[parts.length - 1];
     if (!folderDownloads[folderPath]) {
-      folderDownloads[folderPath] = { folderPath, folderName, downloads: 0 };
+      folderDownloads[folderPath] = { folderPath, folderName: label, downloads: 0, views: 0 };
     }
     folderDownloads[folderPath].downloads += (item.downloads || 0);
+    folderDownloads[folderPath].views += (item.views || 0);
   }
 
   const items = Object.values(folderDownloads)
-    .sort((a, b) => b.downloads - a.downloads)
+    .map(f => ({ ...f, total: f.downloads + f.views }))
+    .filter(f => f.total > 0)
+    .sort((a, b) => b.total - a.total)
     .slice(0, 10)
     .map((item, i) => ({
       rank: i + 1,
       folderPath: item.folderPath,
       folderName: item.folderName,
       downloads: item.downloads,
+      views: item.views,
     }));
 
   return res(200, items);

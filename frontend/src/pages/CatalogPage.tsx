@@ -4,9 +4,9 @@ import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
 import {
-  Search, Loader2, Play, ChevronLeft, ChevronRight, X, Calendar, Video,
-  ArrowLeft, Send, MessageSquare, Tag, Plus, Info
-} from 'lucide-react'
+  Search, RefreshDouble, Play, NavArrowLeft, NavArrowRight, Xmark, Calendar, MediaVideo,
+  ArrowLeft, Send, ChatBubble, Label, Plus, InfoCircle, Link as LinkIcon, Folder
+} from 'iconoir-react'
 import YouTubePlayer from '../components/YouTubePlayer'
 
 function formatDate(iso: string) {
@@ -58,7 +58,7 @@ function RecommendationsSection({ videoId }: { videoId: string }) {
   return (
     <div className="mt-8">
       <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-4">
-        📌 Indicações
+        <Label width={17} height={17} strokeWidth={1.5} className="text-slate-400" /> Indicações
       </h3>
       {items.length > 0 && (
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 mb-4">
@@ -71,26 +71,26 @@ function RecommendationsSection({ videoId }: { videoId: string }) {
                 ) : item.type === 'video' && item.videoId ? (
                   <img src={`https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`} alt={item.title} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="text-gray-300 text-2xl">
-                    {item.type === 'external' ? '🔗' : item.type === 'video' ? '▶' : '📁'}
+                  <div className="text-slate-300">
+                    {item.type === 'external' ? <LinkIcon width={26} height={26} strokeWidth={1.5} /> : item.type === 'video' ? <Play width={26} height={26} strokeWidth={1.5} /> : <Folder width={26} height={26} strokeWidth={1.5} />}
                   </div>
                 )}
               </div>
               <div className="p-2">
                 <p className="font-medium text-xs text-gray-900 line-clamp-2 leading-tight">{item.title}</p>
                 {item.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{item.description}</p>}
-                <span className={`inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded-full ${
+                <span className={`inline-flex items-center gap-1 mt-1 text-[10px] px-1.5 py-0.5 rounded-full ${
                   item.type === 'external' ? 'bg-blue-50 text-blue-600' :
-                  item.type === 'video' ? 'bg-purple-50 text-purple-600' :
-                  'bg-amber-50 text-amber-600'
+                  item.type === 'video' ? 'bg-slate-100 text-slate-600' :
+                  'bg-slate-100 text-slate-600'
                 }`}>
-                  {item.type === 'external' ? '🔗 Externo' : item.type === 'video' ? '▶ Vídeo' : '📁 Material'}
+                  {item.type === 'external' ? <><LinkIcon width={11} height={11} strokeWidth={1.5} /> Externo</> : item.type === 'video' ? <><Play width={11} height={11} strokeWidth={1.5} /> Vídeo</> : <><Folder width={11} height={11} strokeWidth={1.5} /> Material</>}
                 </span>
               </div>
               {isAdmin && (
                 <button onClick={e => { e.stopPropagation(); handleDelete(item.id) }}
                   className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition">
-                  <X size={12} />
+                  <Xmark width={12} height={12} strokeWidth={1.5} />
                 </button>
               )}
             </div>
@@ -100,7 +100,7 @@ function RecommendationsSection({ videoId }: { videoId: string }) {
       {isAdmin && (
         <button onClick={() => setShowAdd(true)}
           className="text-sm text-gray-500 hover:text-gray-900 border border-dashed border-gray-300 rounded-xl px-4 py-3 w-full flex items-center justify-center gap-2 hover:border-gray-400 transition">
-          <Plus size={16} /> Adicionar indicação
+          <Plus width={16} height={16} strokeWidth={1.5} /> Adicionar indicação
         </button>
       )}
       {showAdd && <AddRecommendationModal onClose={() => setShowAdd(false)} onSave={handleAdd} />}
@@ -170,13 +170,13 @@ function AddRecommendationModal({ onClose, onSave }: { onClose: () => void; onSa
             <label className="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
             <div className="flex gap-2">
               {[
-                { value: 'external', label: '🔗 Link Externo' },
-                { value: 'video', label: '▶ Vídeo do Catálogo' },
-                { value: 'material', label: '📁 Material' },
+                { value: 'external', label: 'Link Externo', icon: <LinkIcon width={14} height={14} strokeWidth={1.5} /> },
+                { value: 'video', label: 'Vídeo', icon: <Play width={14} height={14} strokeWidth={1.5} /> },
+                { value: 'material', label: 'Material', icon: <Folder width={14} height={14} strokeWidth={1.5} /> },
               ].map(opt => (
                 <button key={opt.value} onClick={() => setType(opt.value as any)}
-                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${type === opt.value ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                  {opt.label}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1.5 ${type === opt.value ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                  {opt.icon} {opt.label}
                 </button>
               ))}
             </div>
@@ -291,7 +291,7 @@ function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
   return (
     <div>
       <button onClick={onBack} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 mb-4 transition">
-        <ArrowLeft size={16} /> {t('catalog.backToCatalog')}
+        <ArrowLeft width={16} height={16} strokeWidth={1.5} /> {t('catalog.backToCatalog')}
       </button>
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="flex-1 min-w-0">
@@ -299,16 +299,16 @@ function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
           <div className="mt-4">
             <h1 className="text-xl font-bold text-gray-900">{video.title}</h1>
             <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
-              <span className="flex items-center gap-1"><Calendar size={14} /> {formatDate(video.publishedAt)}</span>
+              <span className="flex items-center gap-1"><Calendar width={14} height={14} strokeWidth={1.5} /> {formatDate(video.publishedAt)}</span>
               {video.channelTitle && <span>· {video.channelTitle}</span>}
             </div>
             <div className="flex items-center gap-2 mt-3 flex-wrap">
-              <Tag size={14} className="text-gray-400" />
+              <Label width={14} height={14} strokeWidth={1.5} className="text-gray-400" />
               {tags.map(tag => (
                 <span key={tag} className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-full flex items-center gap-1">
                   {tag}
                   {isAdmin && (
-                    <button onClick={() => handleRemoveTag(tag)} className="text-gray-400 hover:text-red-500 ml-0.5"><X size={12} /></button>
+                    <button onClick={() => handleRemoveTag(tag)} className="text-gray-400 hover:text-red-500 ml-0.5"><Xmark width={12} height={12} strokeWidth={1.5} /></button>
                   )}
                 </span>
               ))}
@@ -319,13 +319,13 @@ function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
                     <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') handleAddTag(); if (e.key === 'Escape') setShowTagEditor(false) }}
                       placeholder="Nova tag..." className="border rounded-full px-3 py-1 text-xs w-32 outline-none focus:ring-1 focus:ring-gray-300" autoFocus />
-                    <button onClick={handleAddTag} className="text-gray-500 hover:text-gray-900"><Plus size={16} /></button>
-                    <button onClick={() => setShowTagEditor(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                    <button onClick={handleAddTag} className="text-gray-500 hover:text-gray-900"><Plus width={16} height={16} strokeWidth={1.5} /></button>
+                    <button onClick={() => setShowTagEditor(false)} className="text-gray-400 hover:text-gray-600"><Xmark width={14} height={14} strokeWidth={1.5} /></button>
                   </div>
                 ) : (
                   <button onClick={() => setShowTagEditor(true)}
                     className="text-xs text-gray-400 hover:text-gray-700 border border-dashed border-gray-300 rounded-full px-2.5 py-1 flex items-center gap-1 hover:border-gray-400 transition">
-                    <Plus size={12} /> Adicionar tag
+                    <Plus width={12} height={12} strokeWidth={1.5} /> Adicionar tag
                   </button>
                 )
               )}
@@ -349,7 +349,7 @@ function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
           {/* Comments section */}
           <div className="mt-6">
             <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-4">
-              <MessageSquare size={18} /> {comments.length} {t('catalog.comments')}
+              <ChatBubble width={18} height={18} strokeWidth={1.5} className="text-slate-400" /> {comments.length} {t('catalog.comments')}
             </h3>
             <div className="flex gap-3 mb-6">
               <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gray-900 flex items-center justify-center text-white text-xs font-bold">
@@ -365,7 +365,7 @@ function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
                     <button onClick={() => setCommentText('')} className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5">{t('common.cancel')}</button>
                     <button onClick={handleSubmitComment} disabled={sending}
                       className="bg-gray-900 text-white px-4 py-1.5 rounded-full text-sm font-medium hover:bg-gray-800 disabled:opacity-50 flex items-center gap-1">
-                      {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} {t('catalog.comment')}
+                      {sending ? <RefreshDouble width={14} height={14} strokeWidth={1.5} className="animate-spin" /> : <Send width={14} height={14} strokeWidth={1.5} />} {t('catalog.comment')}
                     </button>
                   </div>
                 )}
@@ -405,10 +405,10 @@ function VideoPlayerView({ video, videos, onBack, onSelectVideo }: {
                   {sv.thumbnail ? (
                     <img src={sv.thumbnail} alt={sv.title} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center"><Video size={20} className="text-gray-300" /></div>
+                    <div className="w-full h-full flex items-center justify-center"><MediaVideo width={20} height={20} strokeWidth={1.5} className="text-gray-300" /></div>
                   )}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center">
-                    <Play size={24} className="text-white opacity-0 group-hover:opacity-100 transition drop-shadow" fill="white" />
+                    <Play width={24} height={24} strokeWidth={1.5} className="text-white opacity-0 group-hover:opacity-100 transition drop-shadow" fill="white" />
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -471,7 +471,7 @@ function ThumbnailManager({ videoId, currentThumbnail }: { videoId: string; curr
         <div className="flex-1">
           {customThumb ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-green-600 font-medium">✓ Thumbnail customizada ativa</span>
+              <span className="text-xs text-blue-600 font-medium">✓ Thumbnail customizada ativa</span>
               <button onClick={handleRemove} className="text-xs text-red-500 hover:text-red-700 underline">Remover</button>
             </div>
           ) : (
@@ -537,7 +537,7 @@ function CategoryRow({ label, videos, thumb, onPlay, isAdmin, onCategorize }: {
       <div className="relative">
         <button onClick={() => scroll('left')}
           className="absolute left-0 top-0 bottom-0 w-14 bg-gradient-to-r from-[#0d1117] to-transparent z-10 flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity cursor-pointer">
-          <ChevronLeft size={36} className="text-white" />
+          <NavArrowLeft width={36} height={36} strokeWidth={1.5} className="text-white" />
         </button>
         <div ref={scrollRef} className="flex gap-3 px-8 md:px-14 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           {videos.map(v => (
@@ -548,7 +548,7 @@ function CategoryRow({ label, videos, thumb, onPlay, isAdmin, onCategorize }: {
                 <img src={thumb(v)} alt="" loading="lazy" className="w-full h-full object-cover" />
                 {isWatching && (
                   <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
-                    <div className="h-full bg-green-500 rounded-r-full" style={{ width: `${20 + Math.floor(v.id.charCodeAt(0) % 60)}%` }} />
+                    <div className="h-full bg-blue-500 rounded-r-full" style={{ width: `${20 + Math.floor(v.id.charCodeAt(0) % 60)}%` }} />
                   </div>
                 )}
               </div>
@@ -557,7 +557,7 @@ function CategoryRow({ label, videos, thumb, onPlay, isAdmin, onCategorize }: {
         </div>
         <button onClick={() => scroll('right')}
           className="absolute right-0 top-0 bottom-0 w-14 bg-gradient-to-l from-[#0d1117] to-transparent z-10 flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity cursor-pointer">
-          <ChevronRight size={36} className="text-white" />
+          <NavArrowRight width={36} height={36} strokeWidth={1.5} className="text-white" />
         </button>
       </div>
 
@@ -578,24 +578,24 @@ function CategoryRow({ label, videos, thumb, onPlay, isAdmin, onCategorize }: {
               <img src={thumb(hoveredVideo)} alt="" className="w-full h-full object-cover" />
               {isWatching && (
                 <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
-                  <div className="h-full bg-green-500 rounded-r-full" style={{ width: `${20 + Math.floor(hoveredVideo.id.charCodeAt(0) % 60)}%` }} />
+                  <div className="h-full bg-blue-500 rounded-r-full" style={{ width: `${20 + Math.floor(hoveredVideo.id.charCodeAt(0) % 60)}%` }} />
                 </div>
               )}
             </div>
             <div className="p-4">
               <h3 className="text-white font-bold text-[13px] leading-snug line-clamp-2">{hoveredVideo.title}</h3>
-              <p className="text-green-400 text-[10px] font-medium mt-1 flex items-center gap-1">
-                <span className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center text-[7px] text-white">✓</span>
+              <p className="text-blue-400 text-[10px] font-medium mt-1 flex items-center gap-1">
+                <span className="w-3 h-3 rounded-full bg-blue-500 flex items-center justify-center text-[7px] text-white">✓</span>
                 Incluído na plataforma
               </p>
               <button onClick={() => onPlay(hoveredVideo)}
                 className="mt-3 w-full flex items-center justify-center gap-2 bg-white text-black font-bold py-2.5 rounded-md hover:bg-white/90 transition text-[12px]">
-                <Play size={14} fill="currentColor" /> Reproduzir
+                <Play width={14} height={14} strokeWidth={1.5} fill="currentColor" /> Reproduzir
               </button>
               {isAdmin && onCategorize && (
                 <button onClick={() => onCategorize(hoveredVideo)}
                   className="mt-1.5 w-full flex items-center justify-center gap-2 bg-white/10 text-white/70 font-medium py-2 rounded-md hover:bg-white/20 transition text-[11px] border border-white/10">
-                  <Tag size={12} /> Categorizar
+                  <Label width={12} height={12} strokeWidth={1.5} /> Categorizar
                 </button>
               )}
               <div className="flex items-center gap-2 mt-2 text-[9px] text-white/30">
@@ -839,7 +839,7 @@ export default function CatalogPage() {
   // ── Loading ──
   if (loading) return (
     <div className="min-h-[60vh] flex items-center justify-center">
-      <Loader2 size={32} className="animate-spin text-gray-400" />
+      <RefreshDouble width={32} height={32} strokeWidth={1.5} className="animate-spin text-gray-400" />
     </div>
   )
 
@@ -863,7 +863,7 @@ export default function CatalogPage() {
       <div className="sticky top-0 z-40 bg-gradient-to-b from-[#0d1117] via-[#0d1117]/95 to-transparent px-8 md:px-14 pt-6 pb-4">
         <div className="flex items-center gap-3 max-w-2xl">
           <div className="flex-1 relative">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" />
+            <Search width={16} height={16} strokeWidth={1.5} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" />
             <input
               type="text"
               value={searchQuery}
@@ -873,11 +873,11 @@ export default function CatalogPage() {
               className="w-full pl-11 pr-10 py-3 bg-white/10 border border-white/10 rounded-lg text-sm text-white placeholder-white/40 outline-none focus:border-white/30 focus:bg-white/15 transition"
             />
             {searchQuery && (
-              <button onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"><X size={14} /></button>
+              <button onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"><Xmark width={14} height={14} strokeWidth={1.5} /></button>
             )}
           </div>
           <button onClick={handleSearch}
-            className="bg-green-600 text-white px-5 py-3 rounded-lg text-sm font-medium hover:bg-green-700 transition">
+            className="bg-blue-600 text-white px-5 py-3 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
             {t('catalog.searchBtn')}
           </button>
         </div>
@@ -885,7 +885,7 @@ export default function CatalogPage() {
         {/* Tag filters */}
         {allTags.length > 0 && !activeSearch && (
           <div className="flex gap-2 mt-3 flex-wrap items-center">
-            <Tag size={13} className="text-white/30" />
+            <Label width={13} height={13} strokeWidth={1.5} className="text-white/30" />
             <button onClick={() => setFilterTag('')}
               className={`px-3 py-1 rounded-full text-xs transition ${!filterTag ? 'bg-white text-black font-medium' : 'bg-white/10 text-white/60 hover:bg-white/20'}`}>
               Todos
@@ -917,10 +917,10 @@ export default function CatalogPage() {
             )}
           </div>
           {searchLoading ? (
-            <div className="flex justify-center py-20"><Loader2 size={32} className="animate-spin text-white/30" /></div>
+            <div className="flex justify-center py-20"><RefreshDouble width={32} height={32} strokeWidth={1.5} className="animate-spin text-white/30" /></div>
           ) : searchResults.length === 0 ? (
             <div className="text-center py-20 text-white/30">
-              <Video size={48} className="mx-auto mb-3" />
+              <MediaVideo width={48} height={48} strokeWidth={1.5} className="mx-auto mb-3" />
               <p>Nenhum resultado encontrado</p>
             </div>
           ) : (
@@ -931,7 +931,7 @@ export default function CatalogPage() {
                   <div className="relative rounded-lg overflow-hidden aspect-video bg-[#1c2028]">
                     <img src={thumb(video)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center">
-                      <Play size={32} className="text-white opacity-0 group-hover:opacity-100 transition drop-shadow-lg" fill="white" />
+                      <Play width={32} height={32} strokeWidth={1.5} className="text-white opacity-0 group-hover:opacity-100 transition drop-shadow-lg" fill="white" />
                     </div>
                   </div>
                   <p className="text-sm font-medium text-white/80 mt-2 line-clamp-2 leading-snug">{video.title}</p>
@@ -964,22 +964,22 @@ export default function CatalogPage() {
                 <div className="flex items-center gap-3 mt-6">
                   <button onClick={() => setSelectedVideo(heroVideos[heroIdx])}
                     className="flex items-center gap-2.5 bg-white text-black font-bold px-7 py-3.5 rounded-md hover:bg-white/90 transition text-[14px]">
-                    <Play size={20} fill="currentColor" /> Assistir agora
+                    <Play width={20} height={20} strokeWidth={1.5} fill="currentColor" /> Assistir agora
                   </button>
                   <button onClick={() => setSelectedVideo(heroVideos[heroIdx])}
                     className="w-11 h-11 rounded-full border-2 border-white/40 flex items-center justify-center hover:border-white/70 transition">
-                    <Info size={20} className="text-white" />
+                    <InfoCircle width={20} height={20} strokeWidth={1.5} className="text-white" />
                   </button>
                 </div>
               </div>
 
               <button onClick={() => setHeroIdx(p => (p - 1 + heroVideos.length) % heroVideos.length)}
                 className="absolute left-3 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/30 hover:bg-black/60 flex items-center justify-center transition z-10">
-                <ChevronLeft size={28} className="text-white" />
+                <NavArrowLeft width={28} height={28} strokeWidth={1.5} className="text-white" />
               </button>
               <button onClick={() => setHeroIdx(p => (p + 1) % heroVideos.length)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-black/30 hover:bg-black/60 flex items-center justify-center transition z-10">
-                <ChevronRight size={28} className="text-white" />
+                <NavArrowRight width={28} height={28} strokeWidth={1.5} className="text-white" />
               </button>
 
               <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-2 z-10">
@@ -995,7 +995,7 @@ export default function CatalogPage() {
           <div className={`relative z-10 ${!filterTag ? '-mt-24' : 'mt-4'} pb-20`}>
             {filterTag && categories.length === 0 && (
               <div className="text-center py-20 text-white/30">
-                <Video size={48} className="mx-auto mb-3" />
+                <MediaVideo width={48} height={48} strokeWidth={1.5} className="mx-auto mb-3" />
                 <p>Nenhum vídeo com a tag "{filterTag}"</p>
                 <button onClick={() => setFilterTag('')} className="mt-2 text-sm text-white/50 hover:text-white underline">Ver todos</button>
               </div>
@@ -1022,14 +1022,14 @@ export default function CatalogPage() {
             <div className="relative aspect-video">
               <img src={thumb(expandedVideo)} alt="" className="w-full h-full object-cover" />
               <button onClick={() => setExpandedVideo(null)} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 border border-white/20 flex items-center justify-center">
-                <X size={16} className="text-white" />
+                <Xmark width={16} height={16} strokeWidth={1.5} className="text-white" />
               </button>
             </div>
             <div className="p-5">
               <h3 className="text-white font-bold text-xl leading-snug">{expandedVideo.title}</h3>
               <button onClick={() => { setSelectedVideo(expandedVideo); setExpandedVideo(null) }}
                 className="mt-4 w-full flex items-center justify-center gap-3 bg-white text-black font-bold py-3.5 rounded-lg text-[15px]">
-                <Play size={20} fill="currentColor" /> Reproduzir
+                <Play width={20} height={20} strokeWidth={1.5} fill="currentColor" /> Reproduzir
               </button>
               {expandedVideo.description && (
                 <p className="text-white/40 text-[12px] mt-4 line-clamp-5 leading-relaxed">{expandedVideo.description}</p>
@@ -1089,18 +1089,18 @@ function CategoryEditorModal({ videoId: _videoId, videoTitle, currentCategories,
             <button key={cat} onClick={() => toggle(cat)}
               className={`w-full text-left px-4 py-3 rounded-lg text-sm transition flex items-center justify-between ${
                 selected.includes(cat)
-                  ? 'bg-green-600/20 text-green-400 border border-green-500/30'
+                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
                   : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
               }`}>
               <span>{cat}</span>
-              {selected.includes(cat) && <span className="text-green-400 text-xs font-bold">✓</span>}
+              {selected.includes(cat) && <span className="text-blue-400 text-xs font-bold">✓</span>}
             </button>
           ))}
         </div>
         <div className="p-5 border-t border-white/10 flex gap-3">
           <button onClick={onClose} className="flex-1 border border-white/20 rounded-lg py-2.5 text-sm text-white/70 hover:bg-white/10 transition">Cancelar</button>
           <button onClick={handleSave} disabled={saving}
-            className="flex-1 bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700 transition disabled:opacity-50">
+            className="flex-1 bg-blue-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50">
             {saving ? 'Salvando...' : 'Salvar'}
           </button>
         </div>

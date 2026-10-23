@@ -147,7 +147,7 @@ export default function HomePage() {
       {/* Welcome */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] md:text-[26px] font-bold text-gray-900 tracking-tight">{t('home.welcome')} {user?.name?.split(' ')[0]}! 👋</h1>
+          <h1 className="text-[22px] md:text-[26px] font-bold text-gray-900 tracking-tight">{t('home.welcome')} {user?.name?.split(' ')[0]}!</h1>
           <p className="text-[13px] text-gray-400 mt-1">Escolha o que assistir ou explore novos conteúdos.</p>
         </div>
         <Link to="/catalogo" className="text-[12px] text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1">Ver vídeos <NavArrowRight width={13} height={13} strokeWidth={1.5} /></Link>

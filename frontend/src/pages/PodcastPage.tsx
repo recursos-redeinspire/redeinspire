@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
-import { Pencil } from 'lucide-react'
+import { EditPencil, Play, Pause, Plus, Xmark } from 'iconoir-react'
 
 /* ───── Create Modal ───── */
 function CreatePodcastModal({ onClose, onCreate, createPodcast }: {
@@ -34,7 +34,7 @@ function CreatePodcastModal({ onClose, onCreate, createPodcast }: {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-lg font-bold text-gray-900">{t('podcast.newEpisode')}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><Xmark width={20} height={20} strokeWidth={1.5} /></button>
         </div>
         {error && <div className="mx-6 mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -101,7 +101,7 @@ function EditPodcastModal({ episode, onClose, onUpdate, updatePodcast }: {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-lg font-bold text-gray-900">{t('podcast.edit')}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><Xmark width={20} height={20} strokeWidth={1.5} /></button>
         </div>
         {error && <div className="mx-6 mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -218,7 +218,7 @@ export default function PodcastPage() {
         {isAdmin && (
           <button onClick={() => setShowCreateModal(true)}
             className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition flex items-center gap-2">
-            <span>+</span> {t('podcast.newEpisode')}
+            <Plus width={16} height={16} strokeWidth={1.5} /> {t('podcast.newEpisode')}
           </button>
         )}
       </div>
@@ -230,7 +230,7 @@ export default function PodcastPage() {
           <div key={ep.id} className="relative group bg-white rounded-xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
             <button onClick={() => playEpisode(ep)}
               className="w-12 h-12 rounded-full bg-gray-900 text-white flex items-center justify-center flex-shrink-0 hover:bg-gray-700 transition">
-              {playing === ep.id ? '⏸' : '▶'}
+              {playing === ep.id ? <Pause width={18} height={18} strokeWidth={1.5} /> : <Play width={18} height={18} strokeWidth={1.5} />}
             </button>
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-gray-900 truncate">{ep.title}</h3>
@@ -240,9 +240,9 @@ export default function PodcastPage() {
             {isAdmin && (
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
                 <button onClick={() => setEditingEpisode(ep)}
-                  className="bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs hover:bg-blue-700 shadow" title={t('podcast.edit')}><Pencil size={13} /></button>
+                  className="bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs hover:bg-blue-700 shadow" title={t('podcast.edit')}><EditPencil width={13} height={13} strokeWidth={1.5} /></button>
                 <button onClick={() => handleDelete(ep.id)}
-                  className="bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs hover:bg-red-700 shadow" title={t('podcast.delete')}>✕</button>
+                  className="bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs hover:bg-red-700 shadow" title={t('podcast.delete')}><Xmark width={13} height={13} strokeWidth={1.5} /></button>
               </div>
             )}
           </div>
@@ -255,7 +255,7 @@ export default function PodcastPage() {
           <div className="max-w-4xl mx-auto flex items-center gap-4">
             <button onClick={() => playEpisode(playingEp)}
               className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center flex-shrink-0 hover:bg-gray-700 text-sm">
-              {playing ? '⏸' : '▶'}
+              {playing ? <Pause width={16} height={16} strokeWidth={1.5} /> : <Play width={16} height={16} strokeWidth={1.5} />}
             </button>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">{playingEp.title}</p>

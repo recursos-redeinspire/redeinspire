@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import {
-  Folder, ChevronRight, Home, Loader2, X, ArrowLeft, Search, TrendingUp,
-  FileText, Video, Headphones, Image, FileSpreadsheet, Presentation,
-  File, Download, Archive, Play
-} from 'lucide-react'
+  Folder, NavArrowRight, Home, RefreshDouble, Xmark, ArrowLeft, Search, GraphUp,
+  Page, MediaVideo, Headset, MediaImage, Table, Presentation,
+  EmptyPage, Download, Archive, Play, Plus, Link as LinkIcon
+} from 'iconoir-react'
+import type { ComponentType } from 'react'
 
 // Gera uma capa visual bonita para pastas sem thumbnail
 function generateCover(name: string): string {
@@ -34,16 +35,16 @@ function generateCover(name: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
-const FILE_ICONS: Record<string, { icon: typeof File; color: string; bg: string }> = {
-  video: { icon: Video, color: 'text-purple-600', bg: 'bg-purple-50' },
-  audio: { icon: Headphones, color: 'text-blue-600', bg: 'bg-blue-50' },
-  pdf: { icon: FileText, color: 'text-red-600', bg: 'bg-red-50' },
-  document: { icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
-  presentation: { icon: Presentation, color: 'text-orange-600', bg: 'bg-orange-50' },
-  spreadsheet: { icon: FileSpreadsheet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-  image: { icon: Image, color: 'text-green-600', bg: 'bg-green-50' },
-  archive: { icon: Archive, color: 'text-yellow-600', bg: 'bg-yellow-50' },
-  other: { icon: File, color: 'text-gray-500', bg: 'bg-gray-50' },
+const FILE_ICONS: Record<string, { icon: ComponentType<any>; color: string; bg: string }> = {
+  video: { icon: MediaVideo, color: 'text-blue-600', bg: 'bg-blue-50' },
+  audio: { icon: Headset, color: 'text-blue-600', bg: 'bg-blue-50' },
+  pdf: { icon: Page, color: 'text-slate-600', bg: 'bg-slate-100' },
+  document: { icon: Page, color: 'text-blue-600', bg: 'bg-blue-50' },
+  presentation: { icon: Presentation, color: 'text-slate-600', bg: 'bg-slate-100' },
+  spreadsheet: { icon: Table, color: 'text-slate-600', bg: 'bg-slate-100' },
+  image: { icon: MediaImage, color: 'text-blue-600', bg: 'bg-blue-50' },
+  archive: { icon: Archive, color: 'text-slate-600', bg: 'bg-slate-100' },
+  other: { icon: EmptyPage, color: 'text-slate-500', bg: 'bg-slate-50' },
 }
 
 function formatSize(bytes: number) {
@@ -57,17 +58,378 @@ function formatSize(bytes: number) {
 function FileIcon({ fileType, size = 22 }: { fileType: string; size?: number }) {
   const c = FILE_ICONS[fileType] || FILE_ICONS.other
   const Icon = c.icon
-  return <Icon size={size} className={c.color} />
+  return <Icon width={size} height={size} strokeWidth={1.5} className={c.color} />
+}
+
+// ---- Similarity helpers ----
+const STOP_WORDS = new Set(['de','do','da','dos','das','o','a','os','as','e','em','um','uma','para','com','por','que','no','na','nos','nas','ao','aos','à','às','se','ou','mas','como','mais','este','essa','isso','1','2','3','4','5','6','7','8','9','0','-'])
+
+function tokenize(text: string): string[] {
+  return text.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !STOP_WORDS.has(w))
+}
+
+function similarity(a: string, b: string): number {
+  const ta = new Set(tokenize(a))
+  const tb = new Set(tokenize(b))
+  if (ta.size === 0 || tb.size === 0) return 0
+  let common = 0
+  ta.forEach(w => { if (tb.has(w)) common++ })
+  return common / Math.sqrt(ta.size * tb.size) // Dice-like coefficient
+}
+
+function getSuggestedFolders(currentPath: string, currentName: string, allFolders: any[]): any[] {
+  const MAX = 5
+  const parentPath = currentPath.includes('/') ? currentPath.slice(0, currentPath.lastIndexOf('/')) : ''
+
+  // Candidate folders (exclude current folder and de-duplicate by path)
+  const seen = new Set<string>([currentPath])
+  const candidates = allFolders.filter(f => {
+    const p = f.path || f.pathLower || ''
+    if (!p || f.tag !== 'folder' || !f.name) return false
+    if (seen.has(p)) return false
+    seen.add(p)
+    return true
+  })
+
+  // 1) Score by title similarity
+  const scored = candidates
+    .map(f => ({ ...f, score: similarity(currentName, f.name) }))
+    .sort((a, b) => b.score - a.score)
+
+  const result: any[] = []
+  const used = new Set<string>()
+  const push = (f: any) => {
+    const p = f.path || f.pathLower || ''
+    if (p && !used.has(p) && result.length < MAX) { used.add(p); result.push(f) }
+  }
+
+  // Primary: folders with real title similarity
+  scored.filter(f => f.score > 0.1).forEach(push)
+
+  // Fallback A: sibling folders (same parent) — likely related
+  if (result.length < MAX) {
+    candidates
+      .filter(f => {
+        const p = f.path || f.pathLower || ''
+        return parentPath && p.includes('/') && p.slice(0, p.lastIndexOf('/')) === parentPath
+      })
+      .forEach(push)
+  }
+
+  // Fallback B: any remaining known folders, best-scored first
+  if (result.length < MAX) {
+    scored.forEach(push)
+  }
+
+  return result
+}
+
+// ---- Material Recommendations Section ----
+function MaterialRecommendationsSection({ folderPath, folderName, allFolders, folderThumbs, onNavigate }: {
+  folderPath: string
+  folderName: string
+  allFolders: any[]
+  folderThumbs: Record<string, string>
+  onNavigate: (path: string) => void
+}) {
+  const { getVideoRecs, addVideoRec, deleteVideoRec } = useData()
+  const { user } = useAuth()
+  const [items, setItems] = useState<any[]>([])
+  const [showAdd, setShowAdd] = useState(false)
+  const [confirmUrl, setConfirmUrl] = useState('')
+  const isAdmin = user?.role === 'admin'
+
+  // Auto-suggested folders by title similarity
+  const suggestions = getSuggestedFolders(folderPath, folderName, allFolders)
+
+  useEffect(() => {
+    if (!folderPath) return
+    const encodedPath = folderPath.replace(/\//g, '__')
+    getVideoRecs(encodedPath).then(data => setItems(data.items || [])).catch(() => {})
+  }, [folderPath, getVideoRecs])
+
+  const handleAdd = async (data: any) => {
+    try {
+      const encodedPath = folderPath.replace(/\//g, '__')
+      const newItem = await addVideoRec(encodedPath, data)
+      if (newItem?.id) setItems(prev => [...prev, newItem])
+      setShowAdd(false)
+    } catch {
+      alert('Erro ao salvar. Tente novamente.')
+    }
+  }
+
+  const handleDelete = async (itemId: string) => {
+    if (!confirm('Remover esta indicação?')) return
+    const encodedPath = folderPath.replace(/\//g, '__')
+    await deleteVideoRec(encodedPath, itemId)
+    setItems(prev => prev.filter(i => i.id !== itemId))
+  }
+
+  const handleClick = (item: any) => {
+    if (item.type === 'external') {
+      setConfirmUrl(item.url)
+    } else if (item.type === 'video') {
+      window.location.href = '/catalogo'
+    } else if (item.type === 'material') {
+      window.location.href = '/materiais'
+    }
+  }
+
+  const hasManual = items.length > 0
+  const hasSuggestions = suggestions.length > 0
+  if (!hasManual && !hasSuggestions && !isAdmin) return null
+
+  const getThumb = (path: string, name: string) => {
+    const pathLower = path.toLowerCase()
+    for (const [key, url] of Object.entries(folderThumbs)) {
+      if (key.toLowerCase() === pathLower && url && !url.includes('dropboxusercontent.com')) return url
+    }
+    // fallback generated cover
+    const colors = ['#6b7280','#64748b','#78716c','#71717a','#737373','#6b7280','#94a3b8']
+    const hash = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+    const c = colors[hash % colors.length]
+    const initials = name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('')
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='113'><rect width='200' height='113' fill='${c}'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='32' font-weight='bold' fill='white'>${initials}</text></svg>`
+    return `data:image/svg+xml;base64,${btoa(svg)}`
+  }
+
+  return (
+    <div className="mt-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-gray-900 flex items-center gap-2 text-sm">
+          <Folder width={16} height={16} strokeWidth={1.5} className="text-slate-400" /> Recursos Recomendados
+        </h3>
+        {isAdmin && (
+          <button onClick={() => setShowAdd(true)}
+            className="text-xs text-gray-400 hover:text-gray-700 flex items-center gap-1 transition">
+            <Plus width={13} height={13} strokeWidth={1.5} /> Adicionar
+          </button>
+        )}
+      </div>
+
+      {/* Manual items */}
+      {hasManual && (
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 mb-4">
+          {items.map(item => (
+            <div key={item.id} className="relative group bg-white border rounded-lg overflow-hidden hover:shadow-md transition cursor-pointer"
+              onClick={() => handleClick(item)}>
+              <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
+                {item.imageUrl ? (
+                  <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+                ) : item.type === 'video' && item.videoId ? (
+                  <img src={`https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg`} alt={item.title} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-slate-300">
+                    {item.type === 'external' ? <LinkIcon width={26} height={26} strokeWidth={1.5} /> : item.type === 'video' ? <Play width={26} height={26} strokeWidth={1.5} /> : <Folder width={26} height={26} strokeWidth={1.5} />}
+                  </div>
+                )}
+              </div>
+              <div className="p-2">
+                <p className="font-medium text-xs text-gray-900 line-clamp-2 leading-tight">{item.title}</p>
+                {item.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{item.description}</p>}
+                <span className={`inline-flex items-center gap-1 mt-1 text-[10px] px-1.5 py-0.5 rounded-full ${
+                  item.type === 'external' ? 'bg-blue-50 text-blue-600' :
+                  item.type === 'video' ? 'bg-slate-100 text-slate-600' :
+                  'bg-slate-100 text-slate-600'
+                }`}>
+                  {item.type === 'external' ? <><LinkIcon width={11} height={11} strokeWidth={1.5} /> Externo</> : item.type === 'video' ? <><Play width={11} height={11} strokeWidth={1.5} /> Vídeo</> : <><Folder width={11} height={11} strokeWidth={1.5} /> Material</>}
+                </span>
+              </div>
+              {isAdmin && (
+                <button onClick={e => { e.stopPropagation(); handleDelete(item.id) }}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition">
+                  <Xmark width={12} height={12} strokeWidth={1.5} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Auto-suggested folders */}
+      {hasSuggestions && (
+        <div>
+          {hasManual && <p className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold mb-2">Sugestões automáticas</p>}
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
+            {suggestions.map(folder => {
+              const p = folder.path || folder.pathLower || ''
+              const thumb = getThumb(p, folder.name)
+              return (
+                <div key={p} className="relative group bg-white border border-dashed border-gray-200 rounded-lg overflow-hidden hover:shadow-md hover:border-solid transition cursor-pointer"
+                  onClick={() => onNavigate(p)}>
+                  <div className="aspect-square bg-gray-100 overflow-hidden">
+                    <img src={thumb} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  </div>
+                  <div className="p-2">
+                    <p className="font-medium text-xs text-gray-900 line-clamp-2 leading-tight">{folder.name}</p>
+                    <span className="inline-flex items-center gap-1 mt-1 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-50 text-gray-400">
+                      <Folder width={11} height={11} strokeWidth={1.5} /> Material
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Admin empty state */}
+      {!hasManual && !hasSuggestions && isAdmin && (
+        <button onClick={() => setShowAdd(true)}
+          className="text-sm text-gray-500 hover:text-gray-900 border border-dashed border-gray-300 rounded-xl px-4 py-3 w-full flex items-center justify-center gap-2 hover:border-gray-400 transition">
+          <Plus width={16} height={16} strokeWidth={1.5} /> Adicionar indicação
+        </button>
+      )}
+
+      {showAdd && <MaterialAddRecommendationModal onClose={() => setShowAdd(false)} onSave={handleAdd} />}
+      {confirmUrl && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setConfirmUrl('')}>
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center" onClick={e => e.stopPropagation()}>
+            <p className="text-lg font-semibold text-gray-900 mb-2">Redirecionamento externo</p>
+            <p className="text-sm text-gray-600 mb-4">Você será redirecionado para um site externo. Deseja continuar?</p>
+            <p className="text-xs text-gray-400 mb-4 truncate">{confirmUrl}</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmUrl('')} className="flex-1 border rounded-lg py-2 text-sm text-gray-700 hover:bg-gray-50">Cancelar</button>
+              <button onClick={() => { window.open(confirmUrl, '_blank'); setConfirmUrl('') }}
+                className="flex-1 bg-gray-900 text-white rounded-lg py-2 text-sm hover:bg-gray-800">Continuar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---- Add Recommendation Modal (Materials) ----
+function MaterialAddRecommendationModal({ onClose, onSave }: { onClose: () => void; onSave: (data: any) => void }) {
+  const [type, setType] = useState<'external' | 'video' | 'material'>('external')
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [url, setUrl] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
+  const [linkedVideoId, setLinkedVideoId] = useState('')
+  const [materialPath, setMaterialPath] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    const img = new window.Image()
+    img.onload = () => {
+      const size = 200
+      canvas.width = size
+      canvas.height = size
+      ctx?.drawImage(img, 0, 0, size, size)
+      setImageUrl(canvas.toDataURL('image/jpeg', 0.7))
+    }
+    img.src = URL.createObjectURL(file)
+  }
+
+  const handleSave = async () => {
+    if (!title.trim()) return
+    setSaving(true)
+    try {
+      await onSave({ type, title: title.trim(), description: description.trim(), url, imageUrl, linkedVideoId, materialPath })
+    } catch {
+      alert('Erro ao salvar indicação. Tente novamente.')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="p-6 border-b">
+          <h2 className="text-lg font-bold text-gray-900">Adicionar Indicação</h2>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+            <div className="flex gap-2">
+              {[
+                { value: 'external', label: 'Link Externo', icon: <LinkIcon width={14} height={14} strokeWidth={1.5} /> },
+                { value: 'video', label: 'Vídeo', icon: <Play width={14} height={14} strokeWidth={1.5} /> },
+                { value: 'material', label: 'Material', icon: <Folder width={14} height={14} strokeWidth={1.5} /> },
+              ].map(opt => (
+                <button key={opt.value} onClick={() => setType(opt.value as any)}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1.5 ${type === opt.value ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                  {opt.icon} {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-300" placeholder="Nome da indicação" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+            <input type="text" value={description} onChange={e => setDescription(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-300" placeholder="Breve descrição" />
+          </div>
+          {type === 'external' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">URL externa *</label>
+              <input type="url" value={url} onChange={e => setUrl(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-300" placeholder="https://..." />
+            </div>
+          )}
+          {type === 'video' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ID do vídeo do YouTube *</label>
+              <input type="text" value={linkedVideoId} onChange={e => setLinkedVideoId(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-300" placeholder="Ex: dQw4w9WgXcQ" />
+              {linkedVideoId && (
+                <img src={`https://img.youtube.com/vi/${linkedVideoId}/mqdefault.jpg`} alt="Preview" className="mt-2 w-32 rounded-lg" />
+              )}
+            </div>
+          )}
+          {type === 'material' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Caminho da pasta</label>
+              <input type="text" value={materialPath} onChange={e => setMaterialPath(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-300" placeholder="/Mensagens - Avulsas/2024" />
+            </div>
+          )}
+          {(type === 'external' || type === 'material') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Imagem (quadrada)</label>
+              <input type="file" accept="image/*" onChange={handleImageUpload}
+                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+              {imageUrl && <img src={imageUrl} alt="Preview" className="mt-2 w-24 h-24 object-cover rounded-lg border" />}
+            </div>
+          )}
+        </div>
+        <div className="p-6 border-t flex gap-3">
+          <button onClick={onClose} className="flex-1 border rounded-lg py-2.5 text-sm text-gray-700 hover:bg-gray-50">Cancelar</button>
+          <button onClick={handleSave} disabled={!title.trim() || saving}
+            className="flex-1 bg-gray-900 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-gray-800 disabled:opacity-50">
+            {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function MaterialsPage() {
-  const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox, saveFolderVideos, getFileText } = useData()
+  const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox, getDropboxThumbnail, getDropboxThumbnailBatch, getFolderCover, saveFolderVideos, getFileText } = useData()
   const { user } = useAuth()
 
   const [path, setPath] = useState('')
   const [entries, setEntries] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [folderThumbs, setFolderThumbs] = useState<Record<string, string>>({})
+  // Fallback covers: folderPath -> blob URL of the first image in the folder (compressed).
+  // Used only when there is no admin-defined cover in folderThumbs.
+  const [folderCovers, setFolderCovers] = useState<Record<string, string>>({})
   const [folderTagMap, setFolderTagMap] = useState<Record<string, string[]>>({})
   const [folderDescMap, setFolderDescMap] = useState<Record<string, string>>({})
   const [topDownloads, setTopDownloads] = useState<any[]>([])
@@ -99,6 +461,8 @@ export default function MaterialsPage() {
   // File preview states
   const [selectedFile, setSelectedFile] = useState<any | null>(null)
   const [previewUrl, setPreviewUrl] = useState('')
+  // For images we preview a compressed thumbnail but keep the full-res URL for download.
+  const [previewDownloadUrl, setPreviewDownloadUrl] = useState('')
   const [previewLoading, setPreviewLoading] = useState(false)
   const [_downloading, setDownloading] = useState<string | null>(null)
   const [folderVideos, setFolderVideos] = useState<any[]>([])
@@ -112,7 +476,7 @@ export default function MaterialsPage() {
 
   const loadFolder = useCallback(async (p: string) => {
     setLoading(true); setIsSearching(false); setSearchResults([])
-    setSelectedFile(null); setPreviewUrl(''); setSelectedVideo(null); setFolderVideos([]); setFolderDescription('')
+    setSelectedFile(null); setPreviewUrl(''); setPreviewDownloadUrl(''); setSelectedVideo(null); setFolderVideos([]); setFolderDescription('')
     setCurrentPage(1)
     try {
       const [result, vidsResult] = await Promise.all([
@@ -244,6 +608,55 @@ export default function MaterialsPage() {
       localStorage.setItem('ri_folder_thumbs', JSON.stringify(merged))
     }).catch(() => {})
   }, [])
+
+  // Fallback covers: for folders in the current view that have NO admin-defined
+  // cover, fetch the first image in the folder and use its compressed thumbnail.
+  // Runs in the background so it never blocks rendering. Each folder is attempted
+  // at most once per session.
+  const coverAttempted = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const run = async () => {
+      const subfolders = entries.filter(e => e.tag === 'folder')
+      // Collect folders that need a fallback cover (no admin cover, not yet tried).
+      const pending = subfolders.filter(folder => {
+        const fpath = folder.path
+        if (!fpath) return false
+        const hasAdminCover = Object.keys(folderThumbs).some(
+          k => k.toLowerCase() === fpath.toLowerCase() && folderThumbs[k] && !folderThumbs[k].includes('dropboxusercontent.com')
+        )
+        if (hasAdminCover) return false
+        if (coverAttempted.current.has(fpath.toLowerCase())) return false
+        return true
+      })
+      if (pending.length === 0) return
+      pending.forEach(f => coverAttempted.current.add(f.path.toLowerCase()))
+
+      // 1. Find the first image (cover candidate) in each folder, in parallel.
+      const covers = await Promise.all(pending.map(async (folder) => {
+        try {
+          const { cover } = await getFolderCover(folder.pathLower || folder.path)
+          return cover ? { folderPath: folder.path, cover } : null
+        } catch { return null }
+      }))
+      const valid = covers.filter((c): c is { folderPath: string; cover: string } => !!c)
+      if (valid.length === 0) return
+
+      // 2. Generate all cover thumbnails in a single batch request.
+      try {
+        const thumbMap = await getDropboxThumbnailBatch(valid.map(v => v.cover), 'w640h480')
+        setFolderCovers(prev => {
+          const next = { ...prev }
+          for (const v of valid) {
+            const url = thumbMap[v.cover]
+            if (url) { next[v.folderPath] = url; next[v.folderPath.toLowerCase()] = url }
+          }
+          return next
+        })
+      } catch { /* ignore — falls back to generated cover */ }
+    }
+    run()
+  }, [entries, folderThumbs, getFolderCover, getDropboxThumbnailBatch])
+
   useEffect(() => {
     // Load tags from cache instantly
     try {
@@ -285,14 +698,18 @@ export default function MaterialsPage() {
 
   const isRoot = !path
   const getThumb = (folderPath: string, name: string) => {
-    // Try exact match first
+    // 1. Admin-defined cover (exact match)
     const saved = folderThumbs[folderPath]
     if (saved && !saved.includes('dropboxusercontent.com')) return saved
-    // Try case-insensitive match
+    // 2. Admin-defined cover (case-insensitive match)
     const pathLower = folderPath.toLowerCase()
     for (const [key, url] of Object.entries(folderThumbs)) {
       if (key.toLowerCase() === pathLower && url && !url.includes('dropboxusercontent.com')) return url
     }
+    // 3. Fallback cover = first image found in the folder (compressed)
+    const fallback = folderCovers[folderPath] || folderCovers[pathLower]
+    if (fallback) return fallback
+    // 4. Generated gradient cover with the folder name
     return generateCover(name)
   }
   const getTags = (folderPath: string) => folderTagMap[folderPath] || []
@@ -300,9 +717,25 @@ export default function MaterialsPage() {
   const files = entries.filter(e => e.tag === 'file')
 
   const handlePreview = async (file: any) => {
-    setSelectedFile(file); setPreviewUrl(''); setPreviewLoading(true); setSelectedVideo(null)
-    try { const r = await downloadDropbox(file.pathLower, 'view'); setPreviewUrl(r.url) }
-    catch { setPreviewUrl('') }
+    setSelectedFile(file); setPreviewUrl(''); setPreviewDownloadUrl(''); setPreviewLoading(true); setSelectedVideo(null)
+    try {
+      if (file.fileType === 'image') {
+        // Show a compressed thumbnail (fast) instead of the full-size original.
+        // Still register the "view" so download/view counters keep working, and
+        // keep the full-res temporary link for the download button.
+        const [thumb, r] = await Promise.all([
+          getDropboxThumbnail(file.pathLower, 'w1024h768').catch(() => ''),
+          downloadDropbox(file.pathLower, 'view'),
+        ])
+        setPreviewUrl(thumb || r.url)
+        setPreviewDownloadUrl(r.url)
+      } else {
+        const r = await downloadDropbox(file.pathLower, 'view')
+        setPreviewUrl(r.url)
+        setPreviewDownloadUrl(r.url)
+      }
+    }
+    catch { setPreviewUrl(''); setPreviewDownloadUrl('') }
     finally { setPreviewLoading(false) }
   }
 
@@ -318,7 +751,7 @@ export default function MaterialsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Materiais</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Recursos</h1>
           <p className="text-sm text-gray-500 mt-1">Recursos para seu ministério</p>
         </div>
       </div>
@@ -326,17 +759,17 @@ export default function MaterialsPage() {
       {/* Search */}
       <div className="flex gap-2 mb-6">
         <div className="flex-1 relative">
-          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search width={16} height={16} strokeWidth={1.5} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
           <input type="text" value={searchQuery}
             onChange={e => handleSearchInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { setShowAutocomplete(false); doSearch(searchQuery) } }}
             onFocus={() => { if (autocompleteSuggestions.length > 0) setShowAutocomplete(true) }}
             onBlur={() => setTimeout(() => setShowAutocomplete(false), 200)}
             placeholder="Buscar materiais, mensagens, apresentações..."
-            className="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
+            className="w-full pl-11 pr-10 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition" />
           {searchQuery && (
             <button onClick={() => { setSearchQuery(''); setShowAutocomplete(false); if (isSearching) loadFolder(path) }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X size={14} /></button>
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><Xmark width={14} height={14} strokeWidth={1.5} /></button>
           )}
           {/* Autocomplete dropdown */}
           {showAutocomplete && autocompleteSuggestions.length > 0 && (
@@ -348,8 +781,8 @@ export default function MaterialsPage() {
                   else { const folderPath = item.path.substring(0, item.path.lastIndexOf('/')); loadFolder(folderPath) }
                 }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition text-left border-b last:border-b-0">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${item.tag === 'folder' ? 'bg-amber-50' : 'bg-gray-100'}`}>
-                    {item.tag === 'folder' ? <Folder size={13} className="text-amber-500" /> : <File size={13} className="text-gray-400" />}
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${item.tag === 'folder' ? 'bg-blue-50' : 'bg-gray-100'}`}>
+                    {item.tag === 'folder' ? <Folder width={13} height={13} strokeWidth={1.5} className="text-blue-600" /> : <EmptyPage width={13} height={13} strokeWidth={1.5} className="text-gray-400" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-900 truncate">{item.name}</p>
@@ -361,7 +794,7 @@ export default function MaterialsPage() {
           )}
         </div>
         <button onClick={() => { setShowAutocomplete(false); doSearch(searchQuery) }}
-          className="bg-green-600 text-white px-5 py-3 rounded-xl text-sm font-medium hover:bg-green-700 transition">
+          className="bg-blue-600 text-white px-5 py-3 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
           Buscar
         </button>
       </div>
@@ -372,7 +805,7 @@ export default function MaterialsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
             <p className="text-sm text-gray-700">
               Pastas com materiais com a palavra "<span className="font-semibold text-gray-900">{searchQuery}</span>"
-              <button onClick={() => { setSearchQuery(''); setIsSearching(false); loadFolder(path) }} className="ml-2 text-red-500 text-xs hover:text-red-700">✕ Limpar</button>
+              <button onClick={() => { setSearchQuery(''); setIsSearching(false); loadFolder(path) }} className="ml-2 text-gray-400 text-xs hover:text-gray-600 inline-flex items-center gap-1"><Xmark width={11} height={11} strokeWidth={1.5} /> Limpar</button>
             </p>
             {/* Filter toggle */}
             <div className="flex flex-wrap gap-1 bg-gray-100 rounded-lg p-0.5">
@@ -424,7 +857,7 @@ export default function MaterialsPage() {
                         <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 mb-2.5">
                           <img src={thumb} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                         </div>
-                        <h3 className="font-semibold text-[13px] text-gray-900 leading-snug line-clamp-2 group-hover:text-green-700 transition">{folder.name}</h3>
+                        <h3 className="font-semibold text-[13px] text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-700 transition">{folder.name}</h3>
                         {tags.length > 0 && <p className="text-[10px] text-gray-400 mt-0.5">{tags.join(' · ')}</p>}
                         {desc && <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-2">{desc}</p>}
                       </button>
@@ -458,7 +891,7 @@ export default function MaterialsPage() {
                   const folderPath = file.path ? file.path.substring(0, file.path.lastIndexOf('/')) : ''
                   return (
                     <button key={file.id} onClick={() => { setIsSearching(false); setSearchQuery(''); loadFolder(folderPath) }}
-                      className="w-full flex items-center gap-3 bg-white border border-gray-100 rounded-xl p-3 hover:shadow-sm hover:border-green-200 transition text-left">
+                      className="w-full flex items-center gap-3 bg-white border border-gray-100 rounded-xl p-3 hover:shadow-sm hover:border-blue-200 transition text-left">
                       <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${(FILE_ICONS[file.fileType] || FILE_ICONS.other).bg}`}>
                         <FileIcon fileType={file.fileType} size={16} />
                       </div>
@@ -482,13 +915,13 @@ export default function MaterialsPage() {
       {!isRoot && !isSearching && (
         <div className="flex items-center gap-1.5 mb-5 text-sm flex-wrap">
           <button onClick={() => { const parts = path.split('/'); parts.pop(); loadFolder(parts.join('/')) }}
-            className="text-gray-400 hover:text-gray-700 mr-1 p-1 rounded-lg hover:bg-gray-100 transition"><ArrowLeft size={16} /></button>
+            className="text-gray-400 hover:text-gray-700 mr-1 p-1 rounded-lg hover:bg-gray-100 transition"><ArrowLeft width={16} height={16} strokeWidth={1.5} /></button>
           <button onClick={() => loadFolder('')} className="flex items-center gap-1 text-gray-500 hover:text-gray-900 transition">
-            <Home size={14} /> Materiais
+            <Home width={14} height={14} strokeWidth={1.5} /> Recursos
           </button>
           {breadcrumbs.map((bc, i) => (
             <span key={bc.path} className="flex items-center gap-1.5">
-              <ChevronRight size={13} className="text-gray-300" />
+              <NavArrowRight width={13} height={13} strokeWidth={1.5} className="text-gray-300" />
               <button onClick={() => loadFolder(bc.path)}
                 className={`hover:text-gray-900 transition ${i === breadcrumbs.length - 1 ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}>{bc.name}</button>
             </span>
@@ -500,7 +933,7 @@ export default function MaterialsPage() {
       {isRoot && !isSearching && topDownloads.length > 0 && (
         <section className="mb-10">
           <div className="flex items-center gap-2 mb-4">
-            <TrendingUp size={18} className="text-green-600" />
+            <GraphUp width={18} height={18} strokeWidth={1.5} className="text-slate-400" />
             <h2 className="text-[15px] font-bold text-gray-900">Mais baixados</h2>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -544,13 +977,13 @@ export default function MaterialsPage() {
         </section>
       )}
 
-      {loading && <div className="flex justify-center py-20"><Loader2 size={32} className="animate-spin text-green-500" /></div>}
+      {loading && <div className="flex justify-center py-20"><RefreshDouble width={32} height={32} strokeWidth={1.5} className="animate-spin text-blue-500" /></div>}
 
       {/* ═══ FOLDER CARDS — Life.Church style ═══ */}
       {!loading && !isSearching && folders.length > 0 && (() => {
-        const totalPages = Math.ceil(folders.length / ITEMS_PER_PAGE)
-        const startIdx = (currentPage - 1) * ITEMS_PER_PAGE
-        const paginatedFolders = folders.slice(startIdx, startIdx + ITEMS_PER_PAGE)
+        const totalPages = isRoot ? 1 : Math.ceil(folders.length / ITEMS_PER_PAGE)
+        const startIdx = isRoot ? 0 : (currentPage - 1) * ITEMS_PER_PAGE
+        const paginatedFolders = isRoot ? folders : folders.slice(startIdx, startIdx + ITEMS_PER_PAGE)
         return (
         <div>
           {isRoot && <h2 className="text-[15px] font-bold text-gray-900 mb-4">Conteúdos disponíveis</h2>}
@@ -558,7 +991,7 @@ export default function MaterialsPage() {
             {paginatedFolders.map(folder => {
               const thumb = getThumb(folder.path, folder.name)
               const tags = getTags(folder.path)
-              const parentName = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : 'Materiais'
+              const parentName = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : 'Recursos'
               return (
                 <div key={folder.id} className="group">
                   <button onClick={() => loadFolder(folder.path)} className="w-full text-left">
@@ -567,7 +1000,7 @@ export default function MaterialsPage() {
                       <img src={thumb} alt={folder.name} loading="eager" fetchPriority="high" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     </div>
                     {/* Title */}
-                    <h3 className="font-semibold text-[13px] text-gray-900 leading-snug line-clamp-2 group-hover:text-green-700 transition">{folder.name}</h3>
+                    <h3 className="font-semibold text-[13px] text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-700 transition">{folder.name}</h3>
                     {/* Category */}
                     <p className="text-[11px] text-gray-500 mt-0.5">{parentName}</p>
                     {/* Tags */}
@@ -582,8 +1015,8 @@ export default function MaterialsPage() {
                   {/* Admin edit */}
                   {isAdmin && (
                     <button onClick={() => { setEditingFolder(folder); setEditTags(getTags(folder.path)); setEditDesc(getDesc(folder.path)); setEditThumbUrl(folderThumbs[folder.path] || ''); setOriginalThumbUrl(folderThumbs[folder.path] || ''); setShowImagePicker(false) }}
-                      className="mt-1 text-[10px] text-gray-400 hover:text-green-600 transition opacity-0 group-hover:opacity-100">
-                      ✏️ Editar card
+                      className="mt-1 text-[10px] text-gray-400 hover:text-blue-600 transition opacity-0 group-hover:opacity-100">
+                      Editar card
                     </button>
                   )}
                 </div>
@@ -591,7 +1024,7 @@ export default function MaterialsPage() {
             })}
           </div>
           {/* Pagination */}
-          {totalPages > 1 && (
+          {!isRoot && totalPages > 1 && (
             <div className="flex items-center justify-center gap-1.5 mt-8">
               <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
                 className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition">
@@ -614,7 +1047,7 @@ export default function MaterialsPage() {
                   <span key={`dots-${idx}`} className="w-9 h-9 flex items-center justify-center text-sm text-gray-400">…</span>
                 ) : (
                   <button key={page} onClick={() => setCurrentPage(page as number)}
-                    className={`w-9 h-9 rounded-lg text-sm font-medium transition ${currentPage === page ? 'bg-green-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                    className={`w-9 h-9 rounded-lg text-sm font-medium transition ${currentPage === page ? 'bg-blue-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
                     {page}
                   </button>
                 ))
@@ -631,14 +1064,14 @@ export default function MaterialsPage() {
 
       {!loading && !isSearching && folders.length === 0 && entries.length === 0 && (
         <div className="text-center py-20 text-gray-400">
-          <Folder size={48} className="mx-auto mb-3 text-gray-300" />
+          <Folder width={48} height={48} strokeWidth={1.5} className="mx-auto mb-3 text-gray-300" />
           <p>Pasta vazia</p>
         </div>
       )}
 
       {/* ═══ FILES VIEW — Split: Preview left + list right ═══ */}
       {!loading && !isSearching && folders.length === 0 && files.length > 0 && (() => {
-        const folderTitle = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : 'Materiais'
+        const folderTitle = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : 'Recursos'
         return (
         <div>
           <h2 className="text-xl font-bold text-gray-900 mb-1">{folderTitle}</h2>
@@ -666,16 +1099,16 @@ export default function MaterialsPage() {
                 )}
                 {!selectedVideo && !selectedFile && (
                   <div className="flex items-center justify-center flex-1 text-center text-gray-400 p-8">
-                    <div><File size={48} className="mx-auto mb-3 text-gray-300" /><p className="text-sm">Selecione um arquivo para visualizar</p></div>
+                    <div><EmptyPage width={48} height={48} strokeWidth={1.5} className="mx-auto mb-3 text-gray-300" /><p className="text-sm">Selecione um arquivo para visualizar</p></div>
                   </div>
                 )}
                 {!selectedVideo && selectedFile && previewLoading && (
-                  <div className="flex items-center justify-center flex-1"><Loader2 size={32} className="animate-spin text-green-500" /></div>
+                  <div className="flex items-center justify-center flex-1"><RefreshDouble width={32} height={32} strokeWidth={1.5} className="animate-spin text-blue-500" /></div>
                 )}
                 {!selectedVideo && selectedFile && !previewLoading && !previewUrl && (
                   <div className="flex items-center justify-center flex-1 text-center text-gray-400 p-8">
                     <div><FileIcon fileType={selectedFile.fileType} size={48} /><p className="text-sm mt-3">Preview não disponível</p>
-                      <button onClick={() => handleDownload(selectedFile)} className="mt-4 bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-green-700 inline-flex items-center gap-2"><Download size={16} /> Baixar</button>
+                      <button onClick={() => handleDownload(selectedFile)} className="mt-4 bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 inline-flex items-center gap-2"><Download width={16} height={16} strokeWidth={1.5} /> Baixar</button>
                     </div>
                   </div>
                 )}
@@ -687,13 +1120,13 @@ export default function MaterialsPage() {
                         <span className="font-medium text-sm text-gray-900 truncate">{selectedFile.name}</span>
                         <span className="text-xs text-gray-400">{formatSize(selectedFile.size)}</span>
                       </div>
-                      <a href={previewUrl} download target="_blank" rel="noopener noreferrer"
-                        className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-700 flex items-center gap-1.5 shrink-0"><Download size={14} /> Baixar</a>
+                      <a href={previewDownloadUrl || previewUrl} download target="_blank" rel="noopener noreferrer"
+                        className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700 flex items-center gap-1.5 shrink-0"><Download width={14} height={14} strokeWidth={1.5} /> Baixar</a>
                     </div>
                     <div className="flex items-center justify-center p-4 overflow-auto flex-1">
                       {selectedFile.fileType === 'image' ? <img src={previewUrl} alt="" className="max-w-full max-h-[450px] object-contain rounded-lg shadow" />
                       : selectedFile.fileType === 'video' ? <video src={previewUrl} controls className="max-w-full max-h-[450px] rounded-lg shadow" />
-                      : selectedFile.fileType === 'audio' ? <div className="flex flex-col items-center gap-4 w-full max-w-md"><Headphones size={36} className="text-blue-400" /><p className="font-medium text-gray-700">{selectedFile.name}</p><audio src={previewUrl} controls className="w-full" /></div>
+                      : selectedFile.fileType === 'audio' ? <div className="flex flex-col items-center gap-4 w-full max-w-md"><Headset width={36} height={36} strokeWidth={1.5} className="text-blue-400" /><p className="font-medium text-gray-700">{selectedFile.name}</p><audio src={previewUrl} controls className="w-full" /></div>
                       : selectedFile.fileType === 'pdf' ? <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(previewUrl)}&embedded=true`} className="w-full h-[450px] rounded-lg border" title={selectedFile.name} />
                       : (selectedFile.ext === 'ppt' || selectedFile.ext === 'pptx' || selectedFile.ext === 'doc' || selectedFile.ext === 'docx') ? <iframe src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewUrl)}`} className="w-full h-[450px] rounded-lg border" title={selectedFile.name} />
                       : <div className="text-center text-gray-500"><FileIcon fileType={selectedFile.fileType} size={48} /><p className="font-medium mt-3">{selectedFile.name}</p></div>}
@@ -701,13 +1134,14 @@ export default function MaterialsPage() {
                   </div>
                 )}
               </div>
+              <MaterialRecommendationsSection folderPath={path} folderName={folderTitle} allFolders={autocompleteCache} folderThumbs={folderThumbs} onNavigate={loadFolder} />
             </div>
             {/* Right: list */}
             <div className="lg:w-80 xl:w-96 shrink-0 space-y-4">
               <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
                 <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
                   <p className="text-sm font-semibold text-gray-700">{folderVideos.length > 0 ? `${folderVideos.length} vídeos · ` : ''}{files.length} arquivos</p>
-                  {isAdmin && <button onClick={() => setShowAddVideo(true)} className="text-xs text-green-600 hover:text-green-800 font-medium">+ Vídeo</button>}
+                  {isAdmin && <button onClick={() => setShowAddVideo(true)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">+ Vídeo</button>}
                 </div>
                 <div className="max-h-[420px] overflow-y-auto divide-y divide-gray-50">
                   {folderVideos.map((vid, idx) => {
@@ -715,18 +1149,18 @@ export default function MaterialsPage() {
                     return (
                       <div key={vid.id} className="relative group">
                         <button onClick={() => { setSelectedVideo(vid); setSelectedFile(null); setPreviewUrl('') }}
-                          className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${isActive ? 'bg-purple-50 border-l-2 border-l-purple-500' : 'hover:bg-gray-50 border-l-2 border-l-transparent'}`}>
+                          className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${isActive ? 'bg-blue-50 border-l-2 border-l-blue-500' : 'hover:bg-gray-50 border-l-2 border-l-transparent'}`}>
                           <div className="shrink-0 w-10 h-7 rounded bg-gray-900 overflow-hidden relative">
                             <img src={vid.thumbnail || `https://img.youtube.com/vi/${vid.id}/default.jpg`} alt="" className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 flex items-center justify-center"><Play size={10} className="text-white" fill="white" /></div>
+                            <div className="absolute inset-0 flex items-center justify-center"><Play width={10} height={10} strokeWidth={1.5} className="text-white" fill="white" /></div>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`text-xs font-medium truncate ${isActive ? 'text-purple-900' : 'text-gray-900'}`}>{vid.title}</p>
+                            <p className={`text-xs font-medium truncate ${isActive ? 'text-blue-900' : 'text-gray-900'}`}>{vid.title}</p>
                             <p className="text-[10px] text-gray-400">Vídeo</p>
                           </div>
                         </button>
                         {isAdmin && <button onClick={() => { const updated = folderVideos.filter((_, i) => i !== idx); setFolderVideos(updated); saveFolderVideos(path, updated) }}
-                          className="absolute top-2 right-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><X size={12} /></button>}
+                          className="absolute top-2 right-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Xmark width={12} height={12} strokeWidth={1.5} /></button>}
                       </div>
                     )
                   })}
@@ -734,12 +1168,12 @@ export default function MaterialsPage() {
                     const isActive = selectedFile?.id === file.id && !selectedVideo
                     return (
                       <button key={file.id} onClick={() => { setSelectedVideo(null); handlePreview(file) }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${isActive ? 'bg-green-50 border-l-2 border-l-green-500' : 'hover:bg-gray-50 border-l-2 border-l-transparent'}`}>
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition ${isActive ? 'bg-blue-50 border-l-2 border-l-blue-500' : 'hover:bg-gray-50 border-l-2 border-l-transparent'}`}>
                         <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${(FILE_ICONS[file.fileType] || FILE_ICONS.other).bg}`}>
                           <FileIcon fileType={file.fileType} size={16} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-medium truncate ${isActive ? 'text-green-900' : 'text-gray-900'}`}>{file.name.replace(/\.[^/.]+$/, '')}</p>
+                          <p className={`text-xs font-medium truncate ${isActive ? 'text-blue-900' : 'text-gray-900'}`}>{file.name.replace(/\.[^/.]+$/, '')}</p>
                           <p className="text-[10px] text-gray-400"><span className="uppercase font-medium">{file.ext}</span> · {formatSize(file.size)}</p>
                         </div>
                       </button>
@@ -762,12 +1196,12 @@ export default function MaterialsPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">URL ou ID do YouTube</label>
                 <input type="text" value={newVideoUrl} onChange={e => setNewVideoUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..."
-                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-200" />
+                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
                 <input type="text" value={newVideoTitle} onChange={e => setNewVideoTitle(e.target.value)} placeholder="Título do vídeo"
-                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-200" />
+                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200" />
               </div>
             </div>
             <div className="p-5 border-t flex gap-3">
@@ -782,7 +1216,7 @@ export default function MaterialsPage() {
                 setNewVideoUrl(''); setNewVideoTitle(''); setShowAddVideo(false)
                 if (!selectedVideo) setSelectedVideo(newVid)
               }} disabled={!newVideoUrl || !newVideoTitle.trim()}
-                className="flex-1 bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700 disabled:opacity-50">Adicionar</button>
+                className="flex-1 bg-blue-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-blue-700 disabled:opacity-50">Adicionar</button>
             </div>
           </div>
         </div>
@@ -805,7 +1239,7 @@ export default function MaterialsPage() {
                     <img src={editThumbUrl || getThumb(editingFolder.path, editingFolder.name)} alt="" className="w-full h-full object-cover" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="inline-flex items-center gap-1.5 text-xs text-green-600 hover:text-green-800 cursor-pointer font-medium">
+                    <label className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 cursor-pointer font-medium">
                       <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                         const file = e.target.files?.[0]
                         if (!file) return
@@ -817,7 +1251,7 @@ export default function MaterialsPage() {
                         } catch { /* ignore */ }
                         finally { setUploading(false) }
                       }} />
-                      {uploading ? 'Enviando...' : '📷 Subir do computador'}
+                      {uploading ? 'Enviando...' : <><MediaImage width={13} height={13} strokeWidth={1.5} /> Subir do computador</>}
                     </label>
                     <button onClick={async () => {
                       setShowImagePicker(true); setLoadingImages(true); setFolderImages([])
@@ -840,7 +1274,7 @@ export default function MaterialsPage() {
                       } catch { /* ignore */ }
                       finally { setLoadingImages(false) }
                     }}
-                      className="block text-xs text-blue-600 hover:text-blue-800 font-medium">🔍 Escolher da pasta</button>
+                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"><Search width={13} height={13} strokeWidth={1.5} /> Escolher da pasta</button>
                     {(editThumbUrl || folderThumbs[editingFolder.path]) && (
                       <button onClick={() => { setEditThumbUrl('__REMOVE__') }}
                         className="block text-[10px] text-red-500 hover:text-red-700">Remover thumb</button>
@@ -852,7 +1286,7 @@ export default function MaterialsPage() {
                   <div className="border border-gray-200 rounded-xl p-3 bg-gray-50">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs font-medium text-gray-600">Imagens da pasta:</p>
-                      <button onClick={() => setShowImagePicker(false)} className="text-xs text-gray-400 hover:text-gray-600">✕ Fechar</button>
+                      <button onClick={() => setShowImagePicker(false)} className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"><Xmark width={12} height={12} strokeWidth={1.5} /> Fechar</button>
                     </div>
                     {loadingImages && <p className="text-xs text-gray-400 text-center py-4">Buscando imagens...</p>}
                     {!loadingImages && folderImages.length === 0 && <p className="text-xs text-gray-400 text-center py-4">Nenhuma imagem encontrada</p>}
@@ -876,8 +1310,8 @@ export default function MaterialsPage() {
                             } catch { /* ignore */ }
                             finally { setUploading(false) }
                           }}
-                            className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 hover:border-green-500 hover:bg-green-50 transition text-left">
-                            <Image size={14} className="text-green-600 shrink-0" />
+                            className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition text-left">
+                            <MediaImage width={14} height={14} strokeWidth={1.5} className="text-blue-600 shrink-0" />
                             <span className="text-[10px] text-gray-700 truncate">{img.name}</span>
                           </button>
                         ))}
@@ -893,7 +1327,7 @@ export default function MaterialsPage() {
                   {editTags.map(tag => (
                     <span key={tag} className="bg-gray-100 text-gray-700 text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1">
                       {tag}
-                      <button onClick={() => setEditTags(prev => prev.filter(t => t !== tag))} className="text-gray-400 hover:text-red-500"><X size={10} /></button>
+                      <button onClick={() => setEditTags(prev => prev.filter(t => t !== tag))} className="text-gray-400 hover:text-red-500"><Xmark width={10} height={10} strokeWidth={1.5} /></button>
                     </span>
                   ))}
                 </div>
@@ -901,9 +1335,9 @@ export default function MaterialsPage() {
                   <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && tagInput.trim()) { setEditTags(prev => [...prev, tagInput.trim().toLowerCase()]); setTagInput('') } }}
                     placeholder="Adicionar tag..."
-                    className="flex-1 border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-green-300" />
+                    className="flex-1 border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-blue-300" />
                   <button onClick={() => { if (tagInput.trim()) { setEditTags(prev => [...prev, tagInput.trim().toLowerCase()]); setTagInput('') } }}
-                    className="text-xs text-green-600 font-medium px-2">+ Add</button>
+                    className="text-xs text-blue-600 font-medium px-2">+ Add</button>
                 </div>
               </div>
               {/* Description */}
@@ -911,7 +1345,7 @@ export default function MaterialsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Descritivo breve</label>
                 <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={2}
                   placeholder="Breve descrição do conteúdo desta pasta..."
-                  className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-200" />
+                  className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200" />
               </div>
             </div>
             <div className="p-5 border-t flex gap-3">
@@ -931,7 +1365,7 @@ export default function MaterialsPage() {
                 setFolderDescMap(prev => ({ ...prev, [editingFolder.path]: editDesc }))
                 setEditingFolder(null); setShowImagePicker(false)
               }}
-                className="flex-1 bg-green-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-green-700">
+                className="flex-1 bg-blue-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-blue-700">
                 Salvar
               </button>
             </div>

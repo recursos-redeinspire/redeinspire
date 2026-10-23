@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
-import { Trash2, BookOpen, Clock, Trophy, AlertTriangle, Link as LinkIcon, Video, Headphones, FileText, PenLine, FolderOpen } from 'lucide-react'
+import { Trash, Book, Clock, Trophy, WarningTriangle, Link as LinkIcon, VideoCamera, Headset, Page, PageEdit, Folder, Check, Xmark, User } from 'iconoir-react'
 
 interface ModuleForm { title: string; durationMinutes: number; contentId: string }
 
@@ -69,27 +69,27 @@ export default function TrailsPage() {
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-lg">{trail.title}</h3>
                       {trail.isMandatory && <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">{t('trails.mandatory')}</span>}
-                      {trail.status === 'pending' && <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full">⏳ Pendente</span>}
-                      {trail.createdByName && trail.status !== 'pending' && <span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full">👤 {trail.createdByName}</span>}
-                      {isComplete && <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full">✓ {t('trails.completed')}</span>}
+                      {trail.status === 'pending' && <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full flex items-center gap-1"><Clock width={12} height={12} strokeWidth={1.5} /> Pendente</span>}
+                      {trail.createdByName && trail.status !== 'pending' && <span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full flex items-center gap-1"><User width={12} height={12} strokeWidth={1.5} /> {trail.createdByName}</span>}
+                      {isComplete && <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full flex items-center gap-1"><Check width={12} height={12} strokeWidth={1.5} /> {t('trails.completed')}</span>}
                     </div>
                     <p className="text-gray-600 text-sm mt-1">{trail.description}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-gray-900 font-bold">{trail.points} pts</span>
                     {isPastor && (
-                      <button onClick={() => handleDelete(trail.id, trail.title)} className="text-red-500 hover:text-red-700 text-sm" title={t('common.delete')}><Trash2 size={16} /></button>
+                      <button onClick={() => handleDelete(trail.id, trail.title)} className="text-red-500 hover:text-red-700 text-sm" title={t('common.delete')}><Trash width={16} height={16} strokeWidth={1.5} /></button>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="flex-1 bg-gray-200 rounded-full h-2.5"><div className={`h-2.5 rounded-full ${isComplete ? 'bg-green-500' : 'bg-gray-900'}`} style={{ width: `${percent}%` }} /></div>
+                  <div className="flex-1 bg-gray-200 rounded-full h-2.5"><div className={`h-2.5 rounded-full ${isComplete ? 'bg-blue-600' : 'bg-gray-900'}`} style={{ width: `${percent}%` }} /></div>
                   <span className="text-sm text-gray-600 whitespace-nowrap">{trail.progress?.completedModules?.length ?? 0}/{trail.modules?.length ?? 0} {t('trails.modules')} ({percent}%)</span>
                 </div>
                 <div className="mt-3 flex gap-2">
                   {!isStarted && <button onClick={() => handleStartTrail(trail.id)} className="bg-gray-900 text-white px-4 py-1.5 rounded text-sm hover:bg-gray-800">{t('trails.start')}</button>}
                   {isStarted && !isComplete && <button onClick={() => setExpandedTrail(isExpanded ? null : trail.id)} className="bg-gray-900 text-white px-4 py-1.5 rounded text-sm hover:bg-gray-800">{isExpanded ? t('trails.close') : t('trails.continue')}</button>}
-                  {isComplete && <button className="bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700">📜 {t('trails.viewCertificate')}</button>}
+                  {isComplete && <button className="bg-blue-600 text-white px-4 py-1.5 rounded text-sm hover:bg-blue-700 flex items-center gap-1.5"><Page width={14} height={14} strokeWidth={1.5} /> {t('trails.viewCertificate')}</button>}
                 </div>
                 {isExpanded && (
                   <div className="mt-4 border-t pt-4 space-y-2">
@@ -99,7 +99,7 @@ export default function TrailsPage() {
                       return (
                         <div key={mod.moduleId} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
                           <div className="flex items-center gap-3">
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${completed ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{completed ? '✓' : mod.order}</span>
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${completed ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>{completed ? <Check width={13} height={13} strokeWidth={1.5} /> : mod.order}</span>
                             <div><p className={`text-sm ${completed ? 'text-gray-400 line-through' : 'font-medium'}`}>{mod.title}</p><p className="text-xs text-gray-400">{mod.durationMinutes} min</p></div>
                           </div>
                           {!completed && <button onClick={() => handleCompleteModule(trail.id, mod.moduleId)} className="text-xs bg-gray-200 text-gray-800 px-3 py-1 rounded hover:bg-gray-300">{t('trails.completeModule')}</button>}
@@ -116,7 +116,7 @@ export default function TrailsPage() {
 
       {tab === 'academy' && (
         <div>
-          {enrolledMsg && <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">{enrolledMsg}</div>}
+          {enrolledMsg && <div className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{enrolledMsg}</div>}
           <p className="text-gray-600 mb-4">{t('trails.academyDesc')}</p>
           {courses.length === 0 && <p className="text-gray-500 text-center py-8">{t('trails.noCourses')}</p>}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -125,10 +125,10 @@ export default function TrailsPage() {
                 <h3 className="font-semibold mb-2">{course.title}</h3>
                 <p className="text-sm text-gray-500 mb-2">{course.description}</p>
                 <div className="text-sm text-gray-500 space-y-1">
-                  <p className="flex items-center gap-1"><BookOpen size={14} /> {course.modulesCount || 0} {t('trails.modules')}</p>
-                  <p className="flex items-center gap-1"><Clock size={14} /> {course.durationHours || 0} {t('trails.hours')}</p>
-                  <p className="flex items-center gap-1"><Trophy size={14} /> {course.points} {t('trails.points')}</p>
-                  {course.isMandatory && <p className="text-red-600 font-medium flex items-center gap-1"><AlertTriangle size={14} /> {t('trails.mandatory')}</p>}
+                  <p className="flex items-center gap-1"><Book width={14} height={14} strokeWidth={1.5} /> {course.modulesCount || 0} {t('trails.modules')}</p>
+                  <p className="flex items-center gap-1"><Clock width={14} height={14} strokeWidth={1.5} /> {course.durationHours || 0} {t('trails.hours')}</p>
+                  <p className="flex items-center gap-1"><Trophy width={14} height={14} strokeWidth={1.5} /> {course.points} {t('trails.points')}</p>
+                  {course.isMandatory && <p className="text-red-600 font-medium flex items-center gap-1"><WarningTriangle width={14} height={14} strokeWidth={1.5} /> {t('trails.mandatory')}</p>}
                 </div>
                 <button onClick={() => handleEnroll(course.trailId, course.title)} className="mt-3 w-full bg-gray-900 text-white py-2 rounded text-sm hover:bg-gray-800">{t('trails.enroll')}</button>
               </div>
@@ -173,8 +173,8 @@ function CreateTrailModal({ onClose, onCreated }: { onClose: () => void; onCreat
   }
 
   const typeLabel = (type: string) => {
-    const map: Record<string, React.ReactNode> = { video: <Video size={14} />, audio: <Headphones size={14} />, document: <FileText size={14} />, article: <PenLine size={14} /> }
-    return map[type] || <FolderOpen size={14} />
+    const map: Record<string, React.ReactNode> = { video: <VideoCamera width={14} height={14} strokeWidth={1.5} />, audio: <Headset width={14} height={14} strokeWidth={1.5} />, document: <Page width={14} height={14} strokeWidth={1.5} />, article: <PageEdit width={14} height={14} strokeWidth={1.5} /> }
+    return map[type] || <Folder width={14} height={14} strokeWidth={1.5} />
   }
 
   const handleSubmit = async () => {
@@ -241,7 +241,7 @@ function CreateTrailModal({ onClose, onCreated }: { onClose: () => void; onCreat
                     <input value={mod.title} onChange={e => updateModule(i, 'title', e.target.value)} className="flex-1 border rounded px-2 py-1.5 text-sm" placeholder={t('trails.moduleTitle')} />
                     <input type="number" value={mod.durationMinutes} onChange={e => updateModule(i, 'durationMinutes', Number(e.target.value))} className="w-20 border rounded px-2 py-1.5 text-sm" min={1} />
                     <span className="text-xs text-gray-400">min</span>
-                    {modules.length > 1 && <button onClick={() => removeModule(i)} className="text-red-400 hover:text-red-600 text-sm">✕</button>}
+                    {modules.length > 1 && <button onClick={() => removeModule(i)} className="text-red-400 hover:text-red-600 text-sm"><Xmark width={14} height={14} strokeWidth={1.5} /></button>}
                   </div>
                   <div className="pl-7">
                     <select
@@ -249,7 +249,7 @@ function CreateTrailModal({ onClose, onCreated }: { onClose: () => void; onCreat
                       onChange={e => updateModule(i, 'contentId', e.target.value)}
                       className="w-full border rounded px-2 py-1.5 text-sm text-gray-700 bg-white"
                     >
-                      <option value=""><LinkIcon size={14} className="inline" /> {t('trails.linkContent')}</option>
+                      <option value=""><LinkIcon width={14} height={14} strokeWidth={1.5} className="inline" /> {t('trails.linkContent')}</option>
                       {allContents.map(c => (
                         <option key={c.id} value={c.id}>
                           {typeLabel(c.type)} {c.title} ({c.durationMinutes || 0} min)
@@ -257,7 +257,7 @@ function CreateTrailModal({ onClose, onCreated }: { onClose: () => void; onCreat
                       ))}
                     </select>
                     {mod.contentId && (
-                      <p className="text-xs text-green-600 mt-1">✓ {t('trails.contentLinked')}</p>
+                      <p className="text-xs text-blue-600 mt-1 flex items-center gap-1"><Check width={13} height={13} strokeWidth={1.5} /> {t('trails.contentLinked')}</p>
                     )}
                   </div>
                 </div>

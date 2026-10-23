@@ -34,3 +34,6 @@ Thumbs.db
 # Capacitor native projects (regenerate with: npx cap add android/ios)
 frontend/android/
 frontend/ios/
+
+# Git worktrees (temporary feature workspaces)
+.worktrees/

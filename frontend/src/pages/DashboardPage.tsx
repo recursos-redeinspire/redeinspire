@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
-import { ClipboardList, BarChart3, Trophy, Newspaper, BookOpen, Route, GraduationCap, FileText, MessageSquare, Pin, Medal } from 'lucide-react'
+import { ClipboardCheck, StatsReport, Trophy, Journal, Book, PathArrow, GraduationCap, Page, ChatBubble, Pin, Medal } from 'iconoir-react'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -90,7 +90,7 @@ export default function DashboardPage() {
       {upcomingItems.length > 0 && (
         <div className="mb-6 bg-white border rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-gray-800 flex items-center gap-2"><ClipboardList size={18} /> {t('dashboard.upcomingCommitments')}</h2>
+            <h2 className="font-semibold text-gray-800 flex items-center gap-2"><ClipboardCheck width={18} height={18} strokeWidth={1.5} /> {t('dashboard.upcomingCommitments')}</h2>
             <button onClick={() => navigate('/planning')} className="text-xs text-gray-500 hover:text-gray-900">{t('dashboard.viewFullAgenda')} →</button>
           </div>
           <div className="space-y-2">
@@ -99,7 +99,7 @@ export default function DashboardPage() {
               const d = new Date(item.scheduledAt)
               return (
                 <div key={`${item.type}-${item.id}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
-                  <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex flex-col items-center justify-center text-white text-xs font-bold ${isWebinar ? 'bg-purple-500' : 'bg-blue-500'}`}>
+                  <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex flex-col items-center justify-center text-white text-xs font-bold ${isWebinar ? 'bg-slate-500' : 'bg-blue-500'}`}>
                     <span className="text-sm leading-none">{d.getDate()}</span>
                     <span className="text-[9px] uppercase">{d.toLocaleDateString('pt-BR', { month: 'short' })}</span>
                   </div>
@@ -107,7 +107,7 @@ export default function DashboardPage() {
                     <p className="text-sm font-medium truncate">{item.title}</p>
                     <p className="text-xs text-gray-500">{d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {item.person}</p>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${isWebinar ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${isWebinar ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700'}`}>
                     {isWebinar ? 'Webinar' : t('mentoring.title')}
                   </span>
                   {item.meetingUrl && (
@@ -152,7 +152,7 @@ export default function DashboardPage() {
                           {hasEvents && (
                             <div className="flex justify-center gap-0.5 mt-0.5">
                               {eventDays[day!].map((ev: any, ei: number) => (
-                                <div key={ei} className={`w-1.5 h-1.5 rounded-full ${ev.type === 'webinar' ? 'bg-purple-500' : 'bg-blue-500'}`} title={ev.title} />
+                                <div key={ei} className={`w-1.5 h-1.5 rounded-full ${ev.type === 'webinar' ? 'bg-slate-500' : 'bg-blue-500'}`} title={ev.title} />
                               ))}
                             </div>
                           )}
@@ -165,7 +165,7 @@ export default function DashboardPage() {
             )
           })}
           <div className="flex gap-4 text-xs text-gray-500">
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block" /> Webinar</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-slate-500 inline-block" /> Webinar</span>
             <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" /> {t('mentoring.title')}</span>
           </div>
         </div>
@@ -174,17 +174,17 @@ export default function DashboardPage() {
       {/* Metrics cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div className="bg-white border rounded-lg p-4 text-center"><p className="text-2xl font-bold text-gray-900">{metrics.totalLeaders}</p><p className="text-xs text-gray-500 mt-1">{t('dashboard.leaders')}</p></div>
-        <div className="bg-white border rounded-lg p-4 text-center"><p className="text-2xl font-bold text-green-600">{metrics.activeLeaders}</p><p className="text-xs text-gray-500 mt-1">{t('dashboard.activeUsers')}</p></div>
+        <div className="bg-white border rounded-lg p-4 text-center"><p className="text-2xl font-bold text-blue-600">{metrics.activeLeaders}</p><p className="text-xs text-gray-500 mt-1">{t('dashboard.activeUsers')}</p></div>
         <div className="bg-white border rounded-lg p-4 text-center"><p className="text-2xl font-bold text-blue-600">{metrics.totalContentAccessed}</p><p className="text-xs text-gray-500 mt-1">{t('dashboard.accesses')}</p></div>
         <div className="bg-white border rounded-lg p-4 text-center"><p className="text-2xl font-bold text-amber-600">{metrics.trailsInProgress}</p><p className="text-xs text-gray-500 mt-1">{t('dashboard.trailsInProgress')}</p></div>
-        <div className="bg-white border rounded-lg p-4 text-center"><p className="text-2xl font-bold text-purple-600">{pastorCount}</p><p className="text-xs text-gray-500 mt-1">{t('dashboard.pastors')}</p></div>
+        <div className="bg-white border rounded-lg p-4 text-center"><p className="text-2xl font-bold text-slate-600">{pastorCount}</p><p className="text-xs text-gray-500 mt-1">{t('dashboard.pastors')}</p></div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-4 mb-4 border-b">
         {([['visao', t('dashboard.overview')], ['ranking', t('dashboard.ranking')], ['timeline', t('dashboard.timeline')]] as [string, string][]).map(([key, label], idx) => (
           <button key={key} onClick={() => setTab(key as 'visao' | 'ranking' | 'timeline')} className={`pb-2 px-1 text-sm font-medium flex items-center gap-1.5 ${tab === key ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}>
-            {idx === 0 ? <BarChart3 size={15} /> : idx === 1 ? <Trophy size={15} /> : <Newspaper size={15} />}
+            {idx === 0 ? <StatsReport width={15} height={15} strokeWidth={1.5} /> : idx === 1 ? <Trophy width={15} height={15} strokeWidth={1.5} /> : <Journal width={15} height={15} strokeWidth={1.5} />}
             {label}
           </button>
         ))}
@@ -206,10 +206,10 @@ export default function DashboardPage() {
             </div>
           )}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <button onClick={() => navigate('/catalog')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><BookOpen size={24} className="mx-auto text-gray-600" /><p className="text-xs mt-2 text-gray-700">{t('dashboard.totalContent')}</p></button>
-            <button onClick={() => navigate('/trails')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><Route size={24} className="mx-auto text-gray-600" /><p className="text-xs mt-2 text-gray-700">{t('dashboard.totalTrails')}</p></button>
-            <button onClick={() => navigate('/mentoring')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><GraduationCap size={24} className="mx-auto text-gray-600" /><p className="text-xs mt-2 text-gray-700">{t('dashboard.totalMentoring')}</p></button>
-            <button onClick={() => navigate('/planning')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><ClipboardList size={24} className="mx-auto text-gray-600" /><p className="text-xs mt-2 text-gray-700">{t('dashboard.upcomingCommitments')}</p></button>
+            <button onClick={() => navigate('/catalog')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><Book width={24} height={24} strokeWidth={1.5} className="mx-auto text-gray-600" /><p className="text-xs mt-2 text-gray-700">{t('dashboard.totalContent')}</p></button>
+            <button onClick={() => navigate('/trails')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><PathArrow width={24} height={24} strokeWidth={1.5} className="mx-auto text-gray-600" /><p className="text-xs mt-2 text-gray-700">{t('dashboard.totalTrails')}</p></button>
+            <button onClick={() => navigate('/mentoring')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><GraduationCap width={24} height={24} strokeWidth={1.5} className="mx-auto text-gray-600" /><p className="text-xs mt-2 text-gray-700">{t('dashboard.totalMentoring')}</p></button>
+            <button onClick={() => navigate('/planning')} className="bg-white border rounded-lg p-4 text-center hover:shadow-md transition-shadow"><ClipboardCheck width={24} height={24} strokeWidth={1.5} className="mx-auto text-gray-600" /><p className="text-xs mt-2 text-gray-700">{t('dashboard.upcomingCommitments')}</p></button>
           </div>
         </div>
       )}
@@ -225,7 +225,7 @@ export default function DashboardPage() {
             </tr></thead><tbody className="divide-y">
               {ranking.map((r: any, i: number) => (
                 <tr key={i} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium">{i === 0 ? <Medal size={18} className="text-yellow-500" /> : i === 1 ? <Medal size={18} className="text-gray-400" /> : i === 2 ? <Medal size={18} className="text-amber-700" /> : `${i + 1}º`}</td>
+                  <td className="px-4 py-3 text-sm font-medium">{i === 0 ? <Medal width={18} height={18} strokeWidth={1.5} className="text-yellow-500" /> : i === 1 ? <Medal width={18} height={18} strokeWidth={1.5} className="text-gray-400" /> : i === 2 ? <Medal width={18} height={18} strokeWidth={1.5} className="text-amber-700" /> : `${i + 1}º`}</td>
                   <td className="px-4 py-3 text-sm">{r.name}</td>
                   <td className="px-4 py-3 text-sm text-right">{r.trails}</td>
                   <td className="px-4 py-3 text-sm text-right font-semibold">{r.score}</td>
@@ -242,7 +242,7 @@ export default function DashboardPage() {
             timeline.map((tl: any, i: number) => (
               <div key={i} className="flex gap-3 bg-white border rounded-lg p-4">
                 <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-lg">
-                  {tl.type === 'content' ? <FileText size={18} /> : tl.type === 'trail' ? <Route size={18} /> : tl.type === 'message' ? <MessageSquare size={18} /> : <Pin size={18} />}
+                  {tl.type === 'content' ? <Page width={18} height={18} strokeWidth={1.5} /> : tl.type === 'trail' ? <PathArrow width={18} height={18} strokeWidth={1.5} /> : tl.type === 'message' ? <ChatBubble width={18} height={18} strokeWidth={1.5} /> : <Pin width={18} height={18} strokeWidth={1.5} />}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-800">{tl.title || tl.description}</p>

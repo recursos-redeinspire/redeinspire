@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
 import { LANG_OPTIONS, type Lang } from '../i18n/translations'
+import { User as UserIcon, Camera } from 'iconoir-react'
 
 function isValidCPF(cpf: string): boolean {
   return cpf.replace(/\D/g, '').length === 11
@@ -94,12 +95,12 @@ export default function RegisterPage() {
       <p className="text-sm text-gray-500 mb-6">{t('register.subtitle')}</p>
 
       {error && <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-      {success && <div role="status" className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">{success}</div>}
+      {success && <div role="status" className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{success}</div>}
 
       <form onSubmit={handleSubmit} className="space-y-5 bg-white border rounded-lg p-6" noValidate>
         <div className="flex items-center gap-4">
-          {photoUrl ? <img src={photoUrl} className="w-16 h-16 rounded-full object-cover border" alt="" /> : <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-2xl">👤</div>}
-          <div><label className="cursor-pointer bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded text-sm text-gray-700">📷 {photoUrl ? t('register.changePhoto') : t('register.photo')}<input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (!f) return; if (f.size > 200*1024) { alert('Máximo 200KB'); return }; const r = new FileReader(); r.onload = () => setPhotoUrl(r.result as string); r.readAsDataURL(f) }} className="hidden" /></label><p className="text-xs text-gray-400 mt-1">JPG/PNG, máx 200KB</p></div>
+          {photoUrl ? <img src={photoUrl} className="w-16 h-16 rounded-full object-cover border" alt="" /> : <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-gray-400"><UserIcon width={28} height={28} strokeWidth={1.5} /></div>}
+          <div><label className="cursor-pointer bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded text-sm text-gray-700 inline-flex items-center gap-1.5"><Camera width={14} height={14} strokeWidth={1.5} /> {photoUrl ? t('register.changePhoto') : t('register.photo')}<input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (!f) return; if (f.size > 200*1024) { alert('Máximo 200KB'); return }; const r = new FileReader(); r.onload = () => setPhotoUrl(r.result as string); r.readAsDataURL(f) }} className="hidden" /></label><p className="text-xs text-gray-400 mt-1">JPG/PNG, máx 200KB</p></div>
         </div>
         <div>
           <label htmlFor="name" className="mb-1 block text-sm font-medium text-gray-700">{t('register.name')}</label>

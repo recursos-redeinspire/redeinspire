@@ -101,7 +101,7 @@ export default function MessagesPage() {
 
       {tab === 'enviar' && (
         <div className="bg-white border rounded-lg p-6 max-w-2xl">
-          {sendSuccess && <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">{sendSuccess}</div>}
+          {sendSuccess && <div className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{sendSuccess}</div>}
           {sendError && <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{sendError}</div>}
           <div className="space-y-4">
             <div>

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
-import { Filter, MapPin, Users, BarChart3, User } from 'lucide-react'
+import { Filter, MapPin, Group, StatsReport, User } from 'iconoir-react'
 
 const mapContainerStyle = { width: '100%', height: '500px', borderRadius: '0.5rem' }
 const defaultCenter = { lat: -14.235, lng: -51.925 } // Center of Brazil
@@ -85,7 +85,7 @@ export default function MapPage() {
           onClick={() => setShowFilters(!showFilters)}
           className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 mb-3"
         >
-          <Filter size={16} />
+          <Filter width={16} height={16} strokeWidth={1.5} />
           {t('map.filters')}
           {activeFilters > 0 && (
             <span className="bg-gray-900 text-white text-xs px-1.5 py-0.5 rounded-full">{activeFilters}</span>
@@ -163,10 +163,10 @@ export default function MapPage() {
                 >
                   <div className="p-1 min-w-[180px]">
                     <h3 className="font-semibold text-sm">{selectedChurch.name}</h3>
-                    <p className="text-xs text-gray-600 mt-1 flex items-center gap-1"><MapPin size={12} /> {selectedChurch.city}, {selectedChurch.state}</p>
-                    <p className="text-xs text-gray-600 flex items-center gap-1"><User size={12} /> {selectedChurch.pastorName}</p>
-                    <p className="text-xs text-gray-600 flex items-center gap-1"><Users size={12} /> {selectedChurch.memberCount} {t('map.members')}</p>
-                    <p className="text-xs text-gray-600 flex items-center gap-1"><BarChart3 size={12} /> {t('map.engagement')}: {selectedChurch.engagementScore}</p>
+                    <p className="text-xs text-gray-600 mt-1 flex items-center gap-1"><MapPin width={12} height={12} strokeWidth={1.5} /> {selectedChurch.city}, {selectedChurch.state}</p>
+                    <p className="text-xs text-gray-600 flex items-center gap-1"><User width={12} height={12} strokeWidth={1.5} /> {selectedChurch.pastorName}</p>
+                    <p className="text-xs text-gray-600 flex items-center gap-1"><Group width={12} height={12} strokeWidth={1.5} /> {selectedChurch.memberCount} {t('map.members')}</p>
+                    <p className="text-xs text-gray-600 flex items-center gap-1"><StatsReport width={12} height={12} strokeWidth={1.5} /> {t('map.engagement')}: {selectedChurch.engagementScore}</p>
                   </div>
                 </InfoWindow>
               )}
@@ -181,10 +181,10 @@ export default function MapPage() {
             <div className="bg-white border rounded-lg p-5">
               <h3 className="font-semibold text-lg mb-2">{selectedChurch.name}</h3>
               <div className="space-y-1 text-sm text-gray-600">
-                <p className="flex items-center gap-1"><MapPin size={14} /> {selectedChurch.city}, {selectedChurch.state}</p>
-                <p className="flex items-center gap-1"><User size={14} /> {selectedChurch.pastorName}</p>
-                <p className="flex items-center gap-1"><Users size={14} /> {selectedChurch.memberCount} {t('map.members')}</p>
-                <p className="flex items-center gap-1"><BarChart3 size={14} /> {t('map.engagement')}: {selectedChurch.engagementScore}</p>
+                <p className="flex items-center gap-1"><MapPin width={14} height={14} strokeWidth={1.5} /> {selectedChurch.city}, {selectedChurch.state}</p>
+                <p className="flex items-center gap-1"><User width={14} height={14} strokeWidth={1.5} /> {selectedChurch.pastorName}</p>
+                <p className="flex items-center gap-1"><Group width={14} height={14} strokeWidth={1.5} /> {selectedChurch.memberCount} {t('map.members')}</p>
+                <p className="flex items-center gap-1"><StatsReport width={14} height={14} strokeWidth={1.5} /> {t('map.engagement')}: {selectedChurch.engagementScore}</p>
               </div>
               <button onClick={() => setSelectedChurch(null)} className="mt-3 text-gray-900 text-sm hover:underline">{t('trails.close')}</button>
             </div>
@@ -226,7 +226,7 @@ export default function MapPage() {
 function FallbackMap({ churches, selectedChurch, onSelect }: { churches: any[]; selectedChurch?: string; onSelect: (c: any) => void }) {
   const { t } = useI18n()
   return (
-    <div className="bg-gradient-to-br from-blue-50 to-green-50 border rounded-lg p-6 relative" style={{ minHeight: '500px' }}>
+    <div className="bg-gradient-to-br from-blue-50 to-slate-50 border rounded-lg p-6 relative" style={{ minHeight: '500px' }}>
       <p className="text-center text-gray-500 text-sm mb-2">{t('map.fallbackTitle')} — {churches.length} {t('map.affiliatedChurches')}</p>
       <p className="text-center text-xs text-gray-400 mb-4">{t('map.configureKey')}</p>
       <svg viewBox="0 0 600 600" className="w-full h-auto">
@@ -236,7 +236,7 @@ function FallbackMap({ churches, selectedChurch, onSelect }: { churches: any[]; 
           const y = ((c.lat + 35) / 35) * 450 + 50
           return (
             <g key={c.id} onClick={() => onSelect(c)} className="cursor-pointer">
-              <circle cx={x} cy={y} r={selectedChurch === c.id ? 12 : 8} fill={selectedChurch === c.id ? '#4f46e5' : '#6366f1'} stroke="white" strokeWidth="2" />
+              <circle cx={x} cy={y} r={selectedChurch === c.id ? 12 : 8} fill={selectedChurch === c.id ? '#2563eb' : '#3b82f6'} stroke="white" strokeWidth="2" />
               <text x={x} y={y - 14} textAnchor="middle" fontSize="10" fill="#374151" fontWeight="500">{c.state}</text>
             </g>
           )

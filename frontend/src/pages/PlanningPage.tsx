@@ -3,9 +3,9 @@ import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
 import {
-  ChevronLeft, ChevronRight, Plus, Calendar, Clock, Users,
-  Edit2, Trash2, Video, GraduationCap, Church, Target, Music, FileText, Upload, Loader2, Printer, X
-} from 'lucide-react'
+  NavArrowLeft, NavArrowRight, Plus, Calendar, Clock, Group,
+  EditPencil, Trash, VideoCamera, GraduationCap, Church, Compass, MusicNote, Page, PageEdit, Upload, RefreshDouble, Printer, Xmark, StatsReport, Check, Attachment
+} from 'iconoir-react'
 
 export default function PlanningPage() {
   const { getPlans, savePlan, deletePlan, getWebinars, getMentoringSessions, getUploadPresignedUrl, smartSearchDropbox } = useData()
@@ -134,10 +134,10 @@ export default function PlanningPage() {
 
   const typeConfig: Record<string, { icon: typeof Calendar; color: string; bg: string; label: string }> = {
     sunday: { icon: Church, color: 'text-blue-600', bg: 'bg-blue-50', label: t('planning.sunday') },
-    annual: { icon: Target, color: 'text-gray-700', bg: 'bg-gray-100', label: t('planning.annual') },
-    ministry: { icon: Users, color: 'text-green-600', bg: 'bg-green-50', label: t('planning.ministry') },
-    webinar: { icon: Video, color: 'text-purple-600', bg: 'bg-purple-50', label: 'Webinar' },
-    mentoria: { icon: GraduationCap, color: 'text-indigo-600', bg: 'bg-indigo-50', label: 'Mentoria' },
+    annual: { icon: Compass, color: 'text-slate-500', bg: 'bg-slate-100', label: t('planning.annual') },
+    ministry: { icon: Group, color: 'text-blue-600', bg: 'bg-blue-50', label: t('planning.ministry') },
+    webinar: { icon: VideoCamera, color: 'text-blue-600', bg: 'bg-blue-50', label: 'Webinar' },
+    mentoria: { icon: GraduationCap, color: 'text-blue-600', bg: 'bg-blue-50', label: 'Mentoria' },
   }
 
   const prevMonth = () => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1) } else setCalMonth(m => m - 1) }
@@ -154,25 +154,25 @@ export default function PlanningPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={() => { setTab('domingo'); setEditingPlan(null) }}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition flex items-center gap-2">
-            <Plus size={16} /> Nova Celebração
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition flex items-center gap-2">
+            <Plus width={16} height={16} strokeWidth={1.5} /> Nova Celebração
           </button>
         </div>
       </div>
 
-      {saveMsg && <div className="mb-4 rounded-xl bg-green-50 border border-green-100 p-3 text-sm text-green-700">{saveMsg}</div>}
+      {saveMsg && <div className="mb-4 rounded-xl bg-blue-50 border border-blue-100 p-3 text-sm text-blue-700">{saveMsg}</div>}
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
         {[
-          { key: 'visao', label: '📊 Visão Geral' },
-          { key: 'domingo', label: '🙏 Monte sua Celebração' },
-          { key: 'anual', label: '📅 Plano Anual' },
-          { key: 'ministerio', label: '⛪ Ministério' },
+          { key: 'visao', label: 'Visão Geral', icon: StatsReport },
+          { key: 'domingo', label: 'Monte sua Celebração', icon: Church },
+          { key: 'anual', label: 'Plano Anual', icon: Calendar },
+          { key: 'ministerio', label: 'Ministério', icon: Group },
         ].map(tb => (
           <button key={tb.key} onClick={() => { setTab(tb.key as any); setEditingPlan(null) }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === tb.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            {tb.label}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${tab === tb.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            <tb.icon width={15} height={15} strokeWidth={1.5} /> {tb.label}
           </button>
         ))}
       </div>
@@ -187,11 +187,11 @@ export default function PlanningPage() {
               <div className="flex items-center justify-between px-5 py-4 border-b">
                 <div className="flex items-center gap-3">
                   <h2 className="text-lg font-bold text-gray-900 capitalize">{monthName}</h2>
-                  <button onClick={goToday} className="text-xs text-green-600 hover:text-green-800 font-medium px-2 py-1 rounded-lg hover:bg-green-50 transition">Hoje</button>
+                  <button onClick={goToday} className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded-lg hover:bg-blue-50 transition">Hoje</button>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500"><ChevronLeft size={18} /></button>
-                  <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500"><ChevronRight size={18} /></button>
+                  <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500"><NavArrowLeft width={18} height={18} strokeWidth={1.5} /></button>
+                  <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500"><NavArrowRight width={18} height={18} strokeWidth={1.5} /></button>
                 </div>
               </div>
 
@@ -213,7 +213,7 @@ export default function PlanningPage() {
                         onClick={() => { if (events && events.length === 1) setSelectedEvent(events[0]); else if (events && events.length > 1) setSelectedEvent({ _multi: true, events, day }) }}>
                         {day && (
                           <>
-                            <span className={`inline-flex items-center justify-center w-6 h-6 text-[12px] rounded-full ${isToday ? 'bg-green-600 text-white font-bold' : 'text-gray-600'}`}>
+                            <span className={`inline-flex items-center justify-center w-6 h-6 text-[12px] rounded-full ${isToday ? 'bg-blue-600 text-white font-bold' : 'text-gray-600'}`}>
                               {day}
                             </span>
                             {events && events.slice(0, 3).map((ev: any, ei: number) => {
@@ -238,10 +238,10 @@ export default function PlanningPage() {
               {/* Legend */}
               <div className="flex gap-4 px-5 py-3 border-t text-[10px] text-gray-500 flex-wrap">
                 <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-blue-50 border border-blue-200" /> Culto</span>
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-purple-50 border border-purple-200" /> Webinar</span>
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-indigo-50 border border-indigo-200" /> Mentoria</span>
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-green-50 border border-green-200" /> Ministério</span>
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-gray-100 border border-gray-200" /> Anual</span>
+                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-blue-50 border border-blue-200" /> Webinar</span>
+                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-blue-50 border border-blue-200" /> Mentoria</span>
+                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-blue-50 border border-blue-200" /> Ministério</span>
+                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-slate-100 border border-slate-200" /> Anual</span>
               </div>
             </div>
           </div>
@@ -251,7 +251,7 @@ export default function PlanningPage() {
             {/* Upcoming events */}
             <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
               <div className="px-4 py-3 border-b">
-                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><Clock size={14} /> Próximos</h3>
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><Clock width={14} height={14} strokeWidth={1.5} /> Próximos</h3>
               </div>
               <div className="divide-y max-h-[300px] overflow-y-auto">
                 {allUpcoming.length === 0 && (
@@ -264,7 +264,7 @@ export default function PlanningPage() {
                   return (
                     <div key={i} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition">
                       <div className={`flex-shrink-0 w-9 h-9 rounded-lg ${cfg.bg} flex items-center justify-center`}>
-                        <Icon size={16} className={cfg.color} />
+                        <Icon width={16} height={16} strokeWidth={1.5} className={cfg.color} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[12px] font-medium text-gray-900 truncate">{item.title}</p>
@@ -282,14 +282,14 @@ export default function PlanningPage() {
             {/* My plans summary */}
             <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
               <div className="px-4 py-3 border-b flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><FileText size={14} /> Meus Planos</h3>
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><Page width={14} height={14} strokeWidth={1.5} /> Meus Planos</h3>
                 <span className="text-[10px] text-gray-400">{plans.length} planos</span>
               </div>
               <div className="divide-y max-h-[350px] overflow-y-auto">
                 {plans.length === 0 && (
                   <div className="text-center py-6">
                     <p className="text-sm text-gray-400">Nenhum plano criado</p>
-                    <button onClick={() => setTab('domingo')} className="mt-2 text-xs text-green-600 hover:text-green-800 font-medium">Criar primeiro plano →</button>
+                    <button onClick={() => setTab('domingo')} className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium">Criar primeiro plano →</button>
                   </div>
                 )}
                 {plans.map(p => {
@@ -298,15 +298,15 @@ export default function PlanningPage() {
                   return (
                     <div key={p.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition group">
                       <div className={`flex-shrink-0 w-8 h-8 rounded-lg ${cfg.bg} flex items-center justify-center`}>
-                        <Icon size={14} className={cfg.color} />
+                        <Icon width={14} height={14} strokeWidth={1.5} className={cfg.color} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[12px] font-medium text-gray-900 truncate">{p.title}</p>
                         <p className="text-[10px] text-gray-400">{cfg.label} · {new Date(p.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                        <button onClick={() => handleEdit(p)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700"><Edit2 size={12} /></button>
-                        <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
+                        <button onClick={() => handleEdit(p)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700"><EditPencil width={12} height={12} strokeWidth={1.5} /></button>
+                        <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash width={12} height={12} strokeWidth={1.5} /></button>
                       </div>
                     </div>
                   )
@@ -322,43 +322,43 @@ export default function PlanningPage() {
         <div className="max-w-2xl">
           <div className="bg-white border border-gray-100 rounded-xl p-6">
             <h2 className="font-bold text-lg text-gray-900 flex items-center gap-2 mb-5">
-              <Church size={20} className="text-blue-600" /> Monte sua Celebração
+              <Church width={20} height={20} strokeWidth={1.5} className="text-blue-600" /> Monte sua Celebração
             </h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('planning.worshipTitle')}</label>
                 <input type="text" value={sundayPlan.title} onChange={e => setSundayPlan({ ...sundayPlan, title: e.target.value })}
                   placeholder="Ex: Culto de Celebração - Série Propósitos"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('planning.calendar')}</label>
                 <input type="date" value={sundayPlan.date} onChange={e => setSundayPlan({ ...sundayPlan, date: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1.5"><Music size={14} /> {t('planning.worship')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1.5"><MusicNote width={14} height={14} strokeWidth={1.5} /> {t('planning.worship')}</label>
                 <textarea value={sundayPlan.worship} onChange={e => setSundayPlan({ ...sundayPlan, worship: e.target.value })} rows={2}
                   placeholder="Liste as músicas do louvor..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('planning.preaching')}</label>
                 <textarea value={sundayPlan.message} onChange={e => setSundayPlan({ ...sundayPlan, message: e.target.value })} rows={2}
                   placeholder="Tema da mensagem, passagem bíblica..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">📝 {t('planning.selectMaterial')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1.5"><PageEdit width={14} height={14} strokeWidth={1.5} /> {t('planning.selectMaterial')}</label>
                 <div className="relative">
                   <input type="text" value={materialSearch}
                     onChange={e => { setMaterialSearch(e.target.value); searchMaterials(e.target.value) }}
                     onFocus={() => { if (materialResults.length > 0) setShowMaterialResults(true) }}
                     placeholder="Digite o título para buscar materiais (PDF, DOC)..."
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
-                  {materialSearching && <Loader2 size={14} className="absolute right-3 top-3 animate-spin text-gray-400" />}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition" />
+                  {materialSearching && <RefreshDouble width={14} height={14} strokeWidth={1.5} className="absolute right-3 top-3 animate-spin text-gray-400" />}
                   {sundayPlan.materialId && (
-                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">✓ Vinculado: {sundayPlan.materialId.split('/').pop()}</p>
+                    <p className="text-xs text-blue-600 mt-1 flex items-center gap-1"><Check width={13} height={13} strokeWidth={1.5} /> Vinculado: {sundayPlan.materialId.split('/').pop()}</p>
                   )}
                   {showMaterialResults && materialResults.length > 0 && (
                     <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 max-h-[200px] overflow-y-auto">
@@ -369,7 +369,7 @@ export default function PlanningPage() {
                           setShowMaterialResults(false)
                         }}
                           className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition flex items-center gap-3 border-b last:border-b-0">
-                          <FileText size={14} className={file.ext === 'pdf' ? 'text-red-500' : 'text-blue-500'} />
+                          <Page width={14} height={14} strokeWidth={1.5} className={file.ext === 'pdf' ? 'text-red-500' : 'text-blue-500'} />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
                             <p className="text-[10px] text-gray-400 truncate">{file.path}</p>
@@ -382,18 +382,18 @@ export default function PlanningPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1.5"><Upload size={14} /> {t('planning.fileUpload')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1.5"><Upload width={14} height={14} strokeWidth={1.5} /> {t('planning.fileUpload')}</label>
                 <input type="file" onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f) }}
                   className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
-                {uploading && <p className="text-xs text-blue-600 mt-1 flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> {t('planning.uploading')}</p>}
-                {sundayPlan.fileUrl && !uploading && <p className="text-xs text-green-600 mt-1">✓ {t('planning.fileUploaded')}: {sundayPlan.fileName}</p>}
+                {uploading && <p className="text-xs text-blue-600 mt-1 flex items-center gap-1"><RefreshDouble width={12} height={12} strokeWidth={1.5} className="animate-spin" /> {t('planning.uploading')}</p>}
+                {sundayPlan.fileUrl && !uploading && <p className="text-xs text-blue-600 mt-1 flex items-center gap-1"><Check width={13} height={13} strokeWidth={1.5} /> {t('planning.fileUploaded')}: {sundayPlan.fileName}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('planning.contentSuggestions')}</label>
                 <div className="flex flex-wrap gap-2">
                   {contentSuggestions.map(s => (
                     <button key={s} type="button" onClick={() => setSundayPlan({ ...sundayPlan, notes: sundayPlan.notes + '\n' + s })}
-                      className="bg-gray-50 border border-gray-200 text-gray-700 px-3 py-1.5 rounded-full text-[11px] hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition">
+                      className="bg-gray-50 border border-gray-200 text-gray-700 px-3 py-1.5 rounded-full text-[11px] hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition">
                       + {s}
                     </button>
                   ))}
@@ -403,11 +403,11 @@ export default function PlanningPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('planning.notes')}</label>
                 <textarea value={sundayPlan.notes} onChange={e => setSundayPlan({ ...sundayPlan, notes: e.target.value })} rows={3}
                   placeholder="Observações, lembretes..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition" />
               </div>
               <div className="flex gap-3 pt-2">
                 <button onClick={handleSaveSunday} disabled={!sundayPlan.title.trim()}
-                  className="bg-green-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition">
+                  className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition">
                   {editingPlan ? t('planning.update') : t('planning.save')} {t('planning.savePlanning')}
                 </button>
                 {editingPlan && (
@@ -427,36 +427,36 @@ export default function PlanningPage() {
         <div className="max-w-2xl">
           <div className="bg-white border border-gray-100 rounded-xl p-6">
             <h2 className="font-bold text-lg text-gray-900 flex items-center gap-2 mb-5">
-              <Target size={20} className="text-gray-700" /> {t('planning.annualTitle')}
+              <Compass width={20} height={20} strokeWidth={1.5} className="text-slate-500" /> {t('planning.annualTitle')}
             </h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('common.title')}</label>
                 <input type="text" value={annualPlan.title} onChange={e => setAnnualPlan({ ...annualPlan, title: e.target.value })}
                   placeholder="Ex: Plano 2026 - Igreja Inspire SP"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('planning.yearGoals')}</label>
                 <textarea value={annualPlan.goals} onChange={e => setAnnualPlan({ ...annualPlan, goals: e.target.value })} rows={4}
                   placeholder="Quais são as metas para este ano?"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('planning.eventsCampaigns')}</label>
                 <textarea value={annualPlan.events} onChange={e => setAnnualPlan({ ...annualPlan, events: e.target.value })} rows={4}
                   placeholder="Eventos, campanhas e datas importantes..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('planning.notes')}</label>
                 <textarea value={annualPlan.notes} onChange={e => setAnnualPlan({ ...annualPlan, notes: e.target.value })} rows={2}
                   placeholder="Observações gerais..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition" />
               </div>
               <div className="flex gap-3 pt-2">
                 <button onClick={handleSaveAnnual} disabled={!annualPlan.title.trim()}
-                  className="bg-green-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition">
+                  className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition">
                   {editingPlan ? t('planning.update') : t('planning.save')} {t('planning.savePlanning')}
                 </button>
                 {editingPlan && (
@@ -476,19 +476,19 @@ export default function PlanningPage() {
         <div className="max-w-2xl">
           <div className="bg-white border border-gray-100 rounded-xl p-6">
             <h2 className="font-bold text-lg text-gray-900 flex items-center gap-2 mb-5">
-              <Users size={20} className="text-green-600" /> {t('planning.ministryTitle')}
+              <Group width={20} height={20} strokeWidth={1.5} className="text-blue-600" /> {t('planning.ministryTitle')}
             </h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('common.title')}</label>
                 <input type="text" value={ministryPlan.title} onChange={e => setMinistryPlan({ ...ministryPlan, title: e.target.value })}
                   placeholder="Ex: Planejamento Jovens - 1º Semestre"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('planning.ministry')}</label>
                 <select value={ministryPlan.ministry} onChange={e => setMinistryPlan({ ...ministryPlan, ministry: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition">
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition">
                   <option value="">Selecione o ministério</option>
                   <option value="jovens">Jovens</option>
                   <option value="criancas">Crianças</option>
@@ -504,17 +504,17 @@ export default function PlanningPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('planning.objectives')}</label>
                 <textarea value={ministryPlan.objectives} onChange={e => setMinistryPlan({ ...ministryPlan, objectives: e.target.value })} rows={3}
                   placeholder="Objetivos e metas do ministério..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('planning.resources')}</label>
                 <textarea value={ministryPlan.resources} onChange={e => setMinistryPlan({ ...ministryPlan, resources: e.target.value })} rows={3}
                   placeholder="Recursos necessários, equipe, orçamento..."
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition" />
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition" />
               </div>
               <div className="flex gap-3 pt-2">
                 <button onClick={handleSaveMinistry} disabled={!ministryPlan.title.trim()}
-                  className="bg-green-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition">
+                  className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition">
                   {editingPlan ? t('planning.update') : t('planning.save')} {t('planning.savePlanning')}
                 </button>
                 {editingPlan && (
@@ -538,7 +538,7 @@ export default function PlanningPage() {
               <>
                 <div className="px-6 py-4 border-b flex items-center justify-between">
                   <h2 className="font-bold text-gray-900">Eventos do dia {selectedEvent.day}</h2>
-                  <button onClick={() => setSelectedEvent(null)} className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100"><X size={18} /></button>
+                  <button onClick={() => setSelectedEvent(null)} className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100"><Xmark width={18} height={18} strokeWidth={1.5} /></button>
                 </div>
                 <div className="p-4 space-y-2">
                   {selectedEvent.events.map((ev: any, i: number) => {
@@ -548,13 +548,13 @@ export default function PlanningPage() {
                       <button key={i} onClick={() => setSelectedEvent(ev)}
                         className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition text-left border border-gray-100">
                         <div className={`w-9 h-9 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}>
-                          <Icon size={16} className={cfg.color} />
+                          <Icon width={16} height={16} strokeWidth={1.5} className={cfg.color} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">{ev.title}</p>
                           <p className="text-[10px] text-gray-400">{cfg.label}</p>
                         </div>
-                        <ChevronRight size={14} className="text-gray-300" />
+                        <NavArrowRight width={14} height={14} strokeWidth={1.5} className="text-gray-300" />
                       </button>
                     )
                   })}
@@ -571,20 +571,20 @@ export default function PlanningPage() {
                   <div className="px-6 py-4 border-b flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-xl ${cfg.bg} flex items-center justify-center`}>
-                        <Icon size={20} className={cfg.color} />
+                        <Icon width={20} height={20} strokeWidth={1.5} className={cfg.color} />
                       </div>
                       <div>
                         <span className={`text-[10px] font-semibold uppercase ${cfg.color}`}>{cfg.label}</span>
                         <h2 className="font-bold text-gray-900 text-lg leading-snug">{ev.title}</h2>
                       </div>
                     </div>
-                    <button onClick={() => setSelectedEvent(null)} className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100"><X size={18} /></button>
+                    <button onClick={() => setSelectedEvent(null)} className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100"><Xmark width={18} height={18} strokeWidth={1.5} /></button>
                   </div>
                   <div className="p-6 space-y-4">
                     {/* Date/time */}
                     {d && (
                       <div className="flex items-center gap-3 text-sm text-gray-600">
-                        <Calendar size={16} className="text-gray-400" />
+                        <Calendar width={16} height={16} strokeWidth={1.5} className="text-gray-400" />
                         <span>{d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</span>
                         {ev.scheduledAt && <span className="text-gray-400">· {d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>}
                       </div>
@@ -592,7 +592,7 @@ export default function PlanningPage() {
                     {/* Person */}
                     {ev.person && (
                       <div className="flex items-center gap-3 text-sm text-gray-600">
-                        <Users size={16} className="text-gray-400" />
+                        <Group width={16} height={16} strokeWidth={1.5} className="text-gray-400" />
                         <span>{ev.person}</span>
                       </div>
                     )}
@@ -656,7 +656,7 @@ export default function PlanningPage() {
                     {ev.meetingUrl && (
                       <a href={ev.meetingUrl} target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
-                        <Video size={14} /> Acessar reunião
+                        <VideoCamera width={14} height={14} strokeWidth={1.5} /> Acessar reunião
                       </a>
                     )}
                   </div>
@@ -698,13 +698,13 @@ export default function PlanningPage() {
                       }
                     }}
                       className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition">
-                      <Printer size={14} /> Imprimir
+                      <Printer width={14} height={14} strokeWidth={1.5} /> Imprimir
                     </button>
                     <div className="flex gap-2">
                       {isPlan && (
                         <button onClick={() => { handleEdit(ev); setSelectedEvent(null) }}
                           className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-800 transition">
-                          <Edit2 size={14} /> Editar
+                          <EditPencil width={14} height={14} strokeWidth={1.5} /> Editar
                         </button>
                       )}
                       <button onClick={() => setSelectedEvent(null)}
@@ -757,10 +757,10 @@ function MaterialTextPreview({ materialPath }: { materialPath: string }) {
   return (
     <div>
       <p className="text-[11px] font-semibold text-gray-400 uppercase mb-1">Conteúdo do Material</p>
-      <p className="text-[10px] text-green-600 mb-2">📎 {fileName}</p>
+      <p className="text-[10px] text-blue-600 mb-2 flex items-center gap-1"><Attachment width={12} height={12} strokeWidth={1.5} /> {fileName}</p>
       {loading ? (
         <div className="flex items-center gap-2 text-xs text-gray-400">
-          <Loader2 size={12} className="animate-spin" /> Carregando documento...
+          <RefreshDouble width={12} height={12} strokeWidth={1.5} className="animate-spin" /> Carregando documento...
         </div>
       ) : url ? (
         <div className="rounded-xl overflow-hidden border border-gray-200">
@@ -770,9 +770,9 @@ function MaterialTextPreview({ materialPath }: { materialPath: string }) {
             <iframe id="material-viewer-iframe" src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`} className="w-full h-[400px]" title={fileName} />
           ) : (
             <div className="p-6 text-center text-gray-400">
-              <FileText size={32} className="mx-auto mb-2" />
+              <Page width={32} height={32} strokeWidth={1.5} className="mx-auto mb-2" />
               <p className="text-sm">Formato não suportado para visualização</p>
-              <a href={url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-xs text-green-600 hover:text-green-800 font-medium">Abrir arquivo ↗</a>
+              <a href={url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-xs text-blue-600 hover:text-blue-800 font-medium">Abrir arquivo ↗</a>
             </div>
           )}
         </div>

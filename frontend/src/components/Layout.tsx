@@ -6,11 +6,11 @@ import { useI18n } from '../i18n/I18nContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { LANG_OPTIONS, type Lang } from '../i18n/translations'
 import {
-  Home, BookOpen, Search, Route, GraduationCap,
-  CalendarDays, FolderDown, MapPin, BarChart3, MessageSquare,
-  Users, UserPlus, Settings, ChevronDown,
+  Home, OpenBook, Search, PathArrow, GraduationCap,
+  Calendar, Folder, MapPin, StatsReport, ChatBubble,
+  Group, UserPlus, Settings, NavArrowDown,
   Menu, Bell, LogOut, Star
-} from 'lucide-react'
+} from 'iconoir-react'
 import AssistantChat from './AssistantChat'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -18,14 +18,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { isDark, toggleTheme } = useTheme()
 
   const navItems = [
-    { path: '/', label: t('nav.home'), icon: <Home size={18} />, key: 'home' },
-    { path: '/catalogo', label: t('nav.catalog'), icon: <BookOpen size={18} />, key: 'catalogo' },
-    { path: '/trilhas', label: t('nav.trails'), icon: <Route size={18} />, key: 'trilhas' },
-    { path: '/mentorias', label: t('nav.mentoring'), icon: <GraduationCap size={18} />, key: 'mentorias' },
-    { path: '/planejamento', label: t('nav.planning'), icon: <CalendarDays size={18} />, key: 'planejamento' },
-    { path: '/materiais', label: t('nav.materials'), icon: <FolderDown size={18} />, key: 'materiais' },
-    { path: '/mapa', label: t('nav.map'), icon: <MapPin size={18} />, key: 'mapa' },
-    { path: '/dashboard', label: t('nav.dashboard'), icon: <BarChart3 size={18} />, key: 'dashboard' },
+    { path: '/', label: t('nav.home'), icon: <Home width={18} height={18} strokeWidth={1.5} />, key: 'home' },
+    { path: '/catalogo', label: t('nav.catalog'), icon: <OpenBook width={18} height={18} strokeWidth={1.5} />, key: 'catalogo' },
+    { path: '/trilhas', label: t('nav.trails'), icon: <PathArrow width={18} height={18} strokeWidth={1.5} />, key: 'trilhas' },
+    { path: '/mentorias', label: t('nav.mentoring'), icon: <GraduationCap width={18} height={18} strokeWidth={1.5} />, key: 'mentorias' },
+    { path: '/planejamento', label: t('nav.planning'), icon: <Calendar width={18} height={18} strokeWidth={1.5} />, key: 'planejamento' },
+    { path: '/materiais', label: t('nav.materials'), icon: <Folder width={18} height={18} strokeWidth={1.5} />, key: 'materiais' },
+    { path: '/mapa', label: t('nav.map'), icon: <MapPin width={18} height={18} strokeWidth={1.5} />, key: 'mapa' },
+    { path: '/dashboard', label: t('nav.dashboard'), icon: <StatsReport width={18} height={18} strokeWidth={1.5} />, key: 'dashboard' },
   ]
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -39,6 +39,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const { getUnreadCount, getChurches, getMyPoints } = useData()
+
+  // Sections available only to admins; non-admins see them as "coming soon" and disabled
+  const isAdmin = user?.role === 'admin'
+  const comingSoonKeys = ['trilhas', 'mentorias', 'planejamento']
 
   // Filter nav items based on user permissions (only applies to lider role)
   const userPermissions = (user as any)?.permissions as string[] | null | undefined
@@ -89,7 +93,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className={`px-4 flex items-center justify-between h-16 ${!themeColor ? 'bg-white dark:bg-gray-800' : ''}`}>
           <div className="flex items-center gap-4">
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className={`${themeColor ? 'text-white/80 hover:text-white' : 'text-gray-600 hover:text-gray-800'}`}>
-              <Menu size={24} />
+              <Menu width={24} height={24} strokeWidth={1.5} />
             </button>
             <Link to="/" className="flex items-center gap-2">
               <img src="/logo_rede.png" alt="Rede Inspire" className="h-8 w-8 object-contain" />
@@ -100,7 +104,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           <div className="hidden md:flex flex-1 max-w-md mx-8">
             <div className={`w-full flex items-center rounded-lg px-4 py-2 ${themeColor ? 'bg-white/20' : 'bg-gray-100'}`}>
-              <Search size={16} className={`mr-2 flex-shrink-0 ${themeColor ? 'text-white/60' : 'text-gray-400'}`} />
+              <Search width={16} height={16} strokeWidth={1.5} className={`mr-2 flex-shrink-0 ${themeColor ? 'text-white/60' : 'text-gray-400'}`} />
               <input
                 type="text"
                 value={headerSearch}
@@ -130,7 +134,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <button onClick={() => setShowLangMenu(!showLangMenu)}
                 className={`flex items-center gap-1 px-2 py-1 rounded text-sm transition ${themeColor ? 'text-white/80 hover:bg-white/20' : 'text-gray-600 hover:bg-gray-100'}`}>
                 {LANG_OPTIONS.find(o => o.value === lang)?.flag} <span className="hidden sm:inline text-xs">{LANG_OPTIONS.find(o => o.value === lang)?.label}</span>
-                <ChevronDown size={12} />
+                <NavArrowDown width={12} height={12} strokeWidth={1.5} />
               </button>
               {showLangMenu && (
                 <div className="absolute right-0 mt-1 bg-white border rounded-lg shadow-lg py-1 z-50 w-36">
@@ -144,15 +148,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               )}
             </div>
             <Link to="/mensagens" className={`relative ${themeColor ? 'text-white/80 hover:text-white' : 'text-gray-600 hover:text-gray-800'}`}>
-              <MessageSquare size={22} />
+              <ChatBubble width={22} height={22} strokeWidth={1.5} />
               {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">{unreadCount}</span>}
             </Link>
             <Link to="/mensagens" className={`relative ${themeColor ? 'text-white/80 hover:text-white' : 'text-gray-600 hover:text-gray-800'}`}>
-              <Bell size={22} />
+              <Bell width={22} height={22} strokeWidth={1.5} />
             </Link>
             <div className="relative flex items-center gap-2">
               <span className={`text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 ${themeColor ? 'bg-white/20 text-white' : 'bg-yellow-100 text-yellow-700'}`} title={t('header.points')}>
-                <Star size={14} /> {userPoints}
+                <Star width={14} height={14} strokeWidth={1.5} /> {userPoints}
               </span>
               <button onClick={() => setShowUserMenu(!showUserMenu)} className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium hover:opacity-90 overflow-hidden">
                 {user?.photoUrl ? <img src={user.photoUrl} alt="" className="w-8 h-8 rounded-full object-cover" /> : <span className="w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center text-white">{initials}</span>}
@@ -165,16 +169,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       <p className="font-medium text-sm">{user?.name}</p>
                       <p className="text-xs text-gray-500">{roleLabel}</p>
                       <p className="text-xs text-gray-400">{user?.email}</p>
-                      <p className="text-xs text-yellow-600 font-medium mt-0.5 flex items-center gap-1"><Star size={12} /> {userPoints} {t('header.points')}</p>
+                      <p className="text-xs text-yellow-600 font-medium mt-0.5 flex items-center gap-1"><Star width={12} height={12} strokeWidth={1.5} /> {userPoints} {t('header.points')}</p>
                     </div>
                   </div>
                   {user?.role === 'admin' && (
                     <Link to="/admin" onClick={() => setShowUserMenu(false)} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-b">
-                      <Settings size={16} /> Administrar
+                      <Settings width={16} height={16} strokeWidth={1.5} /> Administrar
                     </Link>
                   )}
                   <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
-                    <LogOut size={16} /> {t('header.logout')}
+                    <LogOut width={16} height={16} strokeWidth={1.5} /> {t('header.logout')}
                   </button>
                 </div>
               )}
@@ -189,6 +193,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <nav className="p-4 space-y-1">
             {filteredNavItems.map((item) => {
               const isActive = location.pathname === item.path
+              if (!isAdmin && comingSoonKeys.includes(item.key)) {
+                return (
+                  <div key={item.path}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 opacity-60 cursor-not-allowed">
+                    <span>{item.icon}</span>
+                    <span>{item.label}{t('common.comingSoon')}</span>
+                  </div>
+                )
+              }
               return (
               <Link key={item.path} to={item.path} onClick={() => setSidebarOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${isActive ? 'font-medium' : 'text-gray-600 hover:bg-gray-100'}`}
@@ -209,12 +222,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <Link to="/lideres" onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${location.pathname === '/lideres' ? 'font-medium' : 'text-gray-600 hover:bg-gray-100'}`}
                   style={location.pathname === '/lideres' && themeColor ? { backgroundColor: themeColor + '15', color: themeColor } : location.pathname === '/lideres' ? { backgroundColor: '#f9fafb', color: '#1f2937' } : {}}>
-                  <span><Users size={18} /></span><span>{t('nav.users')}</span>
+                  <span><Group width={18} height={18} strokeWidth={1.5} /></span><span>{t('nav.users')}</span>
                 </Link>
                 <Link to="/registro" onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${location.pathname === '/registro' ? 'font-medium' : 'text-gray-600 hover:bg-gray-100'}`}
                   style={location.pathname === '/registro' && themeColor ? { backgroundColor: themeColor + '15', color: themeColor } : location.pathname === '/registro' ? { backgroundColor: '#f9fafb', color: '#1f2937' } : {}}>
-                  <span><UserPlus size={18} /></span><span>{t('nav.registerUser')}</span>
+                  <span><UserPlus width={18} height={18} strokeWidth={1.5} /></span><span>{t('nav.registerUser')}</span>
                 </Link>
               </>
             )}
@@ -224,7 +237,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Link to="/gestao" onClick={() => setSidebarOpen(false)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${location.pathname === '/gestao' ? 'font-medium' : 'text-gray-600 hover:bg-gray-100'}`}
               style={location.pathname === '/gestao' && themeColor ? { backgroundColor: themeColor + '15', color: themeColor } : location.pathname === '/gestao' ? { backgroundColor: '#f9fafb', color: '#1f2937' } : {}}>
-              <span><Settings size={18} /></span><span>{user?.role === 'lider' ? t('nav.ministries') : t('nav.ministriesChurches')}</span>
+              <span><Settings width={18} height={18} strokeWidth={1.5} /></span><span>{user?.role === 'lider' ? t('nav.ministries') : t('nav.ministriesChurches')}</span>
             </Link>
           </nav>
         </aside>
@@ -244,14 +257,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <h4 className="font-medium text-sm mb-3">{t('footer.content')}</h4>
               <div className="space-y-2 text-sm text-gray-500">
                 <Link to="/catalogo" className="block hover:text-gray-900">{t('nav.catalog')}</Link>
-                <Link to="/trilhas" className="block hover:text-gray-900">{t('nav.trails')}</Link>
+                {isAdmin
+                  ? <Link to="/trilhas" className="block hover:text-gray-900">{t('nav.trails')}</Link>
+                  : <span className="block text-gray-400 opacity-60 cursor-not-allowed">{t('nav.trails')}{t('common.comingSoon')}</span>}
                 <Link to="/podcast" className="block hover:text-gray-900">{t('nav.podcast')}</Link>
               </div>
             </div>
             <div>
               <h4 className="font-medium text-sm mb-3">{t('footer.tools')}</h4>
               <div className="space-y-2 text-sm text-gray-500">
-                <Link to="/planejamento" className="block hover:text-gray-900">{t('nav.planning')}</Link>
+                {isAdmin
+                  ? <Link to="/planejamento" className="block hover:text-gray-900">{t('nav.planning')}</Link>
+                  : <span className="block text-gray-400 opacity-60 cursor-not-allowed">{t('nav.planning')}{t('common.comingSoon')}</span>}
                 <Link to="/dashboard" className="block hover:text-gray-900">{t('nav.dashboard')}</Link>
                 <Link to="/mapa" className="block hover:text-gray-900">{t('nav.map')}</Link>
               </div>
@@ -259,7 +276,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div>
               <h4 className="font-medium text-sm mb-3">{t('footer.support')}</h4>
               <div className="space-y-2 text-sm text-gray-500">
-                <Link to="/mentorias" className="block hover:text-gray-900">{t('nav.mentoring')}</Link>
+                {isAdmin
+                  ? <Link to="/mentorias" className="block hover:text-gray-900">{t('nav.mentoring')}</Link>
+                  : <span className="block text-gray-400 opacity-60 cursor-not-allowed">{t('nav.mentoring')}{t('common.comingSoon')}</span>}
                 <Link to="/mensagens" className="block hover:text-gray-900">{t('nav.messages')}</Link>
               </div>
             </div>
