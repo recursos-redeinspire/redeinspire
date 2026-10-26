@@ -17,7 +17,9 @@ const s3 = new S3Client({ region: 'us-east-1' });
 const bedrock = new BedrockRuntimeClient({ region: 'us-east-1' });
 const UPLOAD_BUCKET = 'rede-inspire-uploads-danilo';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'rede-inspire-secret-2026';
+// Segredo do JWT — SOMENTE do ambiente (sem fallback hardcoded). Fail-closed: se ausente, as
+// rotas autenticadas rejeitam (jwt.verify lança), nunca usa um segredo público de código.
+const JWT_SECRET = process.env.JWT_SECRET;
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type,Authorization',
@@ -26,7 +28,9 @@ const CORS = {
 
 // Conexa.app integration
 const CONEXA_SUBDOMAIN = 'redeinspire';
-const CONEXA_API_TOKEN = '010fda7225ba32f944950e20bf909226975a69880d0d8675bb3a1d8bba867e55';
+// Token da API Conexa — SOMENTE do ambiente (sem valor hardcoded no repositório). Fail-closed:
+// se ausente, as chamadas ao Conexa falham explicitamente em vez de usar um token versionado.
+const CONEXA_API_TOKEN = process.env.CONEXA_API_TOKEN;
 const CONEXA_BASE_URL = `https://${CONEXA_SUBDOMAIN}.conexa.app/index.php/api/v2`;
 
 // Table names
