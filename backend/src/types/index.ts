@@ -316,6 +316,69 @@ export interface PodcastEpisode {
 }
 
 // -----------------------------------------------------------------------------
+// Notion Integration (Kanban interno da equipe)
+// -----------------------------------------------------------------------------
+
+export interface NotionSpace {
+  pageId: string;
+  title: string;
+  url: string;
+}
+
+export interface CreateNotionSpaceDTO {
+  parentPageId: string;
+  title: string;
+}
+
+export interface NotionBoard {
+  databaseId: string;
+  title: string;
+  url: string;
+}
+
+export interface CreateNotionBoardDTO {
+  parentPageId: string;
+  title: string;
+}
+
+export interface NotionCard {
+  cardId: string;
+  title: string;
+  status: string;
+  assignee: string;
+  priority: string;
+  dueDate: string | null;
+  tags: string[];
+  url: string;
+  createdAt: string;
+}
+
+export interface CreateNotionCardDTO {
+  title: string;
+  status?: string;
+  assignee?: string;
+  priority?: string;
+  dueDate?: string;
+  tags?: string[];
+}
+
+export interface UpdateNotionCardDTO {
+  title?: string;
+  status?: string;
+  assignee?: string;
+  priority?: string;
+  dueDate?: string;
+  tags?: string[];
+}
+
+export interface NotionTeamMember {
+  notionUserId: string;
+  name: string;
+  email?: string;
+  avatarUrl?: string;
+}
+
+// -----------------------------------------------------------------------------
 // Common / Shared
 // -----------------------------------------------------------------------------
 

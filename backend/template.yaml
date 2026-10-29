@@ -2,6 +2,17 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Plataforma Rede Inspire - Backend Serverless
 
+Parameters:
+  NotionApiToken:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Token de integração do Notion (nunca versionado — passe via --parameter-overrides ou Secrets Manager)
+  NotionParentPageId:
+    Type: String
+    Default: ''
+    Description: ID da página do Notion, dentro do workspace já conectado à integração, usada como padrão ao criar espaços/boards
+
 Globals:
   Function:
     Runtime: nodejs20.x
@@ -32,7 +43,7 @@ Resources:
     Properties:
       StageName: prod
       Cors:
-        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
       Auth:
@@ -557,6 +568,75 @@ Resources:
             RestApiId: !Ref RedeInspireApi
             Path: /sync
             Method: POST
+
+  # ============================================
+  # Notion Lambda (workspace/kanban/equipe)
+  # ============================================
+  NotionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/lambdas/notion/index.handler
+      CodeUri: ./dist
+      Timeout: 10
+      Environment:
+        Variables:
+          NOTION_API_TOKEN: !Ref NotionApiToken
+          NOTION_PARENT_PAGE_ID: !Ref NotionParentPageId
+      Events:
+        Status:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /notion/status
+            Method: GET
+        CreateSpace:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /notion/spaces
+            Method: POST
+        CreateBoard:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /notion/boards
+            Method: POST
+        ListCards:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /notion/boards/{databaseId}/cards
+            Method: GET
+        CreateCard:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /notion/boards/{databaseId}/cards
+            Method: POST
+        MoveCard:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /notion/cards/{pageId}/move
+            Method: POST
+        UpdateCard:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /notion/cards/{pageId}
+            Method: PATCH
+        DeleteCard:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /notion/cards/{pageId}
+            Method: DELETE
+        Team:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RedeInspireApi
+            Path: /notion/team
+            Method: GET
 
   AuthorizerFunction:
     Type: AWS::Serverless::Function

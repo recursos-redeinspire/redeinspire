@@ -25,6 +25,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'planning/*',
     'podcast/*',
     'reports/*',
+    'notion/*',
   ],
   lider: [
     'auth/profile',
@@ -36,6 +37,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'map/*',
     'planning/*',
     'podcast/*',
+    'notion/*',
   ],
   membro: [
     'auth/profile',
