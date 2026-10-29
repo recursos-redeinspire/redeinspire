@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import {
@@ -422,6 +423,7 @@ function MaterialAddRecommendationModal({ onClose, onSave }: { onClose: () => vo
 export default function MaterialsPage() {
   const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox, getDropboxThumbnail, getDropboxThumbnailBatch, getFolderCover, saveFolderVideos, getFileText } = useData()
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [path, setPath] = useState('')
   const [entries, setEntries] = useState<any[]>([])
@@ -478,6 +480,12 @@ export default function MaterialsPage() {
     setLoading(true); setIsSearching(false); setSearchResults([])
     setSelectedFile(null); setPreviewUrl(''); setPreviewDownloadUrl(''); setSelectedVideo(null); setFolderVideos([]); setFolderDescription('')
     setCurrentPage(1)
+    // Reflete a pasta atual na URL (?path=...) para link compartilhável e F5 estável.
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (p) next.set('path', p); else next.delete('path')
+      return next
+    }, { replace: true })
     try {
       const [result, vidsResult] = await Promise.all([
         browseDropbox(p),
@@ -502,7 +510,7 @@ export default function MaterialsPage() {
       }
     } catch { /* ignore */ }
     finally { setLoading(false) }
-  }, [browseDropbox, getFolderVideos, getFileText])
+  }, [browseDropbox, getFolderVideos, getFileText, setSearchParams])
 
   // Build autocomplete cache from all visible folders (current + visited)
   useEffect(() => {
@@ -587,7 +595,14 @@ export default function MaterialsPage() {
     finally { setLoading(false) }
   }, [smartSearchDropbox, browseDropbox, loadFolder, path])
 
-  useEffect(() => { loadFolder('') }, [loadFolder])
+  // No primeiro carregamento, abre a pasta indicada na URL (?path=...), se houver.
+  // Assim links compartilhados e F5 mantêm o usuário na mesma pasta.
+  const didInit = useRef(false)
+  useEffect(() => {
+    if (didInit.current) return
+    didInit.current = true
+    loadFolder(searchParams.get('path') || '')
+  }, [loadFolder, searchParams])
   // Load thumbnails from localStorage cache INSTANTLY, then refresh from API in background
   useEffect(() => {
     // 1. Load from cache immediately (instant)

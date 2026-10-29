@@ -748,7 +748,19 @@ export default function CatalogPage() {
   const [searchLoading, setSearchLoading] = useState(false)
 
   const [selectedVideo, setSelectedVideo] = useState<any | null>(null)
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Seleciona um vídeo e reflete na URL (?video=ID) para que seja compartilhável
+  // e sobreviva a um refresh da página.
+  const selectVideo = useCallback((v: any | null) => {
+    setSelectedVideo(v)
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (v?.id) next.set('video', v.id)
+      else next.delete('video')
+      return next
+    }, { replace: false })
+  }, [setSearchParams])
 
   const [tagMap, setTagMap] = useState<Record<string, string[]>>({})
   const [allTags, setAllTags] = useState<string[]>([])
@@ -838,8 +850,8 @@ export default function CatalogPage() {
       <VideoPlayerView
         video={selectedVideo}
         videos={videosWithThumbs}
-        onBack={() => setSelectedVideo(null)}
-        onSelectVideo={setSelectedVideo}
+        onBack={() => selectVideo(null)}
+        onSelectVideo={selectVideo}
       />
     )
   }
@@ -934,7 +946,7 @@ export default function CatalogPage() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {searchResults.map(video => (
-                <div key={video.id} onClick={() => setSelectedVideo(video)}
+                <div key={video.id} onClick={() => selectVideo(video)}
                   className="cursor-pointer group">
                   <div className="relative rounded-lg overflow-hidden aspect-video bg-[#1c2028]">
                     <img src={thumb(video)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -970,11 +982,11 @@ export default function CatalogPage() {
                 <h1 className="text-3xl md:text-5xl font-extrabold text-white leading-[1.1] drop-shadow-lg">{heroVideos[heroIdx]?.title}</h1>
                 <p className="text-white/50 text-sm mt-3">{heroVideos[heroIdx]?.channelTitle || 'Rede Inspire'}</p>
                 <div className="flex items-center gap-3 mt-6">
-                  <button onClick={() => setSelectedVideo(heroVideos[heroIdx])}
+                  <button onClick={() => selectVideo(heroVideos[heroIdx])}
                     className="flex items-center gap-2.5 bg-white text-black font-bold px-7 py-3.5 rounded-md hover:bg-white/90 transition text-[14px]">
                     <Play width={20} height={20} strokeWidth={1.5} fill="currentColor" /> Assistir agora
                   </button>
-                  <button onClick={() => setSelectedVideo(heroVideos[heroIdx])}
+                  <button onClick={() => selectVideo(heroVideos[heroIdx])}
                     className="w-11 h-11 rounded-full border-2 border-white/40 flex items-center justify-center hover:border-white/70 transition">
                     <InfoCircle width={20} height={20} strokeWidth={1.5} className="text-white" />
                   </button>
@@ -1015,7 +1027,7 @@ export default function CatalogPage() {
                   label={section.title}
                   videos={filterTag ? section.videos.filter(v => (tagMap[v.id] || []).includes(filterTag)) : section.videos}
                   thumb={thumb}
-                  onPlay={(v) => setSelectedVideo(v)}
+                  onPlay={(v) => selectVideo(v)}
                   isAdmin={isAdmin}
                   onCategorize={(v) => setShowCatEditor(v.id)}
                 />
@@ -1027,7 +1039,7 @@ export default function CatalogPage() {
                   label={cat.label}
                   videos={cat.videos}
                   thumb={thumb}
-                  onPlay={(v) => setSelectedVideo(v)}
+                  onPlay={(v) => selectVideo(v)}
                   isAdmin={isAdmin}
                   onCategorize={(v) => setShowCatEditor(v.id)}
                 />
@@ -1049,7 +1061,7 @@ export default function CatalogPage() {
             </div>
             <div className="p-5">
               <h3 className="text-white font-bold text-xl leading-snug">{expandedVideo.title}</h3>
-              <button onClick={() => { setSelectedVideo(expandedVideo); setExpandedVideo(null) }}
+              <button onClick={() => { selectVideo(expandedVideo); setExpandedVideo(null) }}
                 className="mt-4 w-full flex items-center justify-center gap-3 bg-white text-black font-bold py-3.5 rounded-lg text-[15px]">
                 <Play width={20} height={20} strokeWidth={1.5} fill="currentColor" /> Reproduzir
               </button>
