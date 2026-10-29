@@ -446,6 +446,7 @@ export default function MaterialsPage() {
   const [autocompleteCache, setAutocompleteCache] = useState<any[]>([])
   const [searchFilter, setSearchFilter] = useState<'pastas' | 'arquivos' | 'pdf' | 'ppt' | 'doc' | 'imagens' | 'videos'>('pastas')
   const [currentPage, setCurrentPage] = useState(1)
+  const [themeFilter, setThemeFilter] = useState('')
   const ITEMS_PER_PAGE = 12
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Admin edit state
@@ -479,7 +480,7 @@ export default function MaterialsPage() {
   const loadFolder = useCallback(async (p: string) => {
     setLoading(true); setIsSearching(false); setSearchResults([])
     setSelectedFile(null); setPreviewUrl(''); setPreviewDownloadUrl(''); setSelectedVideo(null); setFolderVideos([]); setFolderDescription('')
-    setCurrentPage(1)
+    setCurrentPage(1); setThemeFilter('')
     // Reflete a pasta atual na URL (?path=...) para link compartilhável e F5 estável.
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
@@ -705,7 +706,15 @@ export default function MaterialsPage() {
     }).catch(() => {})
   }, [])
 
-  const folders = entries.filter(e => e.tag === 'folder')
+  const allFolders = entries.filter(e => e.tag === 'folder')
+  // Temas disponíveis = união das tags das pastas visíveis (ordenado).
+  const availableThemes = Array.from(
+    new Set(allFolders.flatMap(f => folderTagMap[f.path] || folderTagMap[f.pathLower] || []))
+  ).sort((a, b) => a.localeCompare(b))
+  // Aplica o filtro de tema (quando selecionado) sobre as pastas.
+  const folders = themeFilter
+    ? allFolders.filter(f => (folderTagMap[f.path] || folderTagMap[f.pathLower] || []).includes(themeFilter))
+    : allFolders
 
   const breadcrumbs = path ? path.split('/').filter(Boolean).map((part, i, arr) => ({
     name: part, path: '/' + arr.slice(0, i + 1).join('/'),
@@ -993,6 +1002,33 @@ export default function MaterialsPage() {
       )}
 
       {loading && <div className="flex justify-center py-20"><RefreshDouble width={32} height={32} strokeWidth={1.5} className="animate-spin text-blue-500" /></div>}
+
+      {/* ═══ FILTRO POR TEMA (tags das pastas) ═══ */}
+      {!loading && !isSearching && availableThemes.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-5">
+          <span className="text-[12px] text-gray-400 mr-1">Temas:</span>
+          <button
+            onClick={() => { setThemeFilter(''); setCurrentPage(1) }}
+            className={`text-[12px] px-3 py-1.5 rounded-full transition ${themeFilter === '' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            Todos
+          </button>
+          {availableThemes.map(theme => (
+            <button key={theme}
+              onClick={() => { setThemeFilter(t => t === theme ? '' : theme); setCurrentPage(1) }}
+              className={`text-[12px] px-3 py-1.5 rounded-full capitalize transition ${themeFilter === theme ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              {theme}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Estado vazio quando o filtro de tema não retorna pastas */}
+      {!loading && !isSearching && themeFilter && folders.length === 0 && (
+        <div className="text-center text-gray-400 py-12">
+          <p className="text-sm">Nenhum recurso com o tema "<span className="font-semibold capitalize">{themeFilter}</span>".</p>
+          <button onClick={() => setThemeFilter('')} className="mt-2 text-[12px] text-blue-600 font-medium">Limpar filtro</button>
+        </div>
+      )}
 
       {/* ═══ FOLDER CARDS — Life.Church style ═══ */}
       {!loading && !isSearching && folders.length > 0 && (() => {
