@@ -3516,17 +3516,30 @@ async function bannerGet(user) {
   if (!banner || !banner.active) return res(200, { active: false });
   // Check expiration
   if (banner.expiresAt && new Date(banner.expiresAt) < new Date()) return res(200, { active: false });
+  // Audience filter
+  const audience = banner.audience || 'all';
+  if (audience === 'churches') {
+    const churchIds = Array.isArray(banner.churchIds) ? banner.churchIds : [];
+    if (!user.churchId || !churchIds.includes(user.churchId)) return res(200, { active: false });
+  } else if (audience === 'users') {
+    const userIds = Array.isArray(banner.userIds) ? banner.userIds : [];
+    if (!userIds.includes(user.id)) return res(200, { active: false });
+  }
   return res(200, { active: true, message: banner.message || '', type: banner.bannerType || 'info', createdAt: banner.createdAt });
 }
 
 async function bannerSave(data, user) {
   if (!user || !isAdmin(user)) return res(403, { message: 'Apenas administradores.' });
+  const audience = (data.audience === 'churches' || data.audience === 'users') ? data.audience : 'all';
   const item = {
     id: '__BANNER__',
     active: !!data.active,
     message: data.message || '',
     bannerType: data.type || 'info',
     expiresAt: data.expiresAt || null,
+    audience,
+    churchIds: audience === 'churches' && Array.isArray(data.churchIds) ? data.churchIds : [],
+    userIds: audience === 'users' && Array.isArray(data.userIds) ? data.userIds : [],
     createdAt: new Date().toISOString(),
     createdBy: user.id,
   };

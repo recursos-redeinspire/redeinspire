@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
-import { CheckCircle, Megaphone, PathArrow, Settings, NavArrowLeft, StatsReport, Group, Download, Trophy, RefreshDouble, Link, Eye, Clock, User, Book, WarningTriangle, Check, Xmark, MediaVideoList, NavArrowUp, NavArrowDown, Star, EyeClosed } from 'iconoir-react'
+import { CheckCircle, Megaphone, PathArrow, Settings, NavArrowLeft, StatsReport, Group, Download, Trophy, RefreshDouble, Link, Eye, Clock, User, Book, WarningTriangle, Check, Xmark, MediaVideoList, NavArrowUp, NavArrowDown, Star, EyeClosed, Search, Community } from 'iconoir-react'
 
 export default function AdminPage() {
-  const { user } = useAuth()
+  const { user, getLeaders } = useAuth()
   const navigate = useNavigate()
   const { t: _t } = useI18n()
-  const { getTrails, getBanner, getYoutubePlaylists, getYoutubeCuration, saveYoutubeCuration, getYoutubeCuratedSections } = useData()
+  const { getTrails, getBanner, getChurches, getYoutubePlaylists, getYoutubeCuration, saveYoutubeCuration, getYoutubeCuratedSections } = useData()
 
   const [tab, setTab] = useState<'analytics' | 'trails' | 'banner' | 'reports' | 'conexa' | 'videos'>('analytics')
   const [pendingTrails, setPendingTrails] = useState<any[]>([])
@@ -17,6 +17,13 @@ export default function AdminPage() {
   const [bannerType, setBannerType] = useState('info')
   const [bannerActive, setBannerActive] = useState(false)
   const [bannerExpires, setBannerExpires] = useState('')
+  const [bannerAudience, setBannerAudience] = useState<'all' | 'churches' | 'users'>('all')
+  const [bannerChurchIds, setBannerChurchIds] = useState<string[]>([])
+  const [bannerUserIds, setBannerUserIds] = useState<string[]>([])
+  const [audienceChurches, setAudienceChurches] = useState<any[]>([])
+  const [audienceUsers, setAudienceUsers] = useState<any[]>([])
+  const [audienceLoaded, setAudienceLoaded] = useState(false)
+  const [userSearch, setUserSearch] = useState('')
   const [saving, setSaving] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   const [analytics, setAnalytics] = useState<any>(null)
@@ -79,6 +86,19 @@ export default function AdminPage() {
     }).finally(() => setVideosLoading(false))
   }, [tab, videosLoaded, videosLoading, getYoutubePlaylists, getYoutubeCuration, getYoutubeCuratedSections])
 
+  // Carrega igrejas e usuários para o seletor de público ao abrir a aba Banner (uma vez)
+  useEffect(() => {
+    if (tab !== 'banner' || audienceLoaded) return
+    Promise.all([
+      getChurches().then(c => c || []).catch(() => []),
+      getLeaders().then(u => u || []).catch(() => []),
+    ]).then(([churches, users]) => {
+      setAudienceChurches(churches)
+      setAudienceUsers(users)
+      setAudienceLoaded(true)
+    })
+  }, [tab, audienceLoaded, getChurches, getLeaders])
+
   const handleApproveTrail = async (trailId: string) => {
     try {
       const token = localStorage.getItem('ri_token')
@@ -99,12 +119,27 @@ export default function AdminPage() {
       await fetch('https://h28wyjr7u7.execute-api.us-east-1.amazonaws.com/banner', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ active: bannerActive, message: bannerMessage, type: bannerType, expiresAt: bannerExpires || null }),
+        body: JSON.stringify({
+          active: bannerActive,
+          message: bannerMessage,
+          type: bannerType,
+          expiresAt: bannerExpires || null,
+          audience: bannerAudience,
+          churchIds: bannerAudience === 'churches' ? bannerChurchIds : [],
+          userIds: bannerAudience === 'users' ? bannerUserIds : [],
+        }),
       })
       setSuccessMsg('Banner salvo!')
       setTimeout(() => setSuccessMsg(''), 3000)
     } catch { /* ignore */ }
     finally { setSaving(false) }
+  }
+
+  const toggleBannerChurch = (id: string) => {
+    setBannerChurchIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+  const toggleBannerUser = (id: string) => {
+    setBannerUserIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
   // ── Curadoria de vídeos ──
@@ -432,6 +467,74 @@ export default function AdminPage() {
                   className="w-full border rounded-lg px-3 py-2 text-sm" />
               </div>
             </div>
+
+            {/* Público-alvo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Público-alvo</label>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { key: 'all', label: 'Todos', Icon: Community },
+                  { key: 'churches', label: 'Igrejas específicas', Icon: Group },
+                  { key: 'users', label: 'Usuários específicos', Icon: User },
+                ] as const).map(({ key, label, Icon }) => (
+                  <button key={key} type="button" onClick={() => setBannerAudience(key)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition ${
+                      bannerAudience === key
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                    }`}>
+                    <Icon width={16} height={16} strokeWidth={1.5} /> {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {bannerAudience === 'churches' && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-2">
+                  Selecione as igrejas que verão o aviso ({bannerChurchIds.length} selecionada{bannerChurchIds.length === 1 ? '' : 's'})
+                </p>
+                <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto border rounded-lg p-3">
+                  {audienceChurches.length === 0 && <span className="text-sm text-gray-400">Carregando igrejas...</span>}
+                  {audienceChurches.map((c: any) => (
+                    <button key={c.id} type="button" onClick={() => toggleBannerChurch(c.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition ${
+                        bannerChurchIds.includes(c.id)
+                          ? 'bg-blue-50 text-blue-700 border-blue-300'
+                          : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                      }`}>
+                      {bannerChurchIds.includes(c.id) && <Check width={14} height={14} strokeWidth={1.5} />}
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {bannerAudience === 'users' && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-2">
+                  Selecione os usuários que verão o aviso ({bannerUserIds.length} selecionado{bannerUserIds.length === 1 ? '' : 's'})
+                </p>
+                <div className="relative mb-2">
+                  <Search width={16} height={16} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="text" value={userSearch} onChange={e => setUserSearch(e.target.value)}
+                    placeholder="Buscar usuário por nome..."
+                    className="w-full border rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200" />
+                </div>
+                <div className="flex flex-col gap-1 max-h-56 overflow-y-auto border rounded-lg p-2">
+                  {audienceUsers.length === 0 && <span className="text-sm text-gray-400 px-1">Carregando usuários...</span>}
+                  {audienceUsers
+                    .filter((u: any) => !userSearch || (u.name || '').toLowerCase().includes(userSearch.toLowerCase()))
+                    .map((u: any) => (
+                      <label key={u.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input type="checkbox" checked={bannerUserIds.includes(u.id)} onChange={() => toggleBannerUser(u.id)} className="rounded" />
+                        <span className="text-sm text-gray-700">{u.name}</span>
+                      </label>
+                    ))}
+                </div>
+              </div>
+            )}
 
             {/* Preview */}
             {bannerMessage && (
