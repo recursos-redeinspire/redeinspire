@@ -1,6 +1,6 @@
 # Rede Inspire — Documentação do Sistema
 
-**Última atualização:** Julho 2026
+**Última atualização:** Outubro 2026
 
 ---
 
@@ -41,7 +41,7 @@ PlataformaRedeInspire/
 │   ├── src/
 │   │   ├── components/          # Componentes reutilizáveis
 │   │   ├── contexts/            # AuthContext, DataContext, ThemeContext
-│   │   ├── i18n/                # Internacionalização (PT, EN, ES)
+│   │   ├── i18n/                # Internacionalização (PT, EN, ES, FR)
 │   │   ├── pages/               # Páginas da aplicação
 │   │   └── store/               # Local storage helpers
 │   ├── capacitor.config.ts      # Config app mobile (Android/iOS)
@@ -69,13 +69,13 @@ PlataformaRedeInspire/
 ### Protegidas (requerem login)
 | Rota | Página | Descrição |
 |------|--------|-----------|
-| `/` | HomePage | Dashboard pessoal, vídeos em destaque, trilhas, ranking |
-| `/catalogo` | CatalogPage | Catálogo Prime Video (hero + rows por categoria + player) |
+| `/` | HomePage | Dashboard pessoal, destaque vídeo+recurso lado a lado, Recursos em destaque, trilhas, ranking |
+| `/catalogo` | CatalogPage | **Vídeos** (nome de exibição). Seções por playlist curada + player. A URL segue `/catalogo` |
 | `/conteudo/:id` | ContentPlayerPage | Player de conteúdo específico |
-| `/trilhas` | TrailsPage | Trilhas de aprendizado com progresso |
-| `/mentorias` | MentoringPage | Webinars e sessões de mentoria |
-| `/planejamento` | PlanningPage | Calendário + Monte sua Celebração + Plano Anual + Ministério |
-| `/materiais` | MaterialsPage | Materiais Dropbox (hero, pastas, vídeos, preview, IA) |
+| `/trilhas` | TrailsPage | Trilhas de aprendizado. **"Em breve" / somente admin** (não-admin vê desabilitado) |
+| `/mentorias` | MentoringPage | Webinars e sessões de mentoria. **"Em breve" / somente admin** |
+| `/planejamento` | PlanningPage | Calendário + Monte sua Celebração + Plano Anual + Ministério. **"Em breve" / somente admin** |
+| `/materiais` | MaterialsPage | **Recursos** (nome de exibição). Materiais Dropbox (hero, pastas, vídeos, preview, IA). A URL segue `/materiais` |
 | `/mapa` | MapPage | Mapa de igrejas da rede |
 | `/dashboard` | DashboardPage | Métricas e analytics |
 | `/mensagens` | MessagesPage | Sistema de mensagens |
@@ -86,24 +86,32 @@ PlataformaRedeInspire/
 | `/admin` | AdminPage | Painel administrativo |
 | `/busca` | SearchPage | Busca global |
 
-### Previews (temporárias)
-| Rota | Descrição |
-|------|-----------|
-| `/preview-materiais-cards` | Nova visualização de pastas estilo Life.Church |
-| `/preview-new` | Preview de UI |
-| `/preview-dark` | Preview modo escuro |
-| `/preview-editorial` | Preview editorial |
+> **Nota de nomenclatura:** as seções antes chamadas "Catálogo" e "Materiais" agora
+> se exibem como **"Vídeos"** e **"Recursos"** em toda a UI (4 idiomas). As rotas
+> (`/catalogo`, `/materiais`) foram mantidas por compatibilidade.
+
+> **Gate "em breve":** Trilhas, Mentoria e Planejamento aparecem como "em breve" e
+> desabilitados para usuários não-admin (no menu, footer e home), e suas rotas são
+> protegidas (não-admin é redirecionado). Admin mantém acesso total.
+
+> **Previews removidas:** as páginas de preview temporárias (`PreviewDark`,
+> `PreviewEditorial`, `PreviewMat*`, `PreviewPlan*`, `PreviewNewUI`) foram excluídas.
 
 ---
 
 ## 5. Funcionalidades Principais
 
-### 5.1 Catálogo de Vídeos (`/catalogo`)
+### 5.1 Vídeos (`/catalogo`) — antes "Catálogo"
 - Visual estilo Prime Video (fundo escuro, hero rotativo)
-- Rows horizontais por categoria com hover cards
-- 10 categorias: Continue assistindo, Adicionados Recentemente, Mais assistidos, Treinamento de Boas-Vindas, Materiais Semanais, Materiais de Ministérios, Materiais para Liderança, Materiais para Igreja, Propósitos para Igreja, Fique por Dentro!
+- **Curadoria de playlists (admin):** o admin escolhe quais playlists do canal
+  aparecem; cada playlist selecionada vira uma seção. Ordenação das seções por
+  setas. Fallback: sem config, mostra os uploads do canal (comportamento antigo).
+- **Esconder vídeos individuais (admin):** toggle manual por vídeo; ocultos somem
+  da plataforma mas seguem reversíveis no admin. Selo "possível short" (dica
+  visual por duração/thumbnail vertical) ajuda a identificar — não oculta sozinho.
+- **Vídeo em destaque da home (admin):** escolhe qual vídeo vai ao banner do topo
+  da home; fallback para o mais recente das playlists visíveis.
 - Admin pode categorizar vídeos (múltiplas categorias por vídeo)
-- Primeiros 6 de cada row não repetem os da row anterior
 - Player com comentários, tags, indicações, thumbnail customizada
 - Busca inteligente com keywords (smartSearch via Bedrock)
 
@@ -170,9 +178,13 @@ PlataformaRedeInspire/
 ### YouTube
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| GET | `/youtube/videos` | Listar vídeos do canal |
+| GET | `/youtube/videos` | Listar vídeos do canal (playlist de uploads — usado como fallback) |
 | GET | `/youtube/search` | Busca no canal |
 | GET | `/youtube/smart-search` | Busca inteligente (Bedrock) |
+| GET | `/youtube/playlists` | Listar playlists do canal (curadoria, admin) |
+| GET | `/youtube/curation` | Ler config de curadoria (playlists selecionadas, ocultos, destaque) |
+| POST | `/youtube/curation` | Salvar config de curadoria (**admin**) |
+| GET | `/youtube/sections` | Vídeos agrupados por playlist curada (`?includeHidden=1` só admin) |
 
 ### Tags e Categorias de Vídeo
 | Método | Rota | Descrição |
@@ -283,6 +295,7 @@ PlataformaRedeInspire/
 | `__FOLDER_THUMBNAILS__` | Thumbnails customizadas de pastas |
 | `__FOLDER_TAGS__` | Tags de pastas de materiais |
 | `__FOLDER_SUMMARIES__` | Resumos IA gerados das pastas |
+| `__YT_CURATION__` | Curadoria de vídeos: playlists selecionadas/ordem, vídeos ocultos, vídeo em destaque |
 
 ---
 
@@ -358,8 +371,13 @@ Detalhes completos em `APP_MOBILE.md`.
 - Vite (bundler)
 - Tailwind CSS
 - React Router DOM
-- Lucide Icons
+- Iconoir (iconoir-react) — ícones outline, traço fino
 - Capacitor (mobile)
+
+> **Identidade visual:** ícones da biblioteca **Iconoir** (migrado de Lucide) com
+> `strokeWidth 1.5`, e paleta sóbria — neutros (slate) com acento **azul**
+> usado com parcimônia em ações/destaques. Vermelho/amarelo apenas para
+> estados de erro/aviso. Tema claro e escuro.
 
 ### Backend
 - Node.js 20 (Lambda)

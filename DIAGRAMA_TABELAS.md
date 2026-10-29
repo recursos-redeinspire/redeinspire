@@ -243,6 +243,17 @@ erDiagram
 | 12 | `RedeInspire-PodcastProgress` | `id` | Progresso de escuta |
 | 13 | `RedeInspire-Timeline` | `id` | Eventos da timeline |
 | 14 | `RedeInspire-Materials` | `id` | Materiais para download |
+| 15 | `RedeInspire-VideoTags` | `videoId` | Tags, categorias do catálogo, thumbs/resumos de pastas e **curadoria de vídeos** |
+| 16 | `RedeInspire-VideoRecommendations` | `videoId` | Indicações por vídeo |
+| 17 | `RedeInspire-Downloads` | `filePath` | Tracking de downloads **e visualizações** por arquivo |
+| 18 | `RedeInspire-ConexaCache` | `id` | Cache da integração Conexa.app |
+
+> **Chaves especiais em `VideoTags`** (item único por função): `__CATALOG_CATEGORIES__`,
+> `__FOLDER_VIDEOS__`, `__FOLDER_THUMBNAILS__`, `__FOLDER_TAGS__`, `__FOLDER_SUMMARIES__`
+> e `__YT_CURATION__` (playlists selecionadas/ordem, vídeos ocultos, vídeo em destaque da home).
+
+> **`Downloads`**: cada item guarda `downloads` **e** `views` por `filePath`. O ranking
+> "Recursos mais acessados" (home) agrega por pasta usando **views + downloads**.
 
 ---
 
