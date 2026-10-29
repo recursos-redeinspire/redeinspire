@@ -245,6 +245,7 @@ export async function handler(event) {
     if (path === '/folder-videos' && method === 'GET') return await folderVideosGet(qs(event), getUserFromToken(event));
     if (path === '/folder-videos' && method === 'POST') return await folderVideosSave(body(event), getUserFromToken(event));
     if (path === '/dropbox/file-text' && method === 'POST') return await dropboxFileText(body(event), getUserFromToken(event));
+    if (path === '/folder-dates' && method === 'GET') return await folderDatesGet(getUserFromToken(event));
     if (path === '/folder-thumbnails' && method === 'GET') return await folderThumbnailsGet(getUserFromToken(event));
     if (path === '/folder-thumbnails' && method === 'POST') return await folderThumbnailSave(body(event), getUserFromToken(event));
     if (path === '/folder-tags' && method === 'GET') return await folderTagsGet(qs(event), getUserFromToken(event));
@@ -1439,6 +1440,44 @@ function dbxHeaders(token) {
   return h;
 }
 
+// Folder recency map key (shared by compute/save and the GET endpoint).
+const FOLDER_DATES_KEY = '__FOLDER_DATES__';
+
+// From the full Dropbox file list, build a map folderPathLower -> max server_modified ISO,
+// propagating each file's date to ALL ancestor folders, and persist it as config.
+// Logs on failure but never throws, so it cannot break the sync flow.
+async function computeAndSaveFolderDates(allFiles, user) {
+  try {
+    const dates = {};
+    for (const file of allFiles) {
+      const display = file.path_display || file.path_lower || '';
+      if (!display) continue;
+      // Same folder-deriving style as dropboxTopDownloads/dropboxBrowse.
+      const parts = display.split('/').filter(Boolean);
+      const mod = file.server_modified || '';
+      if (!mod) continue;
+      // k from 1..parts.length-1 excludes the file itself, includes every ancestor folder.
+      for (let k = 1; k < parts.length; k++) {
+        const ancestor = ('/' + parts.slice(0, k).join('/')).toLowerCase();
+        // ISO-8601 strings sort lexicographically, so keep the greatest (most recent).
+        if (!dates[ancestor] || mod > dates[ancestor]) dates[ancestor] = mod;
+      }
+    }
+    await ddb.send(new PutCommand({
+      TableName: T.VIDEO_TAGS,
+      Item: { videoId: FOLDER_DATES_KEY, dates, updatedAt: new Date().toISOString(), updatedBy: user.id }
+    }));
+  } catch (e) {
+    console.error('computeAndSaveFolderDates error:', e);
+  }
+}
+
+async function folderDatesGet(user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  const data = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_DATES_KEY } }));
+  return res(200, { dates: (data.Item && data.Item.dates) || {} });
+}
+
 async function dropboxSync(user) {
   if (!user || !isAdmin(user)) return res(403, { message: 'Apenas admin pode sincronizar.' });
   if (!DROPBOX_REFRESH_TOKEN) return res(500, { message: 'Dropbox nao configurado.' });
@@ -1470,6 +1509,10 @@ async function dropboxSync(user) {
     }
 
     if (allFiles.length === 0) return res(200, { message: 'Nenhum arquivo encontrado.', synced: 0 });
+
+    // Compute and persist the folder->date map so Recursos can order by recency.
+    // Runs before the early return below so __FOLDER_DATES__ is updated even when synced === 0.
+    await computeAndSaveFolderDates(allFiles, user);
 
     const existing = await ddb.send(new ScanCommand({ TableName: T.MATERIALS }));
     const existingPaths = new Set((existing.Items || []).map(m => m.dropboxPath).filter(Boolean));

@@ -5,13 +5,27 @@ import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../i18n/I18nContext'
 import {
   Search, RefreshDouble, Play, NavArrowLeft, NavArrowRight, Xmark, Calendar, MediaVideo,
-  ArrowLeft, Send, ChatBubble, Label, Plus, InfoCircle, Link as LinkIcon, Folder
+  ArrowLeft, Send, ChatBubble, Label, Plus, InfoCircle, Link as LinkIcon, Folder, Sort
 } from 'iconoir-react'
 import YouTubePlayer from '../components/YouTubePlayer'
 
 function formatDate(iso: string) {
   if (!iso) return ''
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+}
+
+// Ordena uma lista de vídeos conforme o seletor, sem mutar a original.
+// recent/old por publishedAt (ISO ordenável); az/za por title com localeCompare pt-BR.
+function sortVideos(list: any[], sortBy: 'recent' | 'old' | 'az' | 'za'): any[] {
+  const copy = [...list]
+  if (sortBy === 'az' || sortBy === 'za') {
+    copy.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'pt-BR', { sensitivity: 'base' }))
+    if (sortBy === 'za') copy.reverse()
+    return copy
+  }
+  copy.sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || '')) // recent
+  if (sortBy === 'old') copy.reverse()
+  return copy
 }
 
 // ---- Recommendations Section ----
@@ -765,6 +779,7 @@ export default function CatalogPage() {
   const [tagMap, setTagMap] = useState<Record<string, string[]>>({})
   const [allTags, setAllTags] = useState<string[]>([])
   const [filterTag, setFilterTag] = useState('')
+  const [sortBy, setSortBy] = useState<'recent' | 'old' | 'az' | 'za'>('recent')
   const [customThumbnails, setCustomThumbnails] = useState<Record<string, string>>({})
 
   const [heroIdx, setHeroIdx] = useState(0)
@@ -918,6 +933,21 @@ export default function CatalogPage() {
             ))}
           </div>
         )}
+
+        {/* Ordenação — reordena apenas os vídeos dentro de cada fileira */}
+        {!activeSearch && (
+          <div className="flex items-center gap-2 mt-3">
+            <Sort width={14} height={14} strokeWidth={1.5} className="text-white/40" />
+            <label className="text-xs text-white/50">Ordenar por:</label>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value as 'recent' | 'old' | 'az' | 'za')}
+              className="text-xs text-white bg-white/10 border border-white/10 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/30">
+              <option className="text-black" value="recent">Mais recente</option>
+              <option className="text-black" value="old">Mais antigo</option>
+              <option className="text-black" value="az">A-Z</option>
+              <option className="text-black" value="za">Z-A</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Search results mode */}
@@ -1025,7 +1055,7 @@ export default function CatalogPage() {
                 <CategoryRow
                   key={`${section.title}-${i}`}
                   label={section.title}
-                  videos={filterTag ? section.videos.filter(v => (tagMap[v.id] || []).includes(filterTag)) : section.videos}
+                  videos={sortVideos(filterTag ? section.videos.filter(v => (tagMap[v.id] || []).includes(filterTag)) : section.videos, sortBy)}
                   thumb={thumb}
                   onPlay={(v) => selectVideo(v)}
                   isAdmin={isAdmin}
@@ -1037,7 +1067,7 @@ export default function CatalogPage() {
                 <CategoryRow
                   key={cat.label}
                   label={cat.label}
-                  videos={cat.videos}
+                  videos={sortVideos(cat.videos, sortBy)}
                   thumb={thumb}
                   onPlay={(v) => selectVideo(v)}
                   isAdmin={isAdmin}

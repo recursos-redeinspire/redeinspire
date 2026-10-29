@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   Folder, NavArrowRight, Home, RefreshDouble, Xmark, ArrowLeft, Search, GraphUp,
   Page, MediaVideo, Headset, MediaImage, Table, Presentation,
-  EmptyPage, Download, Archive, Play, Plus, Link as LinkIcon
+  EmptyPage, Download, Archive, Play, Plus, Link as LinkIcon, Sort
 } from 'iconoir-react'
 import type { ComponentType } from 'react'
 
@@ -421,7 +421,7 @@ function MaterialAddRecommendationModal({ onClose, onSave }: { onClose: () => vo
 }
 
 export default function MaterialsPage() {
-  const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox, getDropboxThumbnail, getDropboxThumbnailBatch, getFolderCover, saveFolderVideos, getFileText } = useData()
+  const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox, getDropboxThumbnail, getDropboxThumbnailBatch, getFolderCover, saveFolderVideos, getFileText, getFolderDates } = useData()
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -447,6 +447,9 @@ export default function MaterialsPage() {
   const [searchFilter, setSearchFilter] = useState<'pastas' | 'arquivos' | 'pdf' | 'ppt' | 'doc' | 'imagens' | 'videos'>('pastas')
   const [currentPage, setCurrentPage] = useState(1)
   const [themeFilter, setThemeFilter] = useState('')
+  // folderPathLower -> max server_modified ISO (from backend __FOLDER_DATES__), for recency sort.
+  const [folderDates, setFolderDates] = useState<Record<string, string>>({})
+  const [sortBy, setSortBy] = useState<'recent' | 'old' | 'az' | 'za'>('recent')
   const ITEMS_PER_PAGE = 12
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Admin edit state
@@ -690,6 +693,7 @@ export default function MaterialsPage() {
       localStorage.setItem('ri_folder_tags', JSON.stringify({ tagMap: d.tagMap, descMap: (d as any).descMap }))
     }).catch(() => {})
     getTopDownloads().then(setTopDownloads).catch(() => {})
+    getFolderDates().then(d => setFolderDates(d.dates || {})).catch(() => {})
     // Pre-load folder names for instant autocomplete
     browseDropbox('').then(root => {
       const rootItems = (root.entries || []).map((e: any) => ({ name: e.name, path: e.path, tag: e.tag, id: e.id }))
@@ -715,6 +719,23 @@ export default function MaterialsPage() {
   const folders = themeFilter
     ? allFolders.filter(f => (folderTagMap[f.path] || folderTagMap[f.pathLower] || []).includes(themeFilter))
     : allFolders
+
+  // Ordena as pastas (já filtradas por tema) ANTES da paginação.
+  const folderDateOf = (f: any): string =>
+    folderDates[(f.pathLower || f.path || '').toLowerCase()] || ''
+  const sortedFolders = [...folders].sort((a, b) => {
+    if (sortBy === 'az' || sortBy === 'za') {
+      const cmp = (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' })
+      return sortBy === 'az' ? cmp : -cmp
+    }
+    // recent/old: pastas sem data derivada do Dropbox vão para o fim em ambos os sentidos
+    // (sem arquivos sincronizados = sem sinal de recência), com desempate alfabético.
+    const da = folderDateOf(a), db = folderDateOf(b)
+    if (!da && !db) return (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' })
+    if (!da) return 1
+    if (!db) return -1
+    return sortBy === 'recent' ? db.localeCompare(da) : da.localeCompare(db)
+  })
 
   const breadcrumbs = path ? path.split('/').filter(Boolean).map((part, i, arr) => ({
     name: part, path: '/' + arr.slice(0, i + 1).join('/'),
@@ -1003,22 +1024,41 @@ export default function MaterialsPage() {
 
       {loading && <div className="flex justify-center py-20"><RefreshDouble width={32} height={32} strokeWidth={1.5} className="animate-spin text-blue-500" /></div>}
 
-      {/* ═══ FILTRO POR TEMA (tags das pastas) ═══ */}
-      {!loading && !isSearching && availableThemes.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 mb-5">
-          <span className="text-[12px] text-gray-400 mr-1">Temas:</span>
-          <button
-            onClick={() => { setThemeFilter(''); setCurrentPage(1) }}
-            className={`text-[12px] px-3 py-1.5 rounded-full transition ${themeFilter === '' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-            Todos
-          </button>
-          {availableThemes.map(theme => (
-            <button key={theme}
-              onClick={() => { setThemeFilter(t => t === theme ? '' : theme); setCurrentPage(1) }}
-              className={`text-[12px] px-3 py-1.5 rounded-full capitalize transition ${themeFilter === theme ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-              {theme}
-            </button>
-          ))}
+      {/* ═══ FILTRO POR TEMA (tags das pastas) + ORDENAÇÃO ═══ */}
+      {!loading && !isSearching && (availableThemes.length > 0 || folders.length > 0) && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-5">
+          {availableThemes.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[12px] text-gray-400 mr-1">Temas:</span>
+              <button
+                onClick={() => { setThemeFilter(''); setCurrentPage(1) }}
+                className={`text-[12px] px-3 py-1.5 rounded-full transition ${themeFilter === '' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                Todos
+              </button>
+              {availableThemes.map(theme => (
+                <button key={theme}
+                  onClick={() => { setThemeFilter(t => t === theme ? '' : theme); setCurrentPage(1) }}
+                  className={`text-[12px] px-3 py-1.5 rounded-full capitalize transition ${themeFilter === theme ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                  {theme}
+                </button>
+              ))}
+            </div>
+          )}
+          {folders.length > 0 && (
+            <div className="flex items-center gap-2 sm:ml-auto">
+              <Sort width={15} height={15} strokeWidth={1.5} className="text-slate-400" />
+              <label className="text-[12px] text-slate-500">Ordenar por:</label>
+              <select
+                value={sortBy}
+                onChange={e => { setSortBy(e.target.value as 'recent' | 'old' | 'az' | 'za'); setCurrentPage(1) }}
+                className="text-[12px] text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600">
+                <option value="recent">Mais recente</option>
+                <option value="old">Mais antigo</option>
+                <option value="az">A-Z</option>
+                <option value="za">Z-A</option>
+              </select>
+            </div>
+          )}
         </div>
       )}
 
@@ -1032,9 +1072,9 @@ export default function MaterialsPage() {
 
       {/* ═══ FOLDER CARDS — Life.Church style ═══ */}
       {!loading && !isSearching && folders.length > 0 && (() => {
-        const totalPages = isRoot ? 1 : Math.ceil(folders.length / ITEMS_PER_PAGE)
+        const totalPages = isRoot ? 1 : Math.ceil(sortedFolders.length / ITEMS_PER_PAGE)
         const startIdx = isRoot ? 0 : (currentPage - 1) * ITEMS_PER_PAGE
-        const paginatedFolders = isRoot ? folders : folders.slice(startIdx, startIdx + ITEMS_PER_PAGE)
+        const paginatedFolders = isRoot ? sortedFolders : sortedFolders.slice(startIdx, startIdx + ITEMS_PER_PAGE)
         return (
         <div>
           {isRoot && <h2 className="text-[15px] font-bold text-gray-900 mb-4">Conteúdos disponíveis</h2>}
