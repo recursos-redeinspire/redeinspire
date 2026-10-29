@@ -199,6 +199,10 @@ export async function handler(event) {
     if (path === '/favorites' && method === 'GET') return await getFavorites(getUserFromToken(event));
     if (path === '/favorites' && method === 'POST') return await saveFavorite(body(event), getUserFromToken(event));
 
+    // ---- Recent Activity (continuar de onde parou — pessoal por usuário) ----
+    if (path === '/recent-activity' && method === 'GET') return await getRecentActivity(getUserFromToken(event));
+    if (path === '/recent-activity' && method === 'POST') return await saveRecentActivity(body(event), getUserFromToken(event));
+
     // ---- Banner/Announcements ----
     if (path === '/banner' && method === 'GET') return await bannerGet(getUserFromToken(event));
     if (path === '/banner' && method === 'POST') return await bannerSave(body(event), getUserFromToken(event));
@@ -728,6 +732,46 @@ async function saveFavorite({ folderPath, action }, user) {
     ExpressionAttributeValues: { ':f': next },
   }));
   return res(200, { ok: true, favorites: next });
+}
+
+// =============================================================================
+// RECENT ACTIVITY — "continuar de onde parou" (pessoal por usuário)
+// Guardado no próprio item do usuário em T.USERS como array `recentActivity`
+// (mais recente primeiro, no máximo 20 itens).
+// =============================================================================
+async function getRecentActivity(user) {
+  if (!user) return res(401, { message: 'Não autenticado' });
+  const data = await ddb.send(new GetCommand({ TableName: T.USERS, Key: { id: user.id } }));
+  const items = data.Item?.recentActivity || [];
+  return res(200, { items });
+}
+
+async function saveRecentActivity({ type, refId, title, thumb, path, at } = {}, user) {
+  if (!user) return res(401, { message: 'Não autenticado' });
+  if (!type || !refId) return res(400, { message: 'type e refId obrigatórios.' });
+
+  const data = await ddb.send(new GetCommand({ TableName: T.USERS, Key: { id: user.id } }));
+  if (!data.Item) return res(404, { message: 'Usuário não encontrado' });
+  const current = Array.isArray(data.Item.recentActivity) ? data.Item.recentActivity : [];
+
+  const entry = {
+    type,
+    refId,
+    title: title || '',
+    thumb: thumb || null,
+    path: path || null,
+    at: new Date().toISOString(),
+  };
+
+  const filtered = current.filter(e => !(e.type === type && e.refId === refId));
+  const next = [entry, ...filtered].slice(0, 20);
+
+  await ddb.send(new UpdateCommand({
+    TableName: T.USERS, Key: { id: user.id },
+    UpdateExpression: 'SET recentActivity = :r',
+    ExpressionAttributeValues: { ':r': next },
+  }));
+  return res(200, { ok: true });
 }
 
 // =============================================================================

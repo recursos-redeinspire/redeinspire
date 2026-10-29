@@ -7,7 +7,7 @@ import { Trash, Book, Clock, Trophy, WarningTriangle, Link as LinkIcon, VideoCam
 interface ModuleForm { title: string; durationMinutes: number; contentId: string }
 
 export default function TrailsPage() {
-  const { getTrails, deleteTrail, startTrail, completeModule, getAcademyCourses, enrollCourse } = useData()
+  const { getTrails, deleteTrail, startTrail, completeModule, getAcademyCourses, enrollCourse, recordRecentActivity } = useData()
   const { user } = useAuth()
   const { t } = useI18n()
   const isPastor = user?.role === 'admin' || user?.role === 'pastor_presidente'
@@ -22,7 +22,10 @@ export default function TrailsPage() {
   useEffect(() => { getTrails().then(setTrails) }, [refresh])
   useEffect(() => { getAcademyCourses().then(setCourses) }, [refresh])
 
-  const handleStartTrail = async (trailId: string) => { await startTrail(trailId); setRefresh(r => r + 1) }
+  const handleStartTrail = async (trail: any) => {
+    recordRecentActivity({ type: 'trail', refId: trail.id, title: trail.title })
+    await startTrail(trail.id); setRefresh(r => r + 1)
+  }
   const handleCompleteModule = async (trailId: string, moduleId: string) => { await completeModule(trailId, moduleId); setRefresh(r => r + 1) }
 
   const handleEnroll = async (trailId: string, title: string) => {
@@ -87,8 +90,8 @@ export default function TrailsPage() {
                   <span className="text-sm text-gray-600 whitespace-nowrap">{trail.progress?.completedModules?.length ?? 0}/{trail.modules?.length ?? 0} {t('trails.modules')} ({percent}%)</span>
                 </div>
                 <div className="mt-3 flex gap-2">
-                  {!isStarted && <button onClick={() => handleStartTrail(trail.id)} className="bg-gray-900 text-white px-4 py-1.5 rounded text-sm hover:bg-gray-800">{t('trails.start')}</button>}
-                  {isStarted && !isComplete && <button onClick={() => setExpandedTrail(isExpanded ? null : trail.id)} className="bg-gray-900 text-white px-4 py-1.5 rounded text-sm hover:bg-gray-800">{isExpanded ? t('trails.close') : t('trails.continue')}</button>}
+                  {!isStarted && <button onClick={() => handleStartTrail(trail)} className="bg-gray-900 text-white px-4 py-1.5 rounded text-sm hover:bg-gray-800">{t('trails.start')}</button>}
+                  {isStarted && !isComplete && <button onClick={() => { if (!isExpanded) recordRecentActivity({ type: 'trail', refId: trail.id, title: trail.title }); setExpandedTrail(isExpanded ? null : trail.id) }} className="bg-gray-900 text-white px-4 py-1.5 rounded text-sm hover:bg-gray-800">{isExpanded ? t('trails.close') : t('trails.continue')}</button>}
                   {isComplete && <button className="bg-blue-600 text-white px-4 py-1.5 rounded text-sm hover:bg-blue-700 flex items-center gap-1.5"><Page width={14} height={14} strokeWidth={1.5} /> {t('trails.viewCertificate')}</button>}
                 </div>
                 {isExpanded && (

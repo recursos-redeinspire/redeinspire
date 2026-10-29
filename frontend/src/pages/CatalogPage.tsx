@@ -746,7 +746,7 @@ function buildCategories(
 
 // ── Main Catalog Page (Prime Video style) ──
 export default function CatalogPage() {
-  const { getYoutubeCuratedSections, smartSearchYoutube, getAllVideoTags, getAllVideoThumbnails, getVideoCategories, saveVideoCategories } = useData()
+  const { getYoutubeCuratedSections, smartSearchYoutube, getAllVideoTags, getAllVideoThumbnails, getVideoCategories, saveVideoCategories, recordRecentActivity } = useData()
   const { user } = useAuth()
   const { t } = useI18n()
 
@@ -768,13 +768,14 @@ export default function CatalogPage() {
   // e sobreviva a um refresh da página.
   const selectVideo = useCallback((v: any | null) => {
     setSelectedVideo(v)
+    if (v?.id) recordRecentActivity({ type: 'video', refId: v.id, title: v.title, thumb: v.thumbnail })
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
       if (v?.id) next.set('video', v.id)
       else next.delete('video')
       return next
     }, { replace: false })
-  }, [setSearchParams])
+  }, [setSearchParams, recordRecentActivity])
 
   const [tagMap, setTagMap] = useState<Record<string, string[]>>({})
   const [allTags, setAllTags] = useState<string[]>([])

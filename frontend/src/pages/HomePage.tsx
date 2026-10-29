@@ -3,13 +3,13 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
-import { Play, Star, Calendar, ArrowRight, GraphUp, FireFlame, LightBulb, Download, Group, Sparks, Xmark, NavArrowRight, PathArrow, Folder } from 'iconoir-react'
+import { Play, Star, Calendar, ArrowRight, GraphUp, FireFlame, LightBulb, Download, Group, Sparks, Xmark, NavArrowRight, PathArrow, Folder, ClockRotateRight, MediaVideo } from 'iconoir-react'
 
 export default function HomePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { t } = useI18n()
-  const { getYoutubeCuratedSections, getYoutubeCuration, getTrails, getWebinars, getPointsRanking, getMyPoints, getMentoringSessions, getTopDownloads, getBanner, getAllVideoThumbnails, getFolderThumbnails, getFolderCover, getDropboxThumbnailBatch } = useData()
+  const { getYoutubeCuratedSections, getYoutubeCuration, getTrails, getWebinars, getPointsRanking, getMyPoints, getMentoringSessions, getTopDownloads, getBanner, getAllVideoThumbnails, getFolderThumbnails, getFolderCover, getDropboxThumbnailBatch, getRecentActivity } = useData()
 
   const [videos, setVideos] = useState<any[]>([])
   const [featuredVideoId, setFeaturedVideoId] = useState<string | null>(null)
@@ -27,6 +27,8 @@ export default function HomePage() {
   const [customThumbnails, setCustomThumbnails] = useState<Record<string, string>>({})
   // Capas reais das pastas de recurso (folderPath em minúsculas -> url da imagem)
   const [resourceCovers, setResourceCovers] = useState<Record<string, string>>({})
+  // Continue de onde parou — últimos conteúdos acessados pelo usuário
+  const [recentItems, setRecentItems] = useState<any[]>([])
 
   useEffect(() => {
     getYoutubeCuratedSections().then(d => {
@@ -40,6 +42,7 @@ export default function HomePage() {
     getMyPoints().then(setMyPoints)
     getTopDownloads().then(setTopDownloads)
     getBanner().then(setBanner)
+    getRecentActivity().then(r => setRecentItems(r.items || [])).catch(() => {})
     getWebinars().then(w => {
       const sorted = w.sort((a: any, b: any) => a.scheduledAt?.localeCompare(b.scheduledAt || ''))
       setNextWebinar(sorted[0] || null)
@@ -61,6 +64,15 @@ export default function HomePage() {
 
   const isAdmin = user?.role === 'admin'
   const inProgressTrails = trails.filter(tr => tr.progress && !tr.progress.completedAt)
+
+  // "Continue de onde parou": trilhas só para admin (gate em breve p/ não-admin).
+  const recentFiltered = recentItems.filter(it => it.type !== 'trail' || isAdmin).slice(0, 4)
+  const recentTypeLabel = (type: string) => type === 'video' ? 'Vídeo' : type === 'material' ? 'Material' : 'Trilha'
+  const openRecent = (it: any) => {
+    if (it.type === 'video') navigate(`/catalogo?video=${it.refId}`)
+    else if (it.type === 'material') navigate(`/materiais?path=${encodeURIComponent(it.path || it.refId)}`)
+    else navigate('/trilhas')
+  }
   const thumb = (v: any) => customThumbnails[v.id] || v.thumbnail
   const resolveFeatured = (pool: any[], id: string | null) =>
     pool.find(v => v.id === id) ?? [...pool].sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)))[0] ?? null
@@ -237,6 +249,31 @@ export default function HomePage() {
           </div>
         )
       })()}
+
+      {/* Continue de onde parou */}
+      {recentFiltered.length > 0 && (
+        <section>
+          <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2 mb-4"><ClockRotateRight width={17} height={17} strokeWidth={1.5} className="text-slate-400" /> Continue de onde parou</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {recentFiltered.map(it => (
+              <button
+                key={`${it.type}-${it.refId}`}
+                onClick={() => openRecent(it)}
+                className="group text-left bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md hover:border-blue-200 transition flex flex-col gap-3"
+              >
+                <div className="flex items-center gap-2 text-[10px] font-bold text-blue-600 uppercase tracking-wider">
+                  {it.type === 'video' ? <MediaVideo width={13} height={13} strokeWidth={1.5} /> : it.type === 'material' ? <Folder width={13} height={13} strokeWidth={1.5} /> : <PathArrow width={13} height={13} strokeWidth={1.5} />}
+                  {recentTypeLabel(it.type)}
+                </div>
+                <p className="text-[13px] font-semibold text-gray-800 line-clamp-2 leading-snug flex-1">{it.title || recentTypeLabel(it.type)}</p>
+                <span className="inline-flex items-center gap-1.5 text-[12px] text-blue-600 font-semibold group-hover:gap-2.5 transition-all">
+                  Retomar <ArrowRight width={13} height={13} strokeWidth={1.5} />
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Webinar banner */}
       {nextWebinar && isAdmin && (

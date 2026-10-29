@@ -421,7 +421,7 @@ function MaterialAddRecommendationModal({ onClose, onSave }: { onClose: () => vo
 }
 
 export default function MaterialsPage() {
-  const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox, getDropboxThumbnail, getDropboxThumbnailBatch, getFolderCover, saveFolderVideos, getFileText, getFolderDates, syncDropbox, getFavorites, toggleFavorite } = useData()
+  const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox, getDropboxThumbnail, getDropboxThumbnailBatch, getFolderCover, saveFolderVideos, getFileText, getFolderDates, syncDropbox, getFavorites, toggleFavorite, recordRecentActivity } = useData()
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -517,6 +517,11 @@ export default function MaterialsPage() {
         p ? getFolderVideos(p).catch(() => ({ videos: [] })) : Promise.resolve({ videos: [] })
       ])
       setEntries(result.entries); setPath(p)
+      // Registra acesso ao material (best-effort) — só pastas não-raiz com conteúdo.
+      if (p && (result.entries || []).length > 0) {
+        const name = p.split('/').filter(Boolean).pop() || p
+        recordRecentActivity({ type: 'material', refId: p, title: name, path: p })
+      }
       const vids = vidsResult.videos || []
       setFolderVideos(vids)
       if (vids.length > 0) setSelectedVideo(vids[0])
@@ -535,7 +540,7 @@ export default function MaterialsPage() {
       }
     } catch { /* ignore */ }
     finally { setLoading(false) }
-  }, [browseDropbox, getFolderVideos, getFileText, setSearchParams])
+  }, [browseDropbox, getFolderVideos, getFileText, setSearchParams, recordRecentActivity])
 
   // Build autocomplete cache from all visible folders (current + visited)
   useEffect(() => {
