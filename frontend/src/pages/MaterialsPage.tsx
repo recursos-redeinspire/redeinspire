@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   Folder, NavArrowRight, Home, RefreshDouble, Xmark, ArrowLeft, Search, GraphUp,
   Page, MediaVideo, Headset, MediaImage, Table, Presentation,
-  EmptyPage, Download, Archive, Play, Plus, Link as LinkIcon, Sort
+  EmptyPage, Download, Archive, Play, Plus, Link as LinkIcon, Sort, Star, StarSolid
 } from 'iconoir-react'
 import type { ComponentType } from 'react'
 
@@ -421,7 +421,7 @@ function MaterialAddRecommendationModal({ onClose, onSave }: { onClose: () => vo
 }
 
 export default function MaterialsPage() {
-  const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox, getDropboxThumbnail, getDropboxThumbnailBatch, getFolderCover, saveFolderVideos, getFileText, getFolderDates, syncDropbox } = useData()
+  const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox, getDropboxThumbnail, getDropboxThumbnailBatch, getFolderCover, saveFolderVideos, getFileText, getFolderDates, syncDropbox, getFavorites, toggleFavorite } = useData()
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -435,6 +435,8 @@ export default function MaterialsPage() {
   const [folderTagMap, setFolderTagMap] = useState<Record<string, string[]>>({})
   const [folderDescMap, setFolderDescMap] = useState<Record<string, string>>({})
   const [topDownloads, setTopDownloads] = useState<any[]>([])
+  // Pastas favoritadas do usuário atual (folderPaths em lowercase). Pessoal.
+  const [favorites, setFavorites] = useState<string[]>([])
 
   // Search
   const [searchQuery, setSearchQuery] = useState('')
@@ -713,6 +715,7 @@ export default function MaterialsPage() {
     }).catch(() => {})
     getTopDownloads().then(setTopDownloads).catch(() => {})
     getFolderDates().then(d => setFolderDates(d.dates || {})).catch(() => {})
+    getFavorites().then(d => setFavorites((d.favorites || []).map(p => p.toLowerCase()))).catch(() => {})
     // Pre-load folder names for instant autocomplete
     browseDropbox('').then(root => {
       const rootItems = (root.entries || []).map((e: any) => ({ name: e.name, path: e.path, tag: e.tag, id: e.id }))
@@ -761,6 +764,24 @@ export default function MaterialsPage() {
   })) : []
 
   const isRoot = !path
+
+  // Favoritos (pessoais): disponível para qualquer usuário logado.
+  const isFavorite = (folderPath: string) => favorites.includes((folderPath || '').toLowerCase())
+  const handleToggleFavorite = async (e: React.MouseEvent, folderPath: string, folderName: string) => {
+    e.stopPropagation()
+    const key = (folderPath || '').toLowerCase()
+    const makeFavorite = !favorites.includes(key)
+    // Atualização otimista
+    setFavorites(prev => makeFavorite ? [...prev, key] : prev.filter(p => p !== key))
+    try {
+      const r = await toggleFavorite(folderPath, folderName, makeFavorite)
+      if (r?.favorites) setFavorites(r.favorites.map(p => p.toLowerCase()))
+    } catch {
+      // Reverte em caso de erro
+      setFavorites(prev => makeFavorite ? prev.filter(p => p !== key) : [...prev, key])
+    }
+  }
+
   const getThumb = (folderPath: string, name: string) => {
     // 1. Admin-defined cover (exact match)
     const saved = folderThumbs[folderPath]
@@ -779,6 +800,19 @@ export default function MaterialsPage() {
   const getTags = (folderPath: string) => folderTagMap[folderPath] || []
   const getDesc = (folderPath: string) => folderDescMap[folderPath] || ''
   const files = entries.filter(e => e.tag === 'file')
+
+  // Resolve os cards das pastas favoritadas cruzando `favorites` (paths lowercase)
+  // com as pastas conhecidas (autocompleteCache + entries atuais). Quando o nome
+  // não está em cache, usa o último segmento do path como nome.
+  const favoriteFolders = favorites.map(favPath => {
+    const known = [...autocompleteCache, ...entries].find(e => {
+      const p = (e.path || e.pathLower || '').toLowerCase()
+      return p === favPath && e.tag !== 'file'
+    })
+    const path = known?.path || known?.pathLower || favPath
+    const name = known?.name || (favPath.split('/').filter(Boolean).pop() || favPath)
+    return { path, name }
+  })
 
   const handlePreview = async (file: any) => {
     setSelectedFile(file); setPreviewUrl(''); setPreviewDownloadUrl(''); setPreviewLoading(true); setSelectedVideo(null)
@@ -1003,6 +1037,44 @@ export default function MaterialsPage() {
         </div>
       )}
 
+      {/* ═══ MEUS FAVORITOS — acesso rápido (apenas na raiz) ═══ */}
+      {isRoot && !isSearching && favoriteFolders.length > 0 && (
+        <section className="mb-10">
+          <div className="flex items-center gap-2 mb-4">
+            <StarSolid width={18} height={18} className="text-blue-600" />
+            <h2 className="text-[15px] font-bold text-gray-900">Meus favoritos</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+            {favoriteFolders.map(folder => {
+              const thumb = getThumb(folder.path, folder.name)
+              return (
+                <div key={folder.path} className="group">
+                  <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 mb-2.5">
+                    <button onClick={() => loadFolder(folder.path)} className="block w-full h-full text-left">
+                      <img src={thumb} alt={folder.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    </button>
+                    <button
+                      onClick={e => handleToggleFavorite(e, folder.path, folder.name)}
+                      title="Remover dos favoritos"
+                      aria-label="Remover dos favoritos"
+                      aria-pressed={true}
+                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-white transition">
+                      <StarSolid width={16} height={16} className="text-blue-600" />
+                    </button>
+                  </div>
+                  <button onClick={() => loadFolder(folder.path)} className="w-full text-left">
+                    <h3 className="font-semibold text-[13px] text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-700 transition">{folder.name}</h3>
+                    {getTags(folder.path).length > 0 && (
+                      <p className="text-[10px] text-gray-400 mt-0.5">{getTags(folder.path).join(' · ')}</p>
+                    )}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       {/* ═══ TOP DOWNLOADS — Hero Layout (Opção A) ═══ */}
       {isRoot && !isSearching && topDownloads.length > 0 && (
         <section className="mb-10">
@@ -1114,11 +1186,23 @@ export default function MaterialsPage() {
               const parentName = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : 'Recursos'
               return (
                 <div key={folder.id} className="group">
-                  <button onClick={() => loadFolder(folder.path)} className="w-full text-left">
-                    {/* Thumbnail */}
-                    <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 mb-2.5">
+                  <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 mb-2.5">
+                    <button onClick={() => loadFolder(folder.path)} className="block w-full h-full text-left">
                       <img src={thumb} alt={folder.name} loading="eager" fetchPriority="high" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    </div>
+                    </button>
+                    {/* Botão favoritar (pessoal, qualquer usuário logado) */}
+                    <button
+                      onClick={e => handleToggleFavorite(e, folder.path, folder.name)}
+                      title={isFavorite(folder.path) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                      aria-label={isFavorite(folder.path) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                      aria-pressed={isFavorite(folder.path)}
+                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-white transition">
+                      {isFavorite(folder.path)
+                        ? <StarSolid width={16} height={16} className="text-blue-600" />
+                        : <Star width={16} height={16} strokeWidth={1.5} className="text-slate-400 hover:text-blue-600 transition" />}
+                    </button>
+                  </div>
+                  <button onClick={() => loadFolder(folder.path)} className="w-full text-left">
                     {/* Title */}
                     <h3 className="font-semibold text-[13px] text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-700 transition">{folder.name}</h3>
                     {/* Category */}

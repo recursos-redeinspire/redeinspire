@@ -78,6 +78,8 @@ interface DataContextType {
   getMinistries: () => Promise<any[]>
   getMyPoints: () => Promise<number>
   getPointsRanking: () => Promise<{ rank: number; name: string; points: number }[]>
+  getFavorites: () => Promise<{ favorites: string[] }>
+  toggleFavorite: (folderPath: string, folderName: string, makeFavorite: boolean) => Promise<{ ok: boolean; favorites: string[] }>
   getMaterials: () => Promise<any[]>
   createMaterial: (data: { title: string; description: string; category: string; fileUrl?: string; fileName?: string }) => Promise<any>
   updateMaterial: (id: string, data: Record<string, any>) => Promise<boolean>
@@ -507,6 +509,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return []
   }, [])
 
+  // ---- Favorites (favoritar pastas de materiais — pessoal por usuário) ----
+  const getFavorites = useCallback(async (): Promise<{ favorites: string[] }> => {
+    try { return await apiFetch<{ favorites: string[] }>('/favorites') } catch { return { favorites: [] } }
+  }, [])
+
+  const toggleFavorite = useCallback(async (folderPath: string, folderName: string, makeFavorite: boolean): Promise<{ ok: boolean; favorites: string[] }> => {
+    return apiFetch<{ ok: boolean; favorites: string[] }>('/favorites', {
+      method: 'POST',
+      body: JSON.stringify({ folderPath, folderName, action: makeFavorite ? 'add' : 'remove' }),
+    })
+  }, [])
+
   const getMaterials = useCallback(async () => {
     if (API) { try { return await apiFetch<any[]>('/materials') } catch {} }
     return []
@@ -839,7 +853,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getWebinars, createWebinar, deleteWebinar, enrollWebinar, getMentoringSessions, createMentoringSession, deleteMentoringSession, completeMentoringSession,
     getMetrics, getLeaderRanking, getTimeline, getRecentAccesses,
     getMessages, getUnreadCount, markAsRead, sendMessage, getMessageRecipients,
-    getMinistries, createMinistry, deleteMinistry, updateMinistry, getMyPoints, getPointsRanking,
+    getMinistries, createMinistry, deleteMinistry, updateMinistry, getMyPoints, getPointsRanking, getFavorites, toggleFavorite,
     getMaterials, createMaterial, updateMaterial, deleteMaterial, syncDropbox, browseDropbox, downloadDropbox, getDropboxThumbnail, getDropboxThumbnailBatch, getFolderCover, smartSearchDropbox, getDropboxLink, getYoutubeVideos, searchYoutube, smartSearchYoutube, getYoutubePlaylists, getYoutubeCuration, saveYoutubeCuration, getYoutubeCuratedSections, getComments, addComment, getVideoTags, saveVideoTags, getAllVideoTags, getVideoCategories, saveVideoCategories, getFolderVideos, saveFolderVideos, getFileText, getFolderThumbnails, getFolderDates, saveFolderThumbnail, getFolderTags, saveFolderTags, getAllFolderTags, saveVideoThumbnail, deleteVideoThumbnail, getAllVideoThumbnails, getVideoRecs, addVideoRec, deleteVideoRec, getTopDownloads, getBanner, getUploadPresignedUrl,
     getChurches, getTopChurches, createChurch, deleteChurch, updateChurch,
     getPlans, savePlan, deletePlan,

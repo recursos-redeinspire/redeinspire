@@ -195,6 +195,10 @@ export async function handler(event) {
     if (path === '/points/me' && method === 'GET') return await getMyPoints(getUserFromToken(event));
     if (path === '/points/ranking' && method === 'GET') return await getPointsRanking(getUserFromToken(event));
 
+    // ---- Favorites (favoritar pastas de materiais — pessoal por usuário) ----
+    if (path === '/favorites' && method === 'GET') return await getFavorites(getUserFromToken(event));
+    if (path === '/favorites' && method === 'POST') return await saveFavorite(body(event), getUserFromToken(event));
+
     // ---- Banner/Announcements ----
     if (path === '/banner' && method === 'GET') return await bannerGet(getUserFromToken(event));
     if (path === '/banner' && method === 'POST') return await bannerSave(body(event), getUserFromToken(event));
@@ -688,6 +692,42 @@ async function getPointsRanking(user) {
   all.sort((a, b) => (b.points || 0) - (a.points || 0));
   const top = all.slice(0, 10).map((u, i) => ({ rank: i + 1, name: u.name, points: u.points || 0 }));
   return res(200, top);
+}
+
+// =============================================================================
+// FAVORITES — favoritar pastas de materiais (pessoal por usuário)
+// Guardado no próprio item do usuário em T.USERS como array `favorites`
+// (lista de folderPaths em lowercase, sem duplicar).
+// =============================================================================
+async function getFavorites(user) {
+  if (!user) return res(401, { message: 'Não autenticado' });
+  const data = await ddb.send(new GetCommand({ TableName: T.USERS, Key: { id: user.id } }));
+  const favorites = data.Item?.favorites || [];
+  return res(200, { favorites });
+}
+
+async function saveFavorite({ folderPath, action }, user) {
+  if (!user) return res(401, { message: 'Não autenticado' });
+  if (!folderPath || typeof folderPath !== 'string') return res(400, { message: 'folderPath obrigatório.' });
+  const key = folderPath.toLowerCase();
+
+  const data = await ddb.send(new GetCommand({ TableName: T.USERS, Key: { id: user.id } }));
+  if (!data.Item) return res(404, { message: 'Usuário não encontrado' });
+  const current = Array.isArray(data.Item.favorites) ? data.Item.favorites : [];
+
+  // Toggle quando action não vier definido; caso contrário respeita add/remove.
+  const exists = current.includes(key);
+  const shouldAdd = action === 'add' ? true : action === 'remove' ? false : !exists;
+  let next;
+  if (shouldAdd) next = exists ? current : [...current, key];
+  else next = current.filter(p => p !== key);
+
+  await ddb.send(new UpdateCommand({
+    TableName: T.USERS, Key: { id: user.id },
+    UpdateExpression: 'SET favorites = :f',
+    ExpressionAttributeValues: { ':f': next },
+  }));
+  return res(200, { ok: true, favorites: next });
 }
 
 // =============================================================================
@@ -1429,6 +1469,12 @@ async function getDropboxToken() {
     body: `grant_type=refresh_token&refresh_token=${DROPBOX_REFRESH_TOKEN}&client_id=${DROPBOX_APP_KEY}&client_secret=${DROPBOX_APP_SECRET}`,
   });
   const data = await r.json();
+  if (!data.access_token) {
+    console.error('Dropbox token refresh failed:', JSON.stringify(data));
+    const err = new Error(`Dropbox token refresh failed: ${data.error_description || data.error || 'sem access_token'}`);
+    err.dropboxAuth = true;
+    throw err;
+  }
   _dbxToken = data.access_token;
   _dbxTokenExpiry = Date.now() + ((data.expires_in || 14400) - 300) * 1000;
   return _dbxToken;
@@ -1448,27 +1494,49 @@ const FOLDER_DATES_KEY = '__FOLDER_DATES__';
 // Logs on failure but never throws, so it cannot break the sync flow.
 async function computeAndSaveFolderDates(allFiles, user) {
   try {
+    // Limita a profundidade de pastas guardadas. A tela de Recursos ordena pastas
+    // navegáveis (níveis rasos); guardar TODA subpasta profunda estoura o limite de
+    // 400KB por item do DynamoDB (ValidationException: Item size exceeded).
+    const MAX_DEPTH = 3;
     const dates = {};
     for (const file of allFiles) {
       const display = file.path_display || file.path_lower || '';
       if (!display) continue;
-      // Same folder-deriving style as dropboxTopDownloads/dropboxBrowse.
       const parts = display.split('/').filter(Boolean);
       const mod = file.server_modified || '';
       if (!mod) continue;
-      // k from 1..parts.length-1 excludes the file itself, includes every ancestor folder.
-      for (let k = 1; k < parts.length; k++) {
+      // k de 1..min(parts.length-1, MAX_DEPTH): ancestrais até a profundidade limite.
+      const maxK = Math.min(parts.length - 1, MAX_DEPTH);
+      for (let k = 1; k <= maxK; k++) {
         const ancestor = ('/' + parts.slice(0, k).join('/')).toLowerCase();
-        // ISO-8601 strings sort lexicographically, so keep the greatest (most recent).
+        // Strings ISO-8601 ordenam lexicograficamente; mantém a maior (mais recente).
         if (!dates[ancestor] || mod > dates[ancestor]) dates[ancestor] = mod;
       }
     }
+
+    // Salvaguarda final: se ainda passar de ~350KB, remove as entradas mais antigas
+    // até caber (prioriza manter as pastas mais recentes, que é o que o filtro usa).
+    let entries = Object.entries(dates);
+    const SIZE_LIMIT = 350 * 1024;
+    const sizeOf = (obj) => Buffer.byteLength(JSON.stringify(obj), 'utf8');
+    if (sizeOf(dates) > SIZE_LIMIT) {
+      entries.sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0)); // mais recentes primeiro
+      const trimmed = {};
+      for (const [k, v] of entries) {
+        trimmed[k] = v;
+        if (sizeOf(trimmed) > SIZE_LIMIT) { delete trimmed[k]; break; }
+      }
+      entries = Object.entries(trimmed);
+    }
+    const finalDates = Object.fromEntries(entries);
+
     await ddb.send(new PutCommand({
       TableName: T.VIDEO_TAGS,
-      Item: { videoId: FOLDER_DATES_KEY, dates, updatedAt: new Date().toISOString(), updatedBy: user.id }
+      Item: { videoId: FOLDER_DATES_KEY, dates: finalDates, updatedAt: new Date().toISOString(), updatedBy: user.id }
     }));
   } catch (e) {
     console.error('computeAndSaveFolderDates error:', e);
+    // Nunca propaga: o cálculo de datas é secundário e não pode quebrar o sync.
   }
 }
 
@@ -1483,7 +1551,9 @@ async function dropboxSync(user) {
   if (!DROPBOX_REFRESH_TOKEN) return res(500, { message: 'Dropbox nao configurado.' });
 
   try {
-    const folderPath = DROPBOX_FOLDER || '';
+    // Usa a raiz do namespace (''), igual ao dropboxBrowse que já funciona.
+    // O antigo DROPBOX_FOLDER apontava para um caminho inexistente (path/not_found).
+    const folderPath = '';
     let allFiles = [];
     let hasMore = true;
     let cursor = null;
@@ -1501,7 +1571,10 @@ async function dropboxSync(user) {
         body: JSON.stringify(payload),
       });
       const data = await r.json();
-      if (data.error) return res(400, { message: 'Erro Dropbox', error: data.error_summary });
+      if (data.error) {
+        console.error('Dropbox sync list_folder error:', JSON.stringify(data));
+        return res(400, { message: `Erro Dropbox: ${data.error_summary || 'desconhecido'}`, error: data.error_summary });
+      }
       const files = (data.entries || []).filter(e => e['.tag'] === 'file');
       allFiles = allFiles.concat(files);
       hasMore = data.has_more;
@@ -1568,7 +1641,7 @@ async function dropboxSync(user) {
     return res(200, { message: msg, synced, total: allFiles.length, remaining, errors: errors.length ? errors : undefined });
   } catch (err) {
     console.error('Dropbox sync error:', err);
-    return res(500, { message: 'Erro sync Dropbox', error: err.message });
+    return res(500, { message: `Erro sync Dropbox: ${err.message}`, error: err.message });
   }
 }
 
