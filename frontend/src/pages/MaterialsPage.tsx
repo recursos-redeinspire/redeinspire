@@ -421,7 +421,7 @@ function MaterialAddRecommendationModal({ onClose, onSave }: { onClose: () => vo
 }
 
 export default function MaterialsPage() {
-  const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox, getDropboxThumbnail, getDropboxThumbnailBatch, getFolderCover, saveFolderVideos, getFileText, getFolderDates } = useData()
+  const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox, getDropboxThumbnail, getDropboxThumbnailBatch, getFolderCover, saveFolderVideos, getFileText, getFolderDates, syncDropbox } = useData()
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -450,6 +450,8 @@ export default function MaterialsPage() {
   // folderPathLower -> max server_modified ISO (from backend __FOLDER_DATES__), for recency sort.
   const [folderDates, setFolderDates] = useState<Record<string, string>>({})
   const [sortBy, setSortBy] = useState<'recent' | 'old' | 'az' | 'za'>('recent')
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState('')
   const ITEMS_PER_PAGE = 12
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Admin edit state
@@ -479,6 +481,23 @@ export default function MaterialsPage() {
   const [folderDescription, setFolderDescription] = useState('')
 
   const isAdmin = user?.role === 'admin'
+
+  // Sincroniza os materiais do Dropbox (admin). Após sincronizar, recarrega as
+  // datas das pastas e a pasta atual para refletir novidades/ordenação.
+  const handleSync = async () => {
+    if (syncing) return
+    setSyncing(true); setSyncMsg('')
+    try {
+      const r = await syncDropbox()
+      setSyncMsg(r?.message || 'Sincronização concluída.')
+      getFolderDates().then(d => setFolderDates(d.dates || {})).catch(() => {})
+      loadFolder(path)
+    } catch {
+      setSyncMsg('Erro ao sincronizar. Tente novamente.')
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const loadFolder = useCallback(async (p: string) => {
     setLoading(true); setIsSearching(false); setSearchResults([])
@@ -799,6 +818,16 @@ export default function MaterialsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Recursos</h1>
           <p className="text-sm text-gray-500 mt-1">Recursos para seu ministério</p>
         </div>
+        {isAdmin && (
+          <div className="flex flex-col items-start sm:items-end gap-1">
+            <button onClick={handleSync} disabled={syncing}
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition">
+              <RefreshDouble width={16} height={16} strokeWidth={1.5} className={syncing ? 'animate-spin' : ''} />
+              {syncing ? 'Sincronizando...' : 'Sincronizar Dropbox'}
+            </button>
+            {syncMsg && <span className="text-[11px] text-gray-500 max-w-[260px] text-right">{syncMsg}</span>}
+          </div>
+        )}
       </div>
 
       {/* Search */}
