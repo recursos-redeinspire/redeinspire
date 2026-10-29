@@ -6,7 +6,7 @@ import { useI18n } from '../i18n/I18nContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { LANG_OPTIONS, type Lang } from '../i18n/translations'
 import {
-  Home, OpenBook, Search, PathArrow, GraduationCap,
+  Home, MediaVideo, Search, PathArrow, GraduationCap,
   Calendar, Folder, MapPin, StatsReport, ChatBubble,
   Group, UserPlus, Settings, NavArrowDown,
   Menu, Bell, LogOut, Star
@@ -19,7 +19,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { path: '/', label: t('nav.home'), icon: <Home width={18} height={18} strokeWidth={1.5} />, key: 'home' },
-    { path: '/catalogo', label: t('nav.catalog'), icon: <OpenBook width={18} height={18} strokeWidth={1.5} />, key: 'catalogo' },
+    { path: '/catalogo', label: t('nav.catalog'), icon: <MediaVideo width={18} height={18} strokeWidth={1.5} />, key: 'catalogo' },
     { path: '/trilhas', label: t('nav.trails'), icon: <PathArrow width={18} height={18} strokeWidth={1.5} />, key: 'trilhas' },
     { path: '/mentorias', label: t('nav.mentoring'), icon: <GraduationCap width={18} height={18} strokeWidth={1.5} />, key: 'mentorias' },
     { path: '/planejamento', label: t('nav.planning'), icon: <Calendar width={18} height={18} strokeWidth={1.5} />, key: 'planejamento' },

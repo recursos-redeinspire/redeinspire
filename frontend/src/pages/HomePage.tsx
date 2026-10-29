@@ -65,8 +65,12 @@ export default function HomePage() {
   const resolveFeatured = (pool: any[], id: string | null) =>
     pool.find(v => v.id === id) ?? [...pool].sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)))[0] ?? null
   const featured = resolveFeatured(videos, featuredVideoId)
-  const secondary = videos.slice(1, 3)
-  const moreVideos = videos.slice(3, 7)
+  // Blocos sem repetição: cada seção consome de um pool que exclui o destaque
+  // e o que as seções anteriores já usaram. Ordem de consumo: Top 10 -> Sugestões -> Recentes.
+  const rest = videos.filter(v => v.id !== featured?.id)
+  const topContent = rest.slice(0, 5)        // Top conteúdos (ranking)
+  const suggestions = rest.slice(5, 8)       // Sugestões para você
+  const moreVideos = rest.slice(8, 12)       // Conteúdos recentes
 
   // Capa gerada para recursos (sem thumbnail): cor por hash do nome + iniciais
   const resourceGradients = [
@@ -255,13 +259,13 @@ export default function HomePage() {
         <div className="lg:col-span-8 space-y-7">
 
           {/* Sugestões */}
-          {secondary.length > 0 && (
+          {suggestions.length > 0 && (
             <section>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2"><LightBulb width={17} height={17} strokeWidth={1.5} className="text-slate-400" /> {t('home.suggestions') || 'Sugestões para você'}</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {videos.slice(1, 4).map(v => (
+                {suggestions.map(v => (
                   <div key={v.id} className="group cursor-pointer" onClick={() => navigate(`/catalogo?video=${v.id}`)}>
                     <div className="relative rounded-xl overflow-hidden shadow-sm">
                       <img src={thumb(v)} alt="" className="w-full aspect-video object-cover group-hover:scale-[1.03] transition-transform duration-400" />
@@ -370,11 +374,11 @@ export default function HomePage() {
           })()}
 
           {/* Top Conteúdos */}
-          {videos.length > 0 && (
+          {topContent.length > 0 && (
             <section>
               <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2 mb-4"><FireFlame width={17} height={17} strokeWidth={1.5} className="text-slate-400" /> {t('home.top10Content')}</h2>
               <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
-                {videos.slice(0, 5).map((video, i) => (
+                {topContent.map((video, i) => (
                   <div key={video.id} onClick={() => navigate(`/catalogo?video=${video.id}`)} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition">
                     <span className={`text-[12px] font-bold w-5 text-center ${i < 3 ? 'text-blue-600' : 'text-gray-300'}`}>{i + 1}</span>
                     <img src={thumb(video)} alt="" className="w-14 h-9 rounded-lg object-cover shrink-0" />
