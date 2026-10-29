@@ -17,6 +17,7 @@ export default function HomePage() {
   const [nextWebinar, setNextWebinar] = useState<any>(null)
   const [upcomingWebinars, setUpcomingWebinars] = useState<any[]>([])
   const [pointsRanking, setPointsRanking] = useState<any[]>([])
+  const [rankScope, setRankScope] = useState<'all' | 'church'>('church')
   const [myPoints, setMyPoints] = useState(0)
   const [topDownloads, setTopDownloads] = useState<any[]>([])
   const [nextMentoring, setNextMentoring] = useState<any>(null)
@@ -38,7 +39,6 @@ export default function HomePage() {
     getYoutubeCuration().then(c => setFeaturedVideoId(c.featuredVideoId)).catch(() => {})
     getAllVideoThumbnails().then(data => setCustomThumbnails(data.thumbnails || {})).catch(() => {})
     getTrails().then(setTrails)
-    getPointsRanking().then(setPointsRanking)
     getMyPoints().then(setMyPoints)
     getTopDownloads().then(setTopDownloads)
     getBanner().then(setBanner)
@@ -61,6 +61,11 @@ export default function HomePage() {
       }
     })
   }, [])
+
+  // Recarrega o ranking quando o escopo (plataforma / minha igreja) muda.
+  useEffect(() => {
+    getPointsRanking(rankScope).then(setPointsRanking).catch(() => {})
+  }, [getPointsRanking, rankScope])
 
   const isAdmin = user?.role === 'admin'
   const inProgressTrails = trails.filter(tr => tr.progress && !tr.progress.completedAt)
@@ -492,8 +497,21 @@ export default function HomePage() {
               <div><p className="text-[20px] font-bold text-gray-900">{myPoints}</p><p className="text-[11px] text-gray-400">{t('header.points')}</p></div>
             </div>
             <div className="border-t border-gray-100 pt-3">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase mb-2">Top Usuários</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase">Top Usuários</p>
+              </div>
+              <div className="flex gap-1 mb-3 bg-gray-50 rounded-lg p-0.5">
+                <button onClick={() => setRankScope('church')}
+                  className={`flex-1 text-[10px] font-semibold py-1.5 rounded-md transition ${rankScope === 'church' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>
+                  Minha igreja
+                </button>
+                <button onClick={() => setRankScope('all')}
+                  className={`flex-1 text-[10px] font-semibold py-1.5 rounded-md transition ${rankScope === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>
+                  Plataforma
+                </button>
+              </div>
               <div className="space-y-2">
+                {pointsRanking.length === 0 && <p className="text-[11px] text-gray-400 text-center py-2">Sem dados ainda</p>}
                 {pointsRanking.slice(0, 5).map(u => (
                   <div key={u.rank} className="flex items-center gap-2">
                     <span className="text-[11px] font-bold text-gray-400 w-4">{u.rank}º</span>

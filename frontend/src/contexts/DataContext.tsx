@@ -77,7 +77,7 @@ interface DataContextType {
   getMessageRecipients: () => Promise<any[]>
   getMinistries: () => Promise<any[]>
   getMyPoints: () => Promise<number>
-  getPointsRanking: () => Promise<{ rank: number; name: string; points: number }[]>
+  getPointsRanking: (scope?: 'all' | 'church') => Promise<{ rank: number; name: string; points: number }[]>
   getFavorites: () => Promise<{ favorites: string[] }>
   toggleFavorite: (folderPath: string, folderName: string, makeFavorite: boolean) => Promise<{ ok: boolean; favorites: string[] }>
   recordRecentActivity: (entry: { type: 'video' | 'material' | 'trail'; refId: string; title: string; thumb?: string; path?: string }) => Promise<void>
@@ -506,8 +506,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return 0
   }, [])
 
-  const getPointsRanking = useCallback(async (): Promise<{ rank: number; name: string; points: number }[]> => {
-    if (API) { try { return await apiFetch<{ rank: number; name: string; points: number }[]>('/points/ranking') } catch {} }
+  const getPointsRanking = useCallback(async (scope: 'all' | 'church' = 'church'): Promise<{ rank: number; name: string; points: number }[]> => {
+    if (API) { try { return await apiFetch<{ rank: number; name: string; points: number }[]>(`/points/ranking?scope=${scope}`) } catch {} }
     return []
   }, [])
 

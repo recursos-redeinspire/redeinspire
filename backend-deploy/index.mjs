@@ -193,7 +193,7 @@ export async function handler(event) {
 
     // ---- Points ----
     if (path === '/points/me' && method === 'GET') return await getMyPoints(getUserFromToken(event));
-    if (path === '/points/ranking' && method === 'GET') return await getPointsRanking(getUserFromToken(event));
+    if (path === '/points/ranking' && method === 'GET') return await getPointsRanking(getUserFromToken(event), qs(event));
 
     // ---- Favorites (favoritar pastas de materiais — pessoal por usuário) ----
     if (path === '/favorites' && method === 'GET') return await getFavorites(getUserFromToken(event));
@@ -689,10 +689,14 @@ async function getMyPoints(user) {
   return res(200, { points: u.points || 0 });
 }
 
-async function getPointsRanking(user) {
+async function getPointsRanking(user, query) {
   if (!user) return res(401, { message: 'Não autenticado' });
+  // scope=all -> ranking geral da plataforma; scope=church (padrão) -> só a igreja do usuário.
+  const scope = (query && query.scope) === 'all' ? 'all' : 'church';
   const data = await ddb.send(new ScanCommand({ TableName: T.USERS }));
-  const all = (data.Items || []).filter(u => u.churchId === user.churchId && (u.points || 0) > 0);
+  const all = (data.Items || []).filter(u =>
+    (u.points || 0) > 0 && (scope === 'all' || u.churchId === user.churchId)
+  );
   all.sort((a, b) => (b.points || 0) - (a.points || 0));
   const top = all.slice(0, 10).map((u, i) => ({ rank: i + 1, name: u.name, points: u.points || 0 }));
   return res(200, top);
