@@ -1968,11 +1968,12 @@ function thumbS3Key(dropboxPathLower, size, format, version) {
   return `${THUMBS_PREFIX}/${h}.${format === 'png' ? 'png' : 'jpg'}`;
 }
 
-// Build the public URL for a cached thumbnail (CDN if configured, else presigned S3).
+// Build the public URL for a cached thumbnail.
+// thumb-cache/* is public-read, so we return a permanent direct S3 URL.
+// If THUMBS_CDN_URL is configured, use that instead (CloudFront CDN).
 async function thumbUrlForKey(key) {
   if (THUMBS_CDN_URL) return `${THUMBS_CDN_URL}/${key}`;
-  const getCmd = new GetObjectCommand({ Bucket: UPLOAD_BUCKET, Key: key });
-  return await getSignedUrl(s3, getCmd, { expiresIn: 86400 });
+  return `https://${UPLOAD_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${key}`;
 }
 
 // Returns { exists: true } quickly if the object is already cached in S3.
