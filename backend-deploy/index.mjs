@@ -1767,7 +1767,15 @@ async function dropboxSync(user) {
     }
 
     // --- 4. Persist cursor state ---
-    const startedAt = cursorItem.Item && !cursorItem.Item.completed ? (cursorItem.Item.startedAt || now) : now;
+    // Preserve startedAt when completed and still within 24h (never reset it to now in that case).
+    const existingStartedAt = cursorItem.Item?.startedAt || null;
+    const existingCompleted = cursorItem.Item?.completed || false;
+    const existingAgeMs = existingStartedAt ? (Date.now() - new Date(existingStartedAt).getTime()) : Infinity;
+    const existingOlderThan24h = existingAgeMs > 24 * 60 * 60 * 1000;
+    // Start a new startedAt only when: (a) no existing record, (b) starting fresh (no savedCursor), or (c) prior was completed+stale.
+    const startedAt = (existingStartedAt && !(existingCompleted && existingOlderThan24h))
+      ? existingStartedAt
+      : now;
     await ddb.send(new PutCommand({
       TableName: T.VIDEO_TAGS,
       Item: {

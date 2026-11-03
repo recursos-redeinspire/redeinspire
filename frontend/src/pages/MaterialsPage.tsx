@@ -486,15 +486,28 @@ export default function MaterialsPage() {
 
   const isAdmin = user?.role === 'admin'
 
-  // Sincroniza os materiais do Dropbox (admin). Após sincronizar, recarrega as
-  // datas das pastas e a pasta atual para refletir novidades/ordenação.
+  // Sincroniza os materiais do Dropbox (admin). Loop automático sobre has_more:
+  // o backend processa uma página por chamada; o frontend continua chamando
+  // até has_more=false, sem precisar de múltiplos cliques do usuário.
   const handleSync = async () => {
     if (syncing) return
-    setSyncing(true); setSyncMsg('')
+    setSyncing(true); setSyncMsg('Sincronizando...')
+    let totalSynced = 0
+    let pages = 0
     try {
-      const r = await syncDropbox()
-      setSyncMsg(r?.message || 'Sincronização concluída.')
+      let hasMore = true
+      while (hasMore) {
+        pages++
+        setSyncMsg(`Sincronizando... (página ${pages})`)
+        const r = await syncDropbox()
+        totalSynced += (r?.synced || 0)
+        hasMore = !!r?.has_more
+        if (!hasMore) {
+          setSyncMsg(r?.message || `Sincronização concluída. ${totalSynced} material(is) importado(s).`)
+        }
+      }
       getFolderDates().then(d => setFolderDates(d.dates || {})).catch(() => {})
+      getFolderCovers().then(d => setFolderAutoCovers(d.covers || {})).catch(() => {})
       loadFolder(path)
     } catch {
       setSyncMsg('Erro ao sincronizar. Tente novamente.')

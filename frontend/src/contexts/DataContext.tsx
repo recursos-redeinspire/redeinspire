@@ -86,7 +86,7 @@ interface DataContextType {
   createMaterial: (data: { title: string; description: string; category: string; fileUrl?: string; fileName?: string }) => Promise<any>
   updateMaterial: (id: string, data: Record<string, any>) => Promise<boolean>
   deleteMaterial: (id: string) => Promise<boolean>
-  syncDropbox: () => Promise<{ synced: number; total: number; message: string }>
+  syncDropbox: () => Promise<{ synced: number; total: number; message: string; has_more?: boolean; page_done?: boolean }>
   browseDropbox: (path: string) => Promise<{ path: string; entries: any[] }>
   downloadDropbox: (path: string, action?: 'view' | 'download') => Promise<{ url: string; name: string }>
   getDropboxThumbnail: (path: string, size?: string) => Promise<string>
@@ -553,7 +553,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return false
   }, [])
 
-  const syncDropbox = useCallback(async (): Promise<{ synced: number; total: number; message: string }> => {
+  const syncDropbox = useCallback(async (): Promise<{ synced: number; total: number; message: string; has_more?: boolean; page_done?: boolean }> => {
     return apiFetch<{ synced: number; total: number; message: string }>('/dropbox/sync', { method: 'POST' })
   }, [])
 
