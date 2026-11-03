@@ -342,78 +342,38 @@ export default function HomePage() {
             </section>
           )}
 
-          {/* Recursos em destaque — hero + lista lateral */}
-          {topDownloads.length > 0 && (() => {
-            const heroName = resourceName(topResource)
-            const [hc1, hc2] = resourceColors(heroName)
-            const heroAccesses = resourceAccesses(topResource)
-            const heroCover = resourceCover(topResource)
-            const sideItems = topDownloads.slice(1, 5)
-            return (
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2"><Star width={17} height={17} strokeWidth={1.5} className="text-slate-400" /> Recursos em destaque</h2>
-                  <Link to="/materiais" className="text-[12px] text-blue-600 font-semibold">Ver todos →</Link>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Hero TOP 1 */}
-                  <div
-                    className="relative rounded-2xl overflow-hidden group cursor-pointer shadow-sm flex flex-col justify-between p-6 min-h-[220px]"
-                    style={heroCover ? undefined : { background: `linear-gradient(135deg, ${hc1}, ${hc2})` }}
-                    onClick={() => openResource(topResource)}
-                  >
-                    {heroCover && (
-                      <>
-                        <img src={heroCover} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/25" />
-                      </>
-                    )}
-                    <div className="relative flex items-start justify-between gap-3">
-                      <span className="inline-flex items-center gap-1.5 text-[10px] font-bold bg-white/20 text-white px-3 py-1.5 rounded-full uppercase tracking-wider backdrop-blur-sm"><Star width={13} height={13} strokeWidth={1.5} /> Top 1</span>
-                      {!heroCover && (
-                        <div className="w-14 h-14 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0 border border-white/20">
-                          <span className="text-[20px] font-bold text-white tracking-tight">{resourceInitials(heroName)}</span>
-                        </div>
-                      )}
+          {/* Recursos em destaque — grid de cards (mais acessados globais) */}
+          {topDownloads.length > 0 && (
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2"><Star width={17} height={17} strokeWidth={1.5} className="text-slate-400" /> Recursos em destaque</h2>
+                <Link to="/materiais" className="text-[12px] text-blue-600 font-semibold">Ver todos →</Link>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {topDownloads.slice(0, 6).map(item => {
+                  const name = resourceName(item)
+                  const [rc1, rc2] = resourceColors(name)
+                  const accesses = resourceAccesses(item)
+                  const cover = resourceCover(item)
+                  return (
+                    <div key={item.folderPath || item.rank} className="group cursor-pointer" onClick={() => openResource(item)}>
+                      <div className="relative rounded-xl overflow-hidden shadow-sm aspect-video">
+                        {cover ? (
+                          <img src={cover} alt="" className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${rc1}, ${rc2})` }}>
+                            <span className="text-[28px] font-bold text-white tracking-tight">{resourceInitials(name)}</span>
+                          </div>
+                        )}
+                      </div>
+                      <h3 className="text-[13px] font-semibold text-gray-800 mt-2.5 line-clamp-2 leading-snug">{name}</h3>
+                      {accesses > 0 && <p className="text-[11px] text-gray-400 mt-1">{accesses} {accesses === 1 ? 'acesso' : 'acessos'}</p>}
                     </div>
-                    <div className="relative">
-                      <h3 className="text-[20px] font-bold text-white leading-snug line-clamp-2">{heroName}</h3>
-                      <p className="text-[12px] text-white/80 mt-1.5">Material mais acessado</p>
-                      <p className="text-[12px] text-white/80 mt-0.5 flex items-center gap-1"><Folder width={13} height={13} strokeWidth={1.5} /> {heroAccesses} {heroAccesses === 1 ? 'acesso' : 'acessos'}</p>
-                      <span className="mt-4 inline-flex items-center gap-1.5 bg-white text-blue-700 px-4 py-2 rounded-xl text-[12px] font-semibold group-hover:gap-2.5 transition-all">
-                        Abrir recurso <ArrowRight width={14} height={14} strokeWidth={1.5} />
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Lista 2..5 */}
-                  <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-50">
-                    {sideItems.length === 0 && (
-                      <div className="flex items-center justify-center h-full py-10 text-[12px] text-gray-400">Mais recursos em breve</div>
-                    )}
-                    {sideItems.map(item => {
-                      const name = resourceName(item)
-                      const [mc1, mc2] = resourceColors(name)
-                      const accesses = resourceAccesses(item)
-                      const cover = resourceCover(item)
-                      return (
-                        <div key={item.folderPath || item.rank} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition" onClick={() => openResource(item)}>
-                          <span className={`text-[12px] font-bold w-5 text-center ${item.rank <= 3 ? 'text-blue-600' : 'text-gray-300'}`}>{item.rank}</span>
-                          {cover ? (
-                            <img src={cover} alt="" className="w-9 h-9 rounded-lg shrink-0 object-cover" />
-                          ) : (
-                            <span className="w-9 h-9 rounded-lg shrink-0 flex items-center justify-center text-[11px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${mc1}, ${mc2})` }}>{resourceInitials(name)}</span>
-                          )}
-                          <span className="text-[13px] text-gray-800 flex-1 truncate">{name}</span>
-                          {accesses > 0 && <span className="text-[11px] text-gray-400 shrink-0">{accesses} {accesses === 1 ? 'acesso' : 'acessos'}</span>}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </section>
-            )
-          })()}
+                  )
+                })}
+              </div>
+            </section>
+          )}
 
           {/* Top Conteúdos */}
           {topContent.length > 0 && (
@@ -460,42 +420,39 @@ export default function HomePage() {
             </section>
           )}
 
-          {/* Próximos eventos */}
-          {(upcomingWebinars.length > 0 || upcomingMentorings.length > 0) && isAdmin && (
-            <section>
-              <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2 mb-4"><Calendar width={17} height={17} strokeWidth={1.5} className="text-slate-400" /> Próximos eventos</h2>
-              <div className="space-y-2.5">
-                {upcomingWebinars.map(w => (
-                  <div key={w.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between hover:shadow-sm transition cursor-pointer">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center"><Play width={16} height={16} strokeWidth={1.5} className="text-blue-600" /></div>
-                      <div>
-                        <p className="text-[13px] font-semibold text-gray-800">{w.title}</p>
-                        <p className="text-[11px] text-gray-400">{w.hostName} · {new Date(w.scheduledAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
-                      </div>
-                    </div>
-                    <Link to="/mentorias" className="text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase">Inscrever</Link>
-                  </div>
-                ))}
-                {upcomingMentorings.map(s => (
-                  <div key={s.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between hover:shadow-sm transition cursor-pointer">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center"><Group width={16} height={16} strokeWidth={1.5} className="text-blue-600" /></div>
-                      <div>
-                        <p className="text-[13px] font-semibold text-gray-800">{s.title}</p>
-                        <p className="text-[11px] text-gray-400">{s.mentorName || s.pastorName} · {new Date(s.scheduledAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
-                      </div>
-                    </div>
-                    <Link to="/mentorias" className="text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase">Ver</Link>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
         </div>
 
         {/* Right sidebar */}
         <div className="lg:col-span-4 space-y-5">
+          {/* Próximos eventos (movido para a direita) */}
+          {(upcomingWebinars.length > 0 || upcomingMentorings.length > 0) && isAdmin && (
+            <div className="bg-white rounded-xl border border-gray-100 p-5">
+              <h2 className="text-[14px] font-bold text-gray-900 flex items-center gap-2 mb-3"><Calendar width={16} height={16} strokeWidth={1.5} className="text-slate-400" /> Próximos eventos</h2>
+              <div className="space-y-2.5">
+                {upcomingWebinars.map(w => (
+                  <div key={w.id} className="flex items-center gap-3 py-1.5 hover:bg-gray-50 rounded-lg transition cursor-pointer">
+                    <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center shrink-0"><Play width={15} height={15} strokeWidth={1.5} className="text-blue-600" /></div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12px] font-semibold text-gray-800 truncate">{w.title}</p>
+                      <p className="text-[10px] text-gray-400">{w.hostName} · {new Date(w.scheduledAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                    <Link to="/mentorias" className="text-[10px] font-bold text-blue-600 shrink-0">→</Link>
+                  </div>
+                ))}
+                {upcomingMentorings.map(s => (
+                  <div key={s.id} className="flex items-center gap-3 py-1.5 hover:bg-gray-50 rounded-lg transition cursor-pointer">
+                    <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center shrink-0"><Group width={15} height={15} strokeWidth={1.5} className="text-blue-600" /></div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12px] font-semibold text-gray-800 truncate">{s.title}</p>
+                      <p className="text-[10px] text-gray-400">{s.mentorName || s.pastorName} · {new Date(s.scheduledAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                    <Link to="/mentorias" className="text-[10px] font-bold text-blue-600 shrink-0">→</Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Pontos + Ranking */}
           <div className="bg-white rounded-xl border border-gray-100 p-5">
             <div className="flex items-center gap-3 mb-4">
