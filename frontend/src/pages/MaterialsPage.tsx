@@ -421,7 +421,7 @@ function MaterialAddRecommendationModal({ onClose, onSave }: { onClose: () => vo
 }
 
 export default function MaterialsPage() {
-  const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox, getDropboxThumbnail, getDropboxThumbnailBatch, getFolderCover, saveFolderVideos, getFileText, getFolderDates, syncDropbox, getFavorites, toggleFavorite, recordRecentActivity } = useData()
+  const { browseDropbox, getFolderThumbnails, saveFolderThumbnail, getUploadPresignedUrl, getFolderVideos, getAllFolderTags, saveFolderTags, smartSearchDropbox, getTopDownloads, downloadDropbox, getDropboxThumbnail, saveFolderVideos, getFileText, getFolderDates, getFolderCovers, syncDropbox, getFavorites, toggleFavorite, recordRecentActivity } = useData()
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -431,7 +431,9 @@ export default function MaterialsPage() {
   const [folderThumbs, setFolderThumbs] = useState<Record<string, string>>({})
   // Fallback covers: folderPath -> blob URL of the first image in the folder (compressed).
   // Used only when there is no admin-defined cover in folderThumbs.
-  const [folderCovers, setFolderCovers] = useState<Record<string, string>>({})
+  const [folderCovers, _setFolderCovers] = useState<Record<string, string>>({})
+  // Pre-generated covers: folderPathLower -> S3/CDN URL (generated during Dropbox sync).
+  const [folderAutoCovers, setFolderAutoCovers] = useState<Record<string, string>>({})
   const [folderTagMap, setFolderTagMap] = useState<Record<string, string[]>>({})
   const [folderDescMap, setFolderDescMap] = useState<Record<string, string>>({})
   const [topDownloads, setTopDownloads] = useState<any[]>([])
@@ -654,54 +656,6 @@ export default function MaterialsPage() {
     }).catch(() => {})
   }, [])
 
-  // Fallback covers: for folders in the current view that have NO admin-defined
-  // cover, fetch the first image in the folder and use its compressed thumbnail.
-  // Runs in the background so it never blocks rendering. Each folder is attempted
-  // at most once per session.
-  const coverAttempted = useRef<Set<string>>(new Set())
-  useEffect(() => {
-    const run = async () => {
-      const subfolders = entries.filter(e => e.tag === 'folder')
-      // Collect folders that need a fallback cover (no admin cover, not yet tried).
-      const pending = subfolders.filter(folder => {
-        const fpath = folder.path
-        if (!fpath) return false
-        const hasAdminCover = Object.keys(folderThumbs).some(
-          k => k.toLowerCase() === fpath.toLowerCase() && folderThumbs[k] && !folderThumbs[k].includes('dropboxusercontent.com')
-        )
-        if (hasAdminCover) return false
-        if (coverAttempted.current.has(fpath.toLowerCase())) return false
-        return true
-      })
-      if (pending.length === 0) return
-      pending.forEach(f => coverAttempted.current.add(f.path.toLowerCase()))
-
-      // 1. Find the first image (cover candidate) in each folder, in parallel.
-      const covers = await Promise.all(pending.map(async (folder) => {
-        try {
-          const { cover } = await getFolderCover(folder.pathLower || folder.path)
-          return cover ? { folderPath: folder.path, cover } : null
-        } catch { return null }
-      }))
-      const valid = covers.filter((c): c is { folderPath: string; cover: string } => !!c)
-      if (valid.length === 0) return
-
-      // 2. Generate all cover thumbnails in a single batch request.
-      try {
-        const thumbMap = await getDropboxThumbnailBatch(valid.map(v => v.cover), 'w640h480')
-        setFolderCovers(prev => {
-          const next = { ...prev }
-          for (const v of valid) {
-            const url = thumbMap[v.cover]
-            if (url) { next[v.folderPath] = url; next[v.folderPath.toLowerCase()] = url }
-          }
-          return next
-        })
-      } catch { /* ignore — falls back to generated cover */ }
-    }
-    run()
-  }, [entries, folderThumbs, getFolderCover, getDropboxThumbnailBatch])
-
   useEffect(() => {
     // Load tags from cache instantly
     try {
@@ -720,6 +674,7 @@ export default function MaterialsPage() {
     }).catch(() => {})
     getTopDownloads().then(setTopDownloads).catch(() => {})
     getFolderDates().then(d => setFolderDates(d.dates || {})).catch(() => {})
+    getFolderCovers().then(d => setFolderAutoCovers(d.covers || {})).catch(() => {})
     getFavorites().then(d => setFavorites((d.favorites || []).map(p => p.toLowerCase()))).catch(() => {})
     // Pre-load folder names for instant autocomplete
     browseDropbox('').then(root => {
@@ -796,10 +751,13 @@ export default function MaterialsPage() {
     for (const [key, url] of Object.entries(folderThumbs)) {
       if (key.toLowerCase() === pathLower && url && !url.includes('dropboxusercontent.com')) return url
     }
-    // 3. Fallback cover = first image found in the folder (compressed)
+    // 3. Pre-generated cover from S3 (generated during Dropbox sync)
+    const autoCover = folderAutoCovers[pathLower] || folderAutoCovers[folderPath]
+    if (autoCover) return autoCover
+    // 4. Fallback cover = first image found in the folder (compressed, background-fetched)
     const fallback = folderCovers[folderPath] || folderCovers[pathLower]
     if (fallback) return fallback
-    // 4. Generated gradient cover with the folder name
+    // 5. Generated gradient cover with the folder name
     return generateCover(name)
   }
   const getTags = (folderPath: string) => folderTagMap[folderPath] || []

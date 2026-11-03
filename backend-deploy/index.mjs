@@ -254,6 +254,7 @@ export async function handler(event) {
     if (path === '/folder-videos' && method === 'POST') return await folderVideosSave(body(event), getUserFromToken(event));
     if (path === '/dropbox/file-text' && method === 'POST') return await dropboxFileText(body(event), getUserFromToken(event));
     if (path === '/folder-dates' && method === 'GET') return await folderDatesGet(getUserFromToken(event));
+    if (path === '/folder-covers' && method === 'GET') return await folderCoversGet(getUserFromToken(event));
     if (path === '/folder-thumbnails' && method === 'GET') return await folderThumbnailsGet(getUserFromToken(event));
     if (path === '/folder-thumbnails' && method === 'POST') return await folderThumbnailSave(body(event), getUserFromToken(event));
     if (path === '/folder-tags' && method === 'GET') return await folderTagsGet(qs(event), getUserFromToken(event));
@@ -1594,103 +1595,215 @@ async function folderDatesGet(user) {
   return res(200, { dates: (data.Item && data.Item.dates) || {} });
 }
 
+// Key used to persist the Dropbox sync cursor in T.VIDEO_TAGS (same pattern as
+// Conexa sync uses '__sync_position__' in T.CONEXA_CACHE).
+const SYNC_CURSOR_KEY = '__SYNC_CURSOR__';
+
+// Key for the auto-generated folder covers map (folderPathLower -> S3/CDN URL).
+const FOLDER_COVERS_KEY = '__FOLDER_COVERS__';
+
+// Maximum new covers generated per sync page call (avoids timeout).
+const MAX_COVERS_PER_PAGE = 10;
+
 async function dropboxSync(user) {
   if (!user || !isAdmin(user)) return res(403, { message: 'Apenas admin pode sincronizar.' });
   if (!DROPBOX_REFRESH_TOKEN) return res(500, { message: 'Dropbox nao configurado.' });
 
   try {
-    // Usa a raiz do namespace (''), igual ao dropboxBrowse que já funciona.
-    // O antigo DROPBOX_FOLDER apontava para um caminho inexistente (path/not_found).
-    const folderPath = '';
-    let allFiles = [];
-    let hasMore = true;
-    let cursor = null;
-
-    while (hasMore) {
-      const url = cursor
-        ? 'https://api.dropboxapi.com/2/files/list_folder/continue'
-        : 'https://api.dropboxapi.com/2/files/list_folder';
-      const payload = cursor
-        ? { cursor }
-        : { path: folderPath, recursive: true, limit: 2000 };
-      const r = await fetch(url, {
-        method: 'POST',
-        headers: dbxHeaders(await getDropboxToken()),
-        body: JSON.stringify(payload),
-      });
-      const data = await r.json();
-      if (data.error) {
-        console.error('Dropbox sync list_folder error:', JSON.stringify(data));
-        return res(400, { message: `Erro Dropbox: ${data.error_summary || 'desconhecido'}`, error: data.error_summary });
+    // --- 1. Read (or reset) the persisted cursor ---
+    const cursorItem = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: SYNC_CURSOR_KEY } }));
+    let savedCursor = null;
+    if (cursorItem.Item) {
+      const completed = cursorItem.Item.completed;
+      const startedAt = cursorItem.Item.startedAt || '';
+      const ageMs = startedAt ? (Date.now() - new Date(startedAt).getTime()) : Infinity;
+      const olderThan24h = ageMs > 24 * 60 * 60 * 1000;
+      if (completed && olderThan24h) {
+        // Full scan is older than 24 h — start fresh
+        savedCursor = null;
+      } else if (!completed) {
+        savedCursor = cursorItem.Item.cursor || null;
+      } else {
+        // completed and recent: nothing new to sync
+        savedCursor = cursorItem.Item.cursor || null;
       }
-      const files = (data.entries || []).filter(e => e['.tag'] === 'file');
-      allFiles = allFiles.concat(files);
-      hasMore = data.has_more;
-      cursor = data.cursor;
     }
 
-    if (allFiles.length === 0) return res(200, { message: 'Nenhum arquivo encontrado.', synced: 0 });
+    // --- 2. Make ONE Dropbox page call ---
+    const token = await getDropboxToken();
+    const url = savedCursor
+      ? 'https://api.dropboxapi.com/2/files/list_folder/continue'
+      : 'https://api.dropboxapi.com/2/files/list_folder';
+    const payload = savedCursor
+      ? { cursor: savedCursor }
+      : { path: '', recursive: true, limit: 2000 };
 
-    // Compute and persist the folder->date map so Recursos can order by recency.
-    // Runs before the early return below so __FOLDER_DATES__ is updated even when synced === 0.
-    await computeAndSaveFolderDates(allFiles, user);
+    const dbxResp = await fetch(url, {
+      method: 'POST',
+      headers: dbxHeaders(token),
+      body: JSON.stringify(payload),
+    });
+    const dbxData = await dbxResp.json();
+    if (dbxData.error) {
+      console.error('Dropbox sync list_folder error:', JSON.stringify(dbxData));
+      return res(400, { message: `Erro Dropbox: ${dbxData.error_summary || 'desconhecido'}`, error: dbxData.error_summary });
+    }
 
-    const existing = await ddb.send(new ScanCommand({ TableName: T.MATERIALS }));
-    const existingPaths = new Set((existing.Items || []).map(m => m.dropboxPath).filter(Boolean));
+    const pageFiles = (dbxData.entries || []).filter(e => e['.tag'] === 'file');
+    const hasMore = !!dbxData.has_more;
+    const newCursor = dbxData.cursor;
+    const now = new Date().toISOString();
 
-    const newFiles = allFiles.filter(f => !existingPaths.has(f.path_lower));
-    if (newFiles.length === 0) return res(200, { message: `Todos os ${allFiles.length} arquivos ja sincronizados.`, synced: 0, total: allFiles.length });
+    // --- 3a. Compute folder dates from this page ---
+    if (pageFiles.length > 0) {
+      await computeAndSaveFolderDates(pageFiles, user);
+    }
 
-    const batch = newFiles.slice(0, SYNC_BATCH);
+    // --- 3b. Import new materials (existing logic with SYNC_BATCH) ---
     let synced = 0;
     const errors = [];
+    if (pageFiles.length > 0) {
+      const existing = await ddb.send(new ScanCommand({ TableName: T.MATERIALS }));
+      const existingPaths = new Set((existing.Items || []).map(m => m.dropboxPath).filter(Boolean));
+      const newFiles = pageFiles.filter(f => !existingPaths.has(f.path_lower));
+      const batch = newFiles.slice(0, SYNC_BATCH);
 
-    for (const file of batch) {
-      try {
-        const ext = (file.name.split('.').pop() || '').toLowerCase();
-        let category = 'documento';
-        if (['mp4','mov','avi','mkv','webm'].includes(ext)) category = 'video';
-        else if (['mp3','wav','ogg','m4a','aac'].includes(ext)) category = 'audio';
-        else if (ext === 'pdf') category = 'pdf';
-        else if (['ppt','pptx'].includes(ext)) category = 'apresentacao';
-        else if (['xls','xlsx','csv'].includes(ext)) category = 'planilha';
-        else if (['jpg','jpeg','png','gif','webp','svg'].includes(ext)) category = 'imagem';
+      for (const file of batch) {
+        try {
+          const ext = (file.name.split('.').pop() || '').toLowerCase();
+          let category = 'documento';
+          if (['mp4','mov','avi','mkv','webm'].includes(ext)) category = 'video';
+          else if (['mp3','wav','ogg','m4a','aac'].includes(ext)) category = 'audio';
+          else if (ext === 'pdf') category = 'pdf';
+          else if (['ppt','pptx'].includes(ext)) category = 'apresentacao';
+          else if (['xls','xlsx','csv'].includes(ext)) category = 'planilha';
+          else if (['jpg','jpeg','png','gif','webp','svg'].includes(ext)) category = 'imagem';
 
-        const rel = file.path_display.substring(1);
-        const parts = rel.split('/');
-        const subfolder = parts.length > 1 ? parts.slice(0, -1).join(' / ') : '';
+          const rel = file.path_display.substring(1);
+          const parts = rel.split('/');
+          const subfolder = parts.length > 1 ? parts.slice(0, -1).join(' / ') : '';
 
-        const material = {
-          id: uuid(),
-          title: file.name.replace(/\.[^/.]+$/, ''),
-          description: subfolder || 'Dropbox',
-          category,
-          fileUrl: '',
-          fileName: file.name,
-          fileSize: file.size || 0,
-          dropboxPath: file.path_lower,
-          dropboxId: file.id,
-          source: 'dropbox',
-          createdAt: file.server_modified || new Date().toISOString(),
-          createdBy: user.id,
-        };
-        await ddb.send(new PutCommand({ TableName: T.MATERIALS, Item: material }));
-        synced++;
-      } catch (e) {
-        errors.push({ file: file.name, error: e.message });
+          const material = {
+            id: uuid(),
+            title: file.name.replace(/\.[^/.]+$/, ''),
+            description: subfolder || 'Dropbox',
+            category,
+            fileUrl: '',
+            fileName: file.name,
+            fileSize: file.size || 0,
+            dropboxPath: file.path_lower,
+            dropboxId: file.id,
+            source: 'dropbox',
+            createdAt: file.server_modified || now,
+            createdBy: user.id,
+          };
+          await ddb.send(new PutCommand({ TableName: T.MATERIALS, Item: material }));
+          synced++;
+        } catch (e) {
+          errors.push({ file: file.name, error: e.message });
+        }
       }
     }
 
-    const remaining = newFiles.length - synced;
-    let msg = `${synced} material(is) importado(s).`;
-    if (remaining > 0) msg += ` Restam ${remaining}. Clique novamente.`;
-    else msg += ' Completo!';
+    // --- 3c. Pre-generate folder covers for shallow folders ---
+    // Read current covers map once (outside per-file loop)
+    const coversItem = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_COVERS_KEY } }));
+    const covers = Object.assign({}, coversItem.Item && coversItem.Item.covers ? coversItem.Item.covers : {});
 
-    return res(200, { message: msg, synced, total: allFiles.length, remaining, errors: errors.length ? errors : undefined });
+    const imageFiles = pageFiles.filter(f => {
+      const ext = (f.name.split('.').pop() || '').toLowerCase();
+      return THUMB_IMAGE_EXTS.includes(ext);
+    });
+
+    // Map: folderPathLower -> first image path for folders without a cover yet
+    const folderCandidates = {};
+    for (const f of imageFiles) {
+      const parts = (f.path_lower || '').split('/').filter(Boolean);
+      if (parts.length < 2) continue; // file at root — no folder
+      // Shallow folder = depth 1 or 2 (max 2 path segments)
+      const depth = parts.length - 1; // depth of the parent folder
+      if (depth > 2) continue;
+      const folderKey = '/' + parts.slice(0, depth).join('/');
+      if (!covers[folderKey] && !folderCandidates[folderKey]) {
+        folderCandidates[folderKey] = f.path_lower;
+      }
+    }
+
+    // Generate at most MAX_COVERS_PER_PAGE new covers
+    const coverEntries = Object.entries(folderCandidates).slice(0, MAX_COVERS_PER_PAGE);
+    let coversGenerated = 0;
+    for (const [folderKey, imagePath] of coverEntries) {
+      try {
+        const ext = (imagePath.split('.').pop() || '').toLowerCase();
+        const format = ext === 'png' ? 'png' : 'jpeg';
+        const key = thumbS3Key(imagePath, 'w640h480', format, '');
+        // Skip if already in S3
+        const exists = await thumbExistsInS3(key);
+        let url;
+        if (exists) {
+          url = await thumbUrlForKey(key);
+        } else {
+          const buf = await fetchDropboxThumb(token, imagePath, 'w640h480', format);
+          await storeThumbInS3(key, buf, format);
+          url = await thumbUrlForKey(key);
+        }
+        covers[folderKey] = url;
+        coversGenerated++;
+      } catch (e) {
+        console.error('cover pre-gen error:', folderKey, e.message);
+      }
+    }
+
+    // Persist updated covers map if anything changed
+    if (coversGenerated > 0) {
+      await ddb.send(new PutCommand({
+        TableName: T.VIDEO_TAGS,
+        Item: { videoId: FOLDER_COVERS_KEY, covers, updatedAt: now, updatedBy: user.id },
+      }));
+    }
+
+    // --- 4. Persist cursor state ---
+    const startedAt = cursorItem.Item && !cursorItem.Item.completed ? (cursorItem.Item.startedAt || now) : now;
+    await ddb.send(new PutCommand({
+      TableName: T.VIDEO_TAGS,
+      Item: {
+        videoId: SYNC_CURSOR_KEY,
+        cursor: newCursor,
+        completed: !hasMore,
+        startedAt,
+        updatedAt: now,
+      },
+    }));
+
+    // --- 5. Return response ---
+    if (hasMore) {
+      return res(200, {
+        message: `Página processada. Clique novamente para continuar.`,
+        synced,
+        page_done: true,
+        has_more: true,
+        errors: errors.length ? errors : undefined,
+      });
+    }
+
+    let msg = `Sincronização completa!`;
+    if (synced > 0) msg = `${synced} material(is) importado(s). Sincronização completa!`;
+    return res(200, {
+      message: msg,
+      synced,
+      has_more: false,
+      errors: errors.length ? errors : undefined,
+    });
   } catch (err) {
     console.error('Dropbox sync error:', err);
     return res(500, { message: `Erro sync Dropbox: ${err.message}`, error: err.message });
   }
+}
+
+async function folderCoversGet(user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  const data = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_COVERS_KEY } }));
+  return res(200, { covers: (data.Item && data.Item.covers) || {} });
 }
 
 // Get temporary download/preview link for a Dropbox file
