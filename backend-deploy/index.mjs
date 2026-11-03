@@ -1547,7 +1547,11 @@ async function computeAndSaveFolderDates(allFiles, user) {
     // navegáveis (níveis rasos); guardar TODA subpasta profunda estoura o limite de
     // 400KB por item do DynamoDB (ValidationException: Item size exceeded).
     const MAX_DEPTH = 3;
-    const dates = {};
+    // Lê o mapa existente do DynamoDB e faz merge (mantém a maior data por chave).
+    // Necessário para sync paginado: cada página só tem uma fatia dos arquivos;
+    // sem o merge, cada página sobrescreveria os resultados das páginas anteriores.
+    const existingItem = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_DATES_KEY } }));
+    const dates = Object.assign({}, (existingItem.Item && existingItem.Item.dates) || {});
     for (const file of allFiles) {
       const display = file.path_display || file.path_lower || '';
       if (!display) continue;
