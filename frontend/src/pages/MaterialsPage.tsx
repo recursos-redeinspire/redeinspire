@@ -8,6 +8,7 @@ import {
   EmptyPage, Download, Archive, Play, Plus, Link as LinkIcon, Sort, Star, StarSolid
 } from 'iconoir-react'
 import type { ComponentType } from 'react'
+import { similarity } from '../utils/textSimilarity'
 
 // Gera uma capa visual bonita para pastas sem thumbnail
 function generateCover(name: string): string {
@@ -60,26 +61,6 @@ function FileIcon({ fileType, size = 22 }: { fileType: string; size?: number }) 
   const c = FILE_ICONS[fileType] || FILE_ICONS.other
   const Icon = c.icon
   return <Icon width={size} height={size} strokeWidth={1.5} className={c.color} />
-}
-
-// ---- Similarity helpers ----
-const STOP_WORDS = new Set(['de','do','da','dos','das','o','a','os','as','e','em','um','uma','para','com','por','que','no','na','nos','nas','ao','aos','à','às','se','ou','mas','como','mais','este','essa','isso','1','2','3','4','5','6','7','8','9','0','-'])
-
-function tokenize(text: string): string[] {
-  return text.toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter(w => w.length > 2 && !STOP_WORDS.has(w))
-}
-
-function similarity(a: string, b: string): number {
-  const ta = new Set(tokenize(a))
-  const tb = new Set(tokenize(b))
-  if (ta.size === 0 || tb.size === 0) return 0
-  let common = 0
-  ta.forEach(w => { if (tb.has(w)) common++ })
-  return common / Math.sqrt(ta.size * tb.size) // Dice-like coefficient
 }
 
 function getSuggestedFolders(currentPath: string, currentName: string, allFolders: any[]): any[] {

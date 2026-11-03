@@ -746,7 +746,7 @@ function buildCategories(
 
 // ── Main Catalog Page (Prime Video style) ──
 export default function CatalogPage() {
-  const { getYoutubeCuratedSections, smartSearchYoutube, getAllVideoTags, getAllVideoThumbnails, getVideoCategories, saveVideoCategories, recordRecentActivity } = useData()
+  const { getYoutubeCuratedSections, smartSearchYoutube, getAllVideoTags, getAllVideoThumbnails, getVideoCategories, saveVideoCategories, recordRecentActivity, recordVideoView } = useData()
   const { user } = useAuth()
   const { t } = useI18n()
 
@@ -768,14 +768,17 @@ export default function CatalogPage() {
   // e sobreviva a um refresh da página.
   const selectVideo = useCallback((v: any | null) => {
     setSelectedVideo(v)
-    if (v?.id) recordRecentActivity({ type: 'video', refId: v.id, title: v.title, thumb: v.thumbnail })
+    if (v?.id) {
+      recordRecentActivity({ type: 'video', refId: v.id, title: v.title, thumb: v.thumbnail })
+      recordVideoView(v.id, v.title)
+    }
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
       if (v?.id) next.set('video', v.id)
       else next.delete('video')
       return next
     }, { replace: false })
-  }, [setSearchParams, recordRecentActivity])
+  }, [setSearchParams, recordRecentActivity, recordVideoView])
 
   const [tagMap, setTagMap] = useState<Record<string, string[]>>({})
   const [allTags, setAllTags] = useState<string[]>([])
@@ -818,10 +821,18 @@ export default function CatalogPage() {
     const videoId = searchParams.get('video')
     if (videoId && allVideos.length > 0 && !selectedVideo) {
       const found = allVideos.find(v => v.id === videoId)
-      if (found) setSelectedVideo(found)
-      else setSelectedVideo({ id: videoId, title: '', description: '', thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`, publishedAt: '', channelTitle: '' })
+      if (found) {
+        setSelectedVideo(found)
+        recordRecentActivity({ type: 'video', refId: found.id, title: found.title, thumb: found.thumbnail })
+        recordVideoView(found.id, found.title)
+      } else {
+        const stub = { id: videoId, title: '', description: '', thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`, publishedAt: '', channelTitle: '' }
+        setSelectedVideo(stub)
+        recordRecentActivity({ type: 'video', refId: videoId, title: '', thumb: stub.thumbnail })
+        recordVideoView(videoId)
+      }
     }
-  }, [searchParams, allVideos, selectedVideo])
+  }, [searchParams, allVideos, selectedVideo, recordRecentActivity, recordVideoView])
 
   // Hero auto-rotate
   const heroVideos = allVideos.slice(0, 5)

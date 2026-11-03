@@ -4,12 +4,13 @@ import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useI18n } from '../i18n/I18nContext'
 import { Play, Star, Calendar, ArrowRight, GraphUp, FireFlame, LightBulb, Download, Group, Sparks, Xmark, NavArrowRight, PathArrow, Folder, ClockRotateRight, MediaVideo } from 'iconoir-react'
+import { composeBlocks } from '../utils/homeBlocks'
 
 export default function HomePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { t } = useI18n()
-  const { getYoutubeCuratedSections, getYoutubeCuration, getTrails, getWebinars, getPointsRanking, getMyPoints, getMentoringSessions, getTopDownloads, getBanner, getAllVideoThumbnails, getFolderThumbnails, getFolderCover, getDropboxThumbnailBatch, getRecentActivity } = useData()
+  const { getYoutubeCuratedSections, getYoutubeCuration, getTrails, getWebinars, getPointsRanking, getMyPoints, getMentoringSessions, getTopDownloads, getBanner, getAllVideoThumbnails, getFolderThumbnails, getFolderCover, getDropboxThumbnailBatch, getRecentActivity, getVideoViews, getAllVideoTags, getVideoCategories } = useData()
 
   const [videos, setVideos] = useState<any[]>([])
   const [featuredVideoId, setFeaturedVideoId] = useState<string | null>(null)
@@ -30,12 +31,30 @@ export default function HomePage() {
   const [resourceCovers, setResourceCovers] = useState<Record<string, string>>({})
   // Continue de onde parou — últimos conteúdos acessados pelo usuário
   const [recentItems, setRecentItems] = useState<any[]>([])
+  // Sinais para os blocos inteligentes (Top por views reais, Sugestões por cascata)
+  const [views, setViews] = useState<Record<string, number>>({})
+  const [tagMap, setTagMap] = useState<Record<string, string[]>>({})
+  const [categoriesMap, setCategoriesMap] = useState<Record<string, string[]>>({})
+  const [videoPlaylist, setVideoPlaylist] = useState<Record<string, string>>({})
 
   useEffect(() => {
     getYoutubeCuratedSections().then(d => {
-      const pool = d.fallback ? (d.sections[0]?.videos || []) : d.sections.flatMap((s: any) => s.videos || [])
+      const sections = d.fallback ? [{ title: null, videos: d.sections[0]?.videos || [] }] : d.sections
+      const pool = sections.flatMap((s: any) => s.videos || [])
       setVideos(pool)
+      // Deriva vídeo→playlist (primeira seção vence; fallback title null não registra)
+      const playlistMap: Record<string, string> = {}
+      for (const section of sections) {
+        if (!section.title) continue
+        for (const v of (section.videos || [])) {
+          if (v?.id && !(v.id in playlistMap)) playlistMap[v.id] = section.title
+        }
+      }
+      setVideoPlaylist(playlistMap)
     }).catch(() => {})
+    getVideoViews().then(r => setViews(r.views || {})).catch(() => setViews({}))
+    getAllVideoTags().then(r => setTagMap(r.tagMap || {})).catch(() => {})
+    getVideoCategories().then(r => setCategoriesMap(r.assignments || {})).catch(() => {})
     getYoutubeCuration().then(c => setFeaturedVideoId(c.featuredVideoId)).catch(() => {})
     getAllVideoThumbnails().then(data => setCustomThumbnails(data.thumbnails || {})).catch(() => {})
     getTrails().then(setTrails)
@@ -82,12 +101,12 @@ export default function HomePage() {
   const resolveFeatured = (pool: any[], id: string | null) =>
     pool.find(v => v.id === id) ?? [...pool].sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)))[0] ?? null
   const featured = resolveFeatured(videos, featuredVideoId)
-  // Blocos sem repetição: cada seção consome de um pool que exclui o destaque
-  // e o que as seções anteriores já usaram. Ordem de consumo: Top 10 -> Sugestões -> Recentes.
-  const rest = videos.filter(v => v.id !== featured?.id)
-  const topContent = rest.slice(0, 5)        // Top conteúdos (ranking)
-  const suggestions = rest.slice(5, 8)       // Sugestões para você
-  const moreVideos = rest.slice(8, 12)       // Conteúdos recentes
+  // Blocos inteligentes sem repetição: Top por views reais, Sugestões por cascata
+  // de sinais (playlist/título/tag/categoria) e dedup por conjunto 'used' na ordem
+  // Top -> Sugestões -> Recentes. Ver frontend/src/utils/homeBlocks.ts.
+  const { topContent, suggestions, moreVideos } = composeBlocks({
+    videos, featured, views, recent: recentItems, videoPlaylist, tagMap, categoriesMap,
+  })
 
   // Capa gerada para recursos (sem thumbnail): cor por hash do nome + iniciais
   const resourceGradients = [
