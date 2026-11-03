@@ -241,6 +241,8 @@ export async function handler(event) {
     if (path === '/video-tags' && method === 'GET') return await videoTagsGet(qs(event), getUserFromToken(event));
     if (path === '/video-tags' && method === 'POST') return await videoTagsSave(body(event), getUserFromToken(event));
     if (path === '/video-tags/all' && method === 'GET') return await videoTagsAll(getUserFromToken(event));
+    if (path === '/video-view' && method === 'POST') return await videoViewRecord(body(event), getUserFromToken(event));
+    if (path === '/video-views' && method === 'GET') return await videoViewsGetAll(getUserFromToken(event));
     if (path === '/video-thumbnail' && method === 'POST') return await videoThumbnailSave(body(event), getUserFromToken(event));
     if (path === '/video-thumbnail' && method === 'DELETE') return await videoThumbnailDelete(body(event), getUserFromToken(event));
     if (path === '/video-thumbnails' && method === 'GET') return await videoThumbnailsAll(getUserFromToken(event));
@@ -3165,6 +3167,63 @@ async function videoTagsAll(user) {
     (item.tags || []).forEach(t => allTags.add(t));
   }
   return res(200, { tagMap, allTags: [...allTags].sort() });
+}
+
+async function videoViewRecord({ videoId, title } = {}, user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  if (!videoId || typeof videoId !== 'string') return res(400, { message: 'videoId obrigatorio.' });
+  // Rejeita chaves especiais para proteger itens de configuracao.
+  if (videoId.startsWith('__') || videoId.includes('#')) {
+    // Um id de 11 chars e quase certamente um video real do YouTube; logar para dar
+    // visibilidade ao caso raro de um id legitimo comecar com '__' (perda de view).
+    if (videoId.startsWith('__') && videoId.length === 11) {
+      console.warn('videoViewRecord: videoId de 11 chars rejeitado pela guarda de __:', videoId);
+    }
+    return res(400, { message: 'videoId invalido.' });
+  }
+  if (videoId.length > 64) return res(400, { message: 'videoId invalido.' });
+  try {
+    const names = { '#pv': 'platformViews', '#lt': 'lastViewTitle', '#ua': 'updatedAt' };
+    const values = { ':one': 1, ':t': (title || '').slice(0, 300), ':now': new Date().toISOString() };
+    await ddb.send(new UpdateCommand({
+      TableName: T.VIDEO_TAGS,
+      Key: { videoId },
+      UpdateExpression: 'ADD #pv :one SET #lt = :t, #ua = :now',
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
+    }));
+  } catch (err) {
+    console.error('videoViewRecord error:', err);
+    // best-effort: nao falha a navegacao do usuario
+  }
+  return res(200, { ok: true });
+}
+
+async function videoViewsGetAll(user) {
+  if (!user) return res(401, { message: 'Nao autenticado' });
+  const views = {};
+  let lastKey;
+  try {
+    do {
+      const data = await ddb.send(new ScanCommand({
+        TableName: T.VIDEO_TAGS,
+        FilterExpression: 'attribute_exists(platformViews) AND platformViews > :zero',
+        ProjectionExpression: 'videoId, platformViews',
+        ExpressionAttributeValues: { ':zero': 0 },
+        ExclusiveStartKey: lastKey,
+      }));
+      for (const it of (data.Items || [])) {
+        const id = it.videoId;
+        if (!id || id.startsWith('__') || id.includes('#')) continue; // ignora chaves especiais
+        views[id] = it.platformViews || 0;
+      }
+      lastKey = data.LastEvaluatedKey;
+    } while (lastKey);
+  } catch (err) {
+    console.error('videoViewsGetAll error:', err);
+    return res(200, { views: {} }); // degrada para fallback no frontend
+  }
+  return res(200, { views });
 }
 
 // =============================================================================
