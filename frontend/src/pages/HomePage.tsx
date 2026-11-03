@@ -419,12 +419,17 @@ export default function HomePage() {
           {topContent.length > 0 && (
             <section>
               <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2 mb-4"><FireFlame width={17} height={17} strokeWidth={1.5} className="text-slate-400" /> {t('home.top10Content')}</h2>
-              <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
-                {topContent.map((video, i) => (
-                  <div key={video.id} onClick={() => navigate(`/catalogo?video=${video.id}`)} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition">
-                    <span className={`text-[12px] font-bold w-5 text-center ${i < 3 ? 'text-blue-600' : 'text-gray-300'}`}>{i + 1}</span>
-                    <img src={thumb(video)} alt="" className="w-14 h-9 rounded-lg object-cover shrink-0" />
-                    <span className="text-[13px] text-gray-800 flex-1 line-clamp-1">{video.title}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {topContent.map(video => (
+                  <div key={video.id} className="group cursor-pointer" onClick={() => navigate(`/catalogo?video=${video.id}`)}>
+                    <div className="relative rounded-xl overflow-hidden shadow-sm">
+                      <img src={thumb(video)} alt="" className="w-full aspect-video object-cover group-hover:scale-[1.03] transition-transform duration-300" />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                        <div className="w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center"><Play width={14} height={14} strokeWidth={1.5} className="text-blue-600 ml-0.5" /></div>
+                      </div>
+                    </div>
+                    <h3 className="text-[13px] font-semibold text-gray-800 mt-2.5 line-clamp-2 leading-snug">{video.title}</h3>
+                    <p className="text-[11px] text-gray-400 mt-1">{video.channelTitle || 'Rede Inspire'}</p>
                   </div>
                 ))}
               </div>
@@ -438,16 +443,17 @@ export default function HomePage() {
                 <h2 className="text-[16px] font-bold text-gray-900 flex items-center gap-2"><GraphUp width={17} height={17} strokeWidth={1.5} className="text-slate-400" /> Conteúdos recentes</h2>
                 <Link to="/catalogo" className="text-[12px] text-blue-600 font-semibold">Ver todos →</Link>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {moreVideos.map(video => (
                   <div key={video.id} onClick={() => navigate(`/catalogo?video=${video.id}`)} className="group cursor-pointer">
                     <div className="relative rounded-xl overflow-hidden shadow-sm">
                       <img src={thumb(video)} alt="" className="w-full aspect-video object-cover group-hover:scale-[1.03] transition-transform duration-300" />
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                        <div className="w-8 h-8 rounded-full bg-white/90 shadow flex items-center justify-center"><Play width={11} height={11} strokeWidth={1.5} className="text-blue-600 ml-0.5" /></div>
+                        <div className="w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center"><Play width={14} height={14} strokeWidth={1.5} className="text-blue-600 ml-0.5" /></div>
                       </div>
                     </div>
-                    <p className="text-[11px] font-medium text-gray-800 mt-2 line-clamp-2 leading-snug">{video.title}</p>
+                    <h3 className="text-[13px] font-semibold text-gray-800 mt-2.5 line-clamp-2 leading-snug">{video.title}</h3>
+                    <p className="text-[11px] text-gray-400 mt-1">{video.channelTitle || 'Rede Inspire'}</p>
                   </div>
                 ))}
               </div>
