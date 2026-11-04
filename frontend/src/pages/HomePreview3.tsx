@@ -157,14 +157,13 @@ export default function HomePreview3() {
     <div onClick={() => openVideo(v.id)} className="snap-start shrink-0 w-[280px] md:w-[320px] group/card cursor-pointer">
       <div className="relative rounded-xl overflow-hidden aspect-[16/10] shadow-lg shadow-black/30 transition-transform duration-300 group-hover/card:scale-[1.035]">
         <img src={thumb(v)} alt="" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
         <span className="absolute top-2.5 left-2.5 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider text-white" style={{ backgroundColor: ORANGE }}>{badge}</span>
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition">
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition bg-black/20">
           <div className="w-12 h-12 rounded-full bg-white/95 shadow-xl flex items-center justify-center"><PlaySolid width={20} height={20} className="ml-0.5" style={{ color: RED }} /></div>
         </div>
-        <h3 className="absolute bottom-2.5 left-3 right-3 text-[15px] md:text-[16px] uppercase text-[#f3e8df] leading-[1.05] line-clamp-2" style={condensed}>{v.title}</h3>
       </div>
-      <p className={`text-[11px] mt-2 px-1 ${textMuted}`}>{(views[v.id] || 0) > 0 ? `${views[v.id]} ${views[v.id] === 1 ? 'visualização' : 'visualizações'}` : (v.channelTitle || 'Rede Inspire')}</p>
+      <h3 className={`text-[12.5px] font-semibold mt-2 px-1 leading-snug line-clamp-2 ${textMain}`}>{v.title}</h3>
+      <p className={`text-[11px] mt-0.5 px-1 ${textMuted}`}>{(views[v.id] || 0) > 0 ? `${views[v.id]} ${views[v.id] === 1 ? 'visualização' : 'visualizações'}` : (v.channelTitle || 'Rede Inspire')}</p>
     </div>
   )
 
@@ -184,11 +183,10 @@ export default function HomePreview3() {
               <span className="text-[38px] text-white uppercase" style={condensed}>{resourceInitials(name)}</span>
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
           <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider text-white" style={{ backgroundColor: ORANGE }}><Folder width={10} height={10} strokeWidth={2} /> Material</span>
-          <h3 className="absolute bottom-2.5 left-3 right-3 text-[15px] md:text-[16px] uppercase text-[#f3e8df] leading-[1.05] line-clamp-2" style={condensed}>{name}</h3>
         </div>
-        <p className={`text-[11px] mt-2 px-1 ${textMuted}`}>{accesses > 0 ? `${accesses} ${accesses === 1 ? 'acesso' : 'acessos'}` : 'Material'}</p>
+        <h3 className={`text-[12.5px] font-semibold mt-2 px-1 leading-snug line-clamp-2 ${textMain}`}>{name}</h3>
+        <p className={`text-[11px] mt-0.5 px-1 ${textMuted}`}>{accesses > 0 ? `${accesses} ${accesses === 1 ? 'acesso' : 'acessos'}` : 'Material'}</p>
       </div>
     )
   }
@@ -204,14 +202,13 @@ export default function HomePreview3() {
             <span className="text-[38px] text-white uppercase" style={condensed}>{it.initials || '#'}</span>
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
         <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider text-white" style={{ backgroundColor: ORANGE }}>
           {it.kind === 'video' ? <MediaVideo width={10} height={10} strokeWidth={2} /> : <Folder width={10} height={10} strokeWidth={2} />}
           {it.kind === 'video' ? 'Vídeo' : 'Material'}
         </span>
-        <h3 className="absolute bottom-2.5 left-3 right-3 text-[15px] md:text-[16px] uppercase text-[#f3e8df] leading-[1.05] line-clamp-2" style={condensed}>{it.title}</h3>
       </div>
-      <p className={`text-[11px] mt-2 px-1 ${textMuted}`}>{it.subtitle}</p>
+      <h3 className={`text-[12.5px] font-semibold mt-2 px-1 leading-snug line-clamp-2 ${textMain}`}>{it.title}</h3>
+      <p className={`text-[11px] mt-0.5 px-1 ${textMuted}`}>{it.subtitle}</p>
     </div>
   )
 
