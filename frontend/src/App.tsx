@@ -9,6 +9,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import HomePage from './pages/HomePage'
 import HomePreview1 from './pages/HomePreview1'
 import HomePreview2 from './pages/HomePreview2'
+import HomePreview3 from './pages/HomePreview3'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import CatalogPage from './pages/CatalogPage'
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="/" element={<Protected><HomePage /></Protected>} />
             <Route path="/preview-home-1" element={<Protected><HomePreview1 /></Protected>} />
             <Route path="/preview-home-2" element={<Protected><HomePreview2 /></Protected>} />
+            <Route path="/preview-home-3" element={<Protected><HomePreview3 /></Protected>} />
             <Route path="/registro" element={<Protected><RegisterPage /></Protected>} />
             <Route path="/catalogo" element={<Protected><CatalogPage /></Protected>} />
             <Route path="/conteudo/:id" element={<Protected><ContentPlayerPage /></Protected>} />
