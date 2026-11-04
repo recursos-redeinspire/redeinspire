@@ -2657,9 +2657,15 @@ function extractKeywords(query) {
   return [...expanded];
 }
 
-function scoreVideo(video, keywords) {
+// signals (opcional): { tags: string[], categories: string[], playlists: string[] }
+// pre-normalizados pelo chamador (youtubeSmartSearch) a partir dos mapas carregados
+// uma unica vez por request. Mantem intacto o score de titulo/descricao/variantes.
+function scoreVideo(video, keywords, signals) {
   const title = normalize(video.title);
   const desc = normalize(video.description || '');
+  const tags = (signals && signals.tags) || [];
+  const categories = (signals && signals.categories) || [];
+  const playlists = (signals && signals.playlists) || [];
   let score = 0;
 
   for (const kw of keywords) {
@@ -2682,6 +2688,11 @@ function scoreVideo(video, keywords) {
       if (variant !== kw && title.includes(variant)) score += 7;
       if (variant !== kw && desc.includes(variant)) score += 2;
     }
+    // --- Sinais adicionais: tags / categorias / playlist ---
+    // Casamento parcial (includes) como no resto do codigo; valores ja normalizados.
+    if (tags.some(t => t.includes(kw) || kw.includes(t))) score += 8;       // tag do video
+    if (categories.some(c => c.includes(kw) || kw.includes(c))) score += 8; // categoria do catalogo
+    if (playlists.some(p => p.includes(kw) || kw.includes(p))) score += 6;  // nome da playlist curada
   }
   return score;
 }
@@ -2694,6 +2705,31 @@ async function youtubeSmartSearch(query, user) {
   try {
     const keywords = extractKeywords(query.q);
     if (keywords.length === 0) return res(200, { videos: [], totalResults: 0, query: query.q, keywords: [] });
+
+    // --- Carrega sinais de ranking UMA vez por request (fora do loop de scoreVideo) ---
+    // Custo: 1 Scan em T.VIDEO_TAGS (tags por video) + 1 GetItem (categorias do catalogo).
+    // NAO faz chamadas extras ao YouTube: o mapa de playlist por video exigiria buscar os
+    // itens de cada playlist curada (muitas chamadas / cota), entao a playlist fica como
+    // sinal adicional apenas se houver um mapa disponivel sem custo — hoje nao ha, logo
+    // o sinal de playlist fica vazio e tags+categorias sao os sinais principais.
+    const tagMapByVideo = {};       // { videoId: string[] normalizado }
+    const categoriesByVideo = {};   // { videoId: string[] normalizado }
+    const playlistsByVideo = {};    // { videoId: string[] normalizado } — vazio por ora (ver comentario acima)
+    try {
+      const tagScan = await ddb.send(new ScanCommand({ TableName: T.VIDEO_TAGS, ProjectionExpression: 'videoId, tags' }));
+      for (const it of (tagScan.Items || [])) {
+        const id = it.videoId;
+        if (!id || id.startsWith('__') || id.includes('#')) continue; // ignora chaves especiais
+        tagMapByVideo[id] = (it.tags || []).map(t => normalize(typeof t === 'string' ? t : (t && t.S) || ''));
+      }
+    } catch (e) { console.error('youtubeSmartSearch tags load error:', e); }
+    try {
+      const catData = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: CATALOG_CATEGORIES_KEY } }));
+      const assignments = (catData.Item && catData.Item.assignments) || {};
+      for (const [id, cats] of Object.entries(assignments)) {
+        categoriesByVideo[id] = (cats || []).map(c => normalize(c));
+      }
+    } catch (e) { console.error('youtubeSmartSearch categories load error:', e); }
 
     const token = await ytGetAccessToken();
 
@@ -2729,8 +2765,15 @@ async function youtubeSmartSearch(query, user) {
       if (!pageToken) break;
     }
 
-    // Score and rank
-    const scored = allVideos.map(v => ({ ...v, score: scoreVideo(v, keywords) }))
+    // Score and rank (passa sinais de tags/categorias/playlist por video)
+    const scored = allVideos.map(v => ({
+        ...v,
+        score: scoreVideo(v, keywords, {
+          tags: tagMapByVideo[v.id] || [],
+          categories: categoriesByVideo[v.id] || [],
+          playlists: playlistsByVideo[v.id] || [],
+        }),
+      }))
       .filter(v => v.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 20);
@@ -3019,10 +3062,31 @@ async function dropboxSmartSearch(query, user) {
     .sort((a, b) => b.score - a.score)
     .slice(0, 30);
 
+    // --- Carrega tags/descricoes de pasta UMA vez por request (fora do loop de score) ---
+    // Custo: 1 GetItem em T.VIDEO_TAGS (item __FOLDER_TAGS__, campos tagMap/descMap).
+    // Chaveado por folderPathLower; permite que uma pasta tagueada (ex.: 'familia')
+    // apareca mesmo quando o nome/path nao contem a palavra buscada.
+    const folderTagMap = {};  // { folderPathLower: string[] normalizado }
+    const folderDescMap = {}; // { folderPathLower: string normalizado }
+    try {
+      const ftData = await ddb.send(new GetCommand({ TableName: T.VIDEO_TAGS, Key: { videoId: FOLDER_TAGS_KEY } }));
+      const rawTagMap = (ftData.Item && ftData.Item.tagMap) || {};
+      const rawDescMap = (ftData.Item && ftData.Item.descMap) || {};
+      for (const [fp, tags] of Object.entries(rawTagMap)) {
+        folderTagMap[fp.toLowerCase()] = (tags || []).map(t => normalize(typeof t === 'string' ? t : (t && t.S) || ''));
+      }
+      for (const [fp, desc] of Object.entries(rawDescMap)) {
+        folderDescMap[fp.toLowerCase()] = normalize(desc);
+      }
+    } catch (e) { console.error('dropboxSmartSearch folder tags load error:', e); }
+
     // Score folders too
     const scoredFolders = allFolders.map(folder => {
       const name = normalize(folder.name);
       const path = normalize(folder.path_display || '');
+      const fpLower = (folder.path_lower || (folder.path_display || '').toLowerCase());
+      const fTags = folderTagMap[fpLower] || [];
+      const fDesc = folderDescMap[fpLower] || '';
       let score = 0;
       for (const kw of keywords) {
         if (name.includes(kw)) score += 12;
@@ -3035,6 +3099,9 @@ async function dropboxSmartSearch(query, user) {
             else if (nw.includes(kw) || kw.includes(nw)) score += 3;
           }
         }
+        // --- Sinais adicionais da pasta: tags admin (+8) e descricao (+3) ---
+        if (fTags.some(t => t.includes(kw) || kw.includes(t))) score += 8;
+        if (fDesc && fDesc.includes(kw)) score += 3;
       }
       return { folder, score };
     })
